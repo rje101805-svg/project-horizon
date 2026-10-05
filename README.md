@@ -84,3 +84,19 @@ Vite provides a straightforward fast development server and static build. Phaser
 ## Next milestone
 
 Add a small **server-authoritative two-player room** with create/join, ready state, synchronized rocket positions, and synchronized black hole timing. Keep damage and loot decisions on the server so clients cannot decide their own outcomes. Validate two separate browser clients before adding shooting, elimination, and battle royale results. Public hosting will require a separate deployment decision, especially for the persistent multiplayer server.
+
+## Play online with GitHub Pages
+
+The `work` branch includes a ready-to-publish production build in `docs/`. No Node installation is needed to play it online.
+
+A repository owner must enable this once: open **Settings → Pages**, choose **Deploy from a branch**, select **work** and **/docs**, and click **Save**. GitHub will build and publish the site; the Pages settings screen will show the confirmed live URL when ready.
+
+The expected URL is https://rje101805-svg.github.io/project-horizon/ (it works only after Pages is enabled and deployment succeeds).
+
+To update the online game after editing source code, run:
+
+```sh
+npm run build:pages
+```
+
+Commit and push the updated `docs/` alongside your source changes. This build sets the `/project-horizon/` asset path required for a GitHub Pages project site. The regular `npm run build` continues to use the root path for local previews.
