@@ -1,15 +1,27 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 5 — local black-hole sandbox on `step-5-black-hole`. Step 5 local manual acceptance passed on October 5, 2026; see `STEP5_TEST.md`. Step 4's public acceptance remains pending. Do not begin Step 6, combat, health/respawn, loot, planetary physics, accounts, matchmaking or match lifecycle.
+Current scope: Phase 1, Step 6 — server-authoritative health/death/automatic respawn on `step-6-health-respawn`, directly based on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Step 6 manual acceptance is pending; Step 5 is locally accepted. Step 4 public acceptance remains pending. Do not begin Step 7/final HUD, combat, weapons, shields, ammo, loot, planetary physics, accounts, matchmaking or match lifecycle.
 
-Protect production: leave `work` at `9f0c821`, do not merge, deploy, rebuild or commit `docs/`. Normal `npm run build` writes `dist/`. Commit only to `step-5-black-hole`; push only after the owner confirms Pages is sourced from `work` → `/docs` and Render is configured to auto-deploy exclusively from `work`. The owner confirmed these dashboard settings before pushing `b5bc281`: Render Auto-Deploy On Commit, PR Previews Off, branch work; Pages work → /docs. Keep Step 5 undeployed.
+Protect production and baseline: leave `work` at `9f0c821` and `step-5-black-hole` at `6db0ae7`. Do not merge, deploy, rebuild or commit `docs/`, reconfigure Render/Pages, or cancel/retrigger the queued Step 4 Pages job. Normal `npm run build` writes `dist/`. Commit/push only `step-6-health-respawn`. The owner confirmed Render work-only Auto-Deploy On Commit, PR Previews Off; Pages work → /docs only. This confirmation authorizes the isolated Step 6 branch push, not deployment.
+
+## Step 6 lifecycle
+
+- `shared/lifecycle.ts` owns MAX_HEALTH 100, RESPAWN_DELAY_MS 3000, health clamping and replicated lifecycle fields. `active` means alive; death remains separate from membership.
+- `server/health.ts` is the sole damage path: `applyDamage(player, amount, source, simulationTimeMs)`. No client health/damage/respawn event exists. It rejects invalid damage, clamps health, transitions once, zeros physics/input, records source/sequence and sets a room-player-owned deadline. Black hole is the only damage source.
+- `server/simulation.ts` uses explicit simulation time for death/respawn. `server/game.ts` passes tick × TICK_MS while retaining monotonic real-time input freshness. Respawn is evaluated by the existing 30Hz loop, never a per-player timer. Server-only `{ autoTick: false }` / `step()` lets tests advance the SAME loop without wall-time sleeps; no browser/public clock control exists.
+- Successful respawn preserves socket identity/name/color/room, restores full health, chooses a safe spawn from the CURRENT room black-hole state, resets velocity/input/rotation, clears the deadline, increments `lifeGeneration` and skips movement integration on that tick. No safe spawn means remain dead and retry, never revive unsafely.
+- Replicated `respawnRemainingMs` avoids wall-clock skew; client display cannot decide respawn. `deathSequence` increments once per death; full snapshots carry source, health and life state. No repeated death-event stream.
+- Inputs/reset carry their life generation; server validates current living generation. Old-life packets cannot move/reset a respawned ship. The retained living flight reset never heals/respawns. Client lifecycle changes clear delayed inputs/snapshots, held keys and neutralize input.
+- Remote interpolation purges only a respawned player's old-generation records, snaps to the new state, then resumes ordinary interpolation. Generation changes handle even lost death snapshots. Local ship/camera snaps on respawn. Disconnect removes deadline ownership; stale references cannot revive removed membership.
+- Death overlay and temporary health/life text are Step 6 test aids. Preserve existing ping/telemetry; do not create the final Step 7 health bar, shield/weapon/ammo slots or debug overlay. See `STEP6_TEST.md` for manual acceptance.
+
 
 ## Step 5 black hole
 
 - `shared/black-hole.ts` centralizes fixed initial radii/position, gravity cap/strength, spawn clearance, region classification and swept horizon checks. Each `GameRoom` owns a fresh black-hole state; `RoomInfo` acknowledgments and every `Snapshot` contain its complete current state. No growth clock or match lifecycle yet.
 - `server/simulation.ts` is called once per player by the existing 30Hz loop. It passes gravity acceleration into `stepFlight`; the browser never runs it. Gravity is zero outside influence, capped inverse-square inside, and finite at center. Existing response/speeds/inertia are unchanged in safe space.
 - Spawn/reset selection excludes influence radius plus clearance and preserves separation. All joins/reconnects use it; fail cleanly if no safe candidate exists.
-- `PlayerState.lifeState` (`active`/`dead`) is distinct from socket/room membership. Death is a swept inclusive segment-circle check, including tangent and exterior-to-exterior crossings. Dead ships remain frozen in snapshots/roster, ignore input/reset, and are dimmed/labeled LOST. This is temporary Step 5 behavior, not persistent lives or respawn.
+- Event-horizon death preserves the accepted swept inclusive segment-circle check, including tangent and exterior-to-exterior crossings. Step 6 routes contact through common damage and replaces permanent LOST with frozen DEAD followed by authoritative respawn.
 - Reconnect creates a new socket identity and a safe active ship if the room survives. Death is not retained across identities; if the last socket leaves, room deletion/reconnect failure remains unchanged. No persistent session claims.
 - Remote death immediately uses the newest authoritative position/status instead of interpolating back through alive states. Other remote flight retains interpolation. Client region warnings use the server's classification, never client-derived gameplay decisions.
 
@@ -37,7 +49,7 @@ Protect production: leave `work` at `9f0c821`, do not merge, deploy, rebuild or 
 
 `npm test` runs Node logic/real-socket integration tests and Playwright browser tests on dedicated ports 3002/5175. `npm run build` checks client/server/shared/tests and builds `dist/`. System Chromium is used when installed; otherwise install Playwright Chromium.
 
-Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Step 5. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
+Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Step 5 or Step 6. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
 
 Render deploys from the repository ROOT (`server/` imports `shared/`). `PORT` and `0.0.0.0` binding are already supported. `tsx` is a runtime dependency; `npm run server`/`npm start` run the same authoritative process. See `DEPLOY.md` for commands that also work on the existing pushed Step 3 code while obtaining the real service URL before the final Step 4 commit.
 

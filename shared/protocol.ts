@@ -1,6 +1,7 @@
+import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
-export interface PlayerState extends FlightState { id: string; name: string; color: number; lifeState: 'active' | 'dead'; region: BlackHoleRegion }
+export interface PlayerState extends FlightState, LifeState { id: string; name: string; color: number; region: BlackHoleRegion }
 export interface RoomInfo { code: string; playerIds: string[]; maxPlayers: number; blackHole: BlackHoleState }
 export interface Snapshot { tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
@@ -10,10 +11,11 @@ export interface ServerEvents {
   snapshot: (snapshot: Snapshot) => void;
   roomState: (room: RoomInfo) => void;
 }
+export interface InputMessage extends PlayerInput { lifeGeneration: number }
 export interface ClientEvents {
   latencyProbe: (reply: () => void) => void;
-  input: (input: PlayerInput) => void;
-  resetFlight: () => void; // Existing Step 2 development flight reset, not gameplay respawn.
+  input: (input: InputMessage) => void;
+  resetFlight: (lifeGeneration: number) => void; // Existing Step 2 development flight reset, not gameplay respawn.
   createRoom: (request: RoomRequest, reply: (result: RoomResult) => void) => void;
   joinRoom: (request: JoinRequest, reply: (result: RoomResult) => void) => void;
   leaveRoom: (reply: () => void) => void;

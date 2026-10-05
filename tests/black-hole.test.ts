@@ -45,7 +45,7 @@ test('swept intersection catches exterior-to-exterior crossings, tangent, endpoi
   assert.ok(crossesHorizon({ x: hole.x + 90, y: hole.y }, { x: hole.x + 120, y: hole.y }, hole));
   assert.equal(crossesHorizon({ x: hole.x - 1000, y: hole.y + 91 }, { x: hole.x + 1000, y: hole.y + 91 }, hole), false);
 });
-test('single authoritative step applies gravity, prevents tunneling and permanently freezes death', () => {
+test('single authoritative step applies gravity, prevents tunneling and freezes death until the respawn deadline', () => {
   const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
   const room = store.rooms.get('ABCD')!, player = room.players.get('a')!;
   Object.assign(player.state, { x: hole.x + 300, y: hole.y });
@@ -54,8 +54,11 @@ test('single authoritative step applies gravity, prevents tunneling and permanen
   simulatePlayer(player, room, 0); assert.equal(player.state.lifeState, 'dead'); assert.equal(player.state.region, 'lethal');
   assert.equal(player.state.vx, 0); assert.equal(player.state.vy, 0);
   const frozen = { ...player.state }; player.input = { ...idleInput(), right: true }; player.reset = true;
-  for (let i = 0; i < 100; i++) simulatePlayer(player, room, i * 33);
-  assert.deepEqual(player.state, frozen);
+  for (let i = 0; i < 90; i++) simulatePlayer(player, room, i * 33);
+  const { respawnRemainingMs: remaining, ...stillFrozen } = player.state;
+  const { respawnRemainingMs: initialRemaining, ...frozenPhysics } = frozen;
+  assert.deepEqual(stillFrozen, frozenPhysics);
+  assert.ok(remaining < initialRemaining && remaining > 0);
   assert.ok(Object.values(player.state).filter(v => typeof v === 'number').every(Number.isFinite));
 });
 

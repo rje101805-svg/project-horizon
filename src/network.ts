@@ -51,6 +51,11 @@ export class FlightConnection {
         // Reliable departures may precede an older delayed snapshot. Do not resurrect ships.
         const ids = new Set(this.room.playerIds);
         snapshot = { ...snapshot, players: snapshot.players.filter(p => ids.has(p.id)) };
+        const previous = this.latest?.players.find(p => p.id === this.socket.id);
+        const local = snapshot.players.find(p => p.id === this.socket.id)!;
+        if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration) {
+          this.lag?.clear(); this.input = idleInput();
+        }
         this.tick = snapshot.tick; this.lastSnapshot = Date.now(); this.latest = snapshot;
         callbacks.snapshot(snapshot); callbacks.status('Connected · server-authoritative flight · 30 Hz');
       };
@@ -61,7 +66,9 @@ export class FlightConnection {
     this.timer = setInterval(() => {
       if (this.socket.connected && Date.now() - this.lastProbe >= 3000) this.measurePing();
       if (this.socket.connected && this.room) {
-        const input = { ...this.input }, epoch = this.epoch;
+        const local = this.latest?.players.find(p => p.id === this.socket.id);
+        if (!local || local.lifeState === 'dead') return;
+        const input = { ...this.input, lifeGeneration: local.lifeGeneration }, epoch = this.epoch;
         const send = () => { if (epoch === this.epoch && this.socket.connected && this.room) this.socket.volatile.emit('input', input); };
         if (this.lag) this.lag.schedule('input', send); else send();
         if (Date.now() - this.lastSnapshot > 1000) callbacks.status('Server snapshots stopped · flight frozen');
@@ -113,10 +120,10 @@ export class FlightConnection {
     });
   }
   private invalidate() { this.epoch++; this.lag?.clear(); this.latest = null; }
-  setInput(input: PlayerInput) { this.input = input; }
+  setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean) { this.lag?.setEnabled(enabled); this.release(); }
-  release() { this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim }; if (this.socket.connected && this.room) this.socket.volatile.emit('input', this.input); }
-  reset() { this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight'); }
+  release() { this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim }; if (this.socket.connected && this.room) this.socket.volatile.emit('input', { ...this.input, lifeGeneration: this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1 }); }
+  reset() { this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight', this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1); }
   close() {
     if (this.closed) return;
     this.closed = true; this.cancelWait?.(); this.invalidate(); this.room = null; clearInterval(this.timer);

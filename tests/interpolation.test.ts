@@ -1,3 +1,4 @@
+import { initialLifeState } from '../shared/lifecycle';
 import { createBlackHole } from '../shared/black-hole';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,7 +7,7 @@ import { roomFromSearch, roomLink } from '../src/room-links';
 import { spawnFlight } from '../shared/flight';
 import type { Snapshot } from '../shared/protocol';
 function frame(tick: number, timeMs: number, x: number, rotation = 0): Snapshot {
-  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, lifeState: 'active', region: 'safe' }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, lifeState: 'active', region: 'safe', x, rotation }] };
+  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe' }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', x, rotation }] };
 }
 test('remote rendering blends buffered positions and excludes local player', () => {
   const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0); buffer.push(frame(2, 100, 100), 100);
@@ -37,4 +38,29 @@ test('remote death freezes at newest authoritative position without interpolatio
   const dead = frame(2, 100, 100); dead.players[1].lifeState = 'dead'; dead.players[1].region = 'lethal';
   buffer.push(dead, 100); const remote = buffer.sample(150, 'me')[0];
   assert.equal(remote.x, 100); assert.equal(remote.lifeState, 'dead');
+});
+
+test('respawn purges prior-life samples, snaps remote position and resumes normal interpolation', () => {
+  const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0);
+  const dead = frame(2, 100, 90); dead.players[1].lifeState = 'dead'; buffer.push(dead, 100);
+  const respawn = frame(3, 200, 1500); respawn.players[1].lifeGeneration = 1;
+  buffer.push(respawn, 200);
+  assert.equal(buffer.sample(200, 'me')[0].x, 1500);
+  // The buffer really discarded the remote old-life records, not just a visual shortcut.
+  const frames = (buffer as unknown as { frames: Snapshot[] }).frames;
+  assert.ok(frames.every(f => f.players.every(p => p.id !== 'remote' || p.lifeGeneration === 1)));
+  const moved = frame(4, 300, 1600); moved.players[1].lifeGeneration = 1; buffer.push(moved, 300);
+  assert.equal(buffer.sample(350, 'me')[0].x, 1550);
+  buffer.push(dead, 400); assert.ok(buffer.sample(400, 'me')[0].lifeGeneration === 1);
+});
+test('respawn still snaps when every death snapshot was lost; other ships retain their history', () => {
+  const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0);
+  const next = frame(2, 100, 1800); next.players[1].lifeGeneration = 1;
+  next.players.push({ ...next.players[0], id: 'other', x: 100 });
+  buffer.push(next, 100); assert.equal(buffer.sample(100, 'me').find(p => p.id === 'remote')?.x, 1800);
+  const later = frame(3, 200, 1900); later.players[1].lifeGeneration = 1;
+  later.players.push({ ...later.players[0], id: 'other', x: 200 }); buffer.push(later, 200);
+  const sample = buffer.sample(250, 'me');
+  assert.equal(sample.find(p => p.id === 'remote')?.x, 1850);
+  assert.equal(sample.find(p => p.id === 'other')?.x, 150);
 });

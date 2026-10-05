@@ -6,7 +6,7 @@ import { io } from 'socket.io-client';
 import type { Socket } from 'socket.io-client';
 import { createGameServer } from '../server/game';
 import { idleInput, parseInput, spawnFlight, stepFlight, EDGE_MARGIN, WORLD, TICK_SECONDS } from '../shared/flight';
-import type { ClientEvents, ServerEvents, Snapshot, RoomResult } from '../shared/protocol';
+import type { ClientEvents, ServerEvents, Snapshot, RoomResult, InputMessage } from '../shared/protocol';
 
 function nextSnapshot(socket: Socket<ServerEvents, ClientEvents>, condition: (s: Snapshot) => boolean = () => true): Promise<Snapshot> {
   return new Promise((resolve, reject) => {
@@ -49,10 +49,10 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
     assert.equal(first.players[0].x, 1370);
     // Type assertion only bypasses compile-time checking; the server must reject
     // the forged runtime fields as an authority boundary.
-    socket.emit('input', { ...idleInput(), x: 99999, vx: 99999, speed: 99999 } as ReturnType<typeof idleInput>);
+    socket.emit('input', { ...idleInput(), lifeGeneration: 0, x: 99999, vx: 99999, speed: 99999 } as InputMessage);
     const unchanged = await nextSnapshot(socket, s => s.tick > first.tick + 2);
     assert.equal(unchanged.players[0].x, 1370);
-    const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), right: true }), 30);
+    const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), lifeGeneration: 0, right: true }), 30);
     try {
       const moving = await nextSnapshot(socket, s => s.players[0].x > 1420);
       assert.ok(moving.players[0].vx <= 290);
@@ -63,7 +63,7 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
     // Without fresh inputs, the held movement must expire and coast to rest.
     const expired = await nextSnapshot(socket, s => Math.abs(s.players[0].vx) < 1);
     assert.ok(expired.players[0].x < WORLD - EDGE_MARGIN);
-    socket.emit('resetFlight');
+    socket.emit('resetFlight', 0);
     const reset = await nextSnapshot(socket, s => s.players[0].x === 1370);
     assert.equal(reset.players[0].vx, 0);
     socket.disconnect();
@@ -107,7 +107,7 @@ test('two players move independently; forged identity, position, velocity and ro
   try {
     const a = await t.connect(), b = await t.connect(); const room = await t.create(a); assert.ok(room.ok);
     await t.join(b, room.room.code); const first = await nextSnapshot(a); const originalB = first.players.find(p => p.id === b.id)!;
-    const heartbeat = setInterval(() => a.emit('input', { ...idleInput(), right: true, id: b.id, roomCode: 'FAKE', x: 99999, y: 99999, vx: 99999, vy: 99999, speed: 99999 } as ReturnType<typeof idleInput>), 30);
+    const heartbeat = setInterval(() => a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true, id: b.id, roomCode: 'FAKE', x: 99999, y: 99999, vx: 99999, vy: 99999, speed: 99999 } as InputMessage), 30);
     try {
       const later = await nextSnapshot(a, s => s.players.find(p => p.id === a.id)!.x > first.players[0].x + 40);
       const stateA = later.players.find(p => p.id === a.id)!, stateB = later.players.find(p => p.id === b.id)!;
@@ -182,8 +182,13 @@ test('room snapshots agree on black hole/death; late join and reconnect get comp
     ]);
     assert.equal(sa.tick, sb.tick); assert.deepEqual(sa.blackHole, sb.blackHole); assert.deepEqual(sa.players, sb.players);
     const frozen = sa.players.find(p => p.id === a.id)!;
-    a.emit('resetFlight'); a.emit('input', { ...idleInput(), right: true });
-    assert.deepEqual((await nextSnapshot(a, s => s.tick > sa.tick + 2)).players.find(p => p.id === a.id), frozen);
+    a.emit('resetFlight', 0); a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true });
+    const stillDead = (await nextSnapshot(a, s => s.tick > sa.tick + 2)).players.find(p => p.id === a.id)!;
+    // Countdown now advances while the dead ship's physics stays frozen.
+    assert.equal(stillDead.x, frozen.x); assert.equal(stillDead.y, frozen.y);
+    assert.equal(stillDead.vx, 0); assert.equal(stillDead.lifeState, 'dead');
+    assert.equal(stillDead.deathSequence, frozen.deathSequence);
+    assert.ok(stillDead.respawnRemainingMs < frozen.respawnRemainingMs);
     const late = await t.connect(); const joined = await t.join(late, room.code); assert.ok(joined.ok);
     assert.deepEqual(joined.room.blackHole, room.blackHole);
     const lateState = await nextSnapshot(late);

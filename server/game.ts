@@ -7,7 +7,7 @@ import type { ClientEvents, ServerEvents } from '../shared/protocol';
 
 import { RoomStore, roomChannel } from './rooms';
 
-export function createGameServer(allowedOrigins: string[], store = new RoomStore()) {
+export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean } = {}) {
   const http = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
     else res.writeHead(404).end();
@@ -42,17 +42,17 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     socket.on('input', raw => {
       const player = store.roomFor(socket.id)?.players.get(socket.id);
       const input = parseInput(raw);
-      if (player?.state.lifeState === 'active' && input) { player.input = input; player.lastInput = performance.now(); }
+      if (player?.state.lifeState === 'active' && input && raw?.lifeGeneration === player.state.lifeGeneration) { player.input = input; player.lastInput = performance.now(); }
     });
     // Preserve Step 2's explicit debug reset; safe positions still server-owned.
-    socket.on('resetFlight', () => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player?.state.lifeState === 'active') player.reset = true; });
+    socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player?.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });
     socket.on('disconnect', leave);
   });
   function simulate(now: number) {
     tick++;
     for (const room of store.rooms.values()) {
       for (const player of room.players.values()) {
-        simulatePlayer(player, room, now);
+        simulatePlayer(player, room, now, tick * TICK_MS);
       }
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
@@ -64,10 +64,10 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   // Monotonic accumulator avoids the 33ms interval rounding into 30.3 ticks/s.
   // Each simulation step is exactly 1/30s, regardless of browser/server frames.
   let previous = performance.now(), accumulator = 0;
-  const timer = setInterval(() => {
+  const timer = options.autoTick === false ? null : setInterval(() => {
     const now = performance.now();
     accumulator += Math.min(now - previous, TICK_MS * 5); previous = now;
     while (accumulator >= TICK_MS) { simulate(now); accumulator -= TICK_MS; }
   }, 5);
-  return { http, io, close: async () => { clearInterval(timer); await new Promise<void>(resolve => io.close(() => resolve())); } };
+  return { http, io, step: () => simulate(performance.now()), close: async () => { if (timer) clearInterval(timer); await new Promise<void>(resolve => io.close(() => resolve())); } };
 }

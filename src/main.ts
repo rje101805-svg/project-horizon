@@ -1,3 +1,4 @@
+import { MAX_HEALTH } from '../shared/lifecycle';
 import type { BlackHoleState } from '../shared/black-hole';
 import Phaser from 'phaser';
 import './style.css';
@@ -24,6 +25,8 @@ class Horizon extends Phaser.Scene {
   private connection!: FlightConnection;
   private aim = 0;
   private ready = false;
+  private lastLocalLife: string | null = null;
+  private lastLocalGeneration = -1;
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
@@ -88,7 +91,7 @@ class Horizon extends Phaser.Scene {
     const ship = this.ships.get(player.id) ?? this.addShip(player);
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
     ship.body.setAlpha(player.lifeState === 'dead' ? .25 : 1);
-    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (player.lifeState === 'dead' ? ' · LOST' : ''));
+    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
 
   }
   acceptSnapshot(snapshot: Snapshot) {
@@ -99,7 +102,19 @@ class Horizon extends Phaser.Scene {
     this.removeShips(snapshot.players.map(p => p.id));
     this.drawBlackHole(snapshot.blackHole);
     this.placeShip(local);
-    el('black-hole-status').textContent = local.lifeState === 'dead' ? 'Lost to the black hole. Leave and rejoin for a new identity; reset is disabled.' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
+    if (this.lastLocalGeneration >= 0 && local.lifeGeneration !== this.lastLocalGeneration) this.cameras.main.centerOn(local.x, local.y);
+    this.lastLocalGeneration = local.lifeGeneration;
+    const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}`;
+    if (lifeKey !== this.lastLocalLife) {
+      this.input.keyboard!.resetKeys(); this.aim = 0; this.connection.release();
+      this.lastLocalLife = lifeKey;
+    }
+    const dead = local.lifeState === 'dead';
+    el('death-overlay').hidden = !dead;
+    el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
+    el('death-health').textContent = `Health ${local.health} / ${MAX_HEALTH} · Black hole`;
+    el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${MAX_HEALTH}`;
+    el('black-hole-status').textContent = dead ? 'Lost to the black hole · automatic respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead';
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
@@ -159,6 +174,8 @@ class Horizon extends Phaser.Scene {
   }
 }
 function launch() {
+  el('death-overlay').hidden = true;
+  el('life-status').textContent = 'Awaiting life state';
   el<HTMLButtonElement>('restart').disabled = false;
   el('black-hole-status').textContent = 'Awaiting authoritative region';
   el('position').textContent = 'Awaiting position';

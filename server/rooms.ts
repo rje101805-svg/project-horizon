@@ -1,9 +1,10 @@
+import { initialLifeState } from '../shared/lifecycle';
 import { createBlackHole, SPAWN_CLEARANCE, type BlackHoleState } from '../shared/black-hole';
 import { randomInt } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean }
+export interface RoomPlayer { state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null }
 export interface GameRoom { code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const roomChannel = (code: string) => `flight:${code}`;
 export function generateRoomCode(): string {
@@ -54,7 +55,7 @@ export class RoomStore {
     const color = SHIP_COLORS.find(c => [...room.players.values()].every(p => p.state.color !== c));
     const spawn = chooseSpawn([...room.players.values()].map(p => p.state), room.blackHole);
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
-    room.players.set(id, { state: { id, name: sanitizeName(name), color, lifeState: 'active', region: 'safe', ...spawn }, input: idleInput(), lastInput: now, reset: false });
+    room.players.set(id, { state: { id, name: sanitizeName(name), color, ...initialLifeState(), region: 'safe', ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null });
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
   }

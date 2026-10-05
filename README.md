@@ -1,10 +1,11 @@
-> **Branch status: Step 5 fully accepted locally.** Step 4 remains on `work` at `9f0c821`; its public acceptance test is pending. `/docs` still contains Step 4. This branch is not deployed. See [STEP5_TEST.md](STEP5_TEST.md) for local testing, temporary death/reconnect rules and publishing safeguards.
+> **Branch status: Step 6 implemented; local manual acceptance pending.** Based on accepted Step 5 `6db0ae7`. Production `work` remains at Step 4 `9f0c821`, `/docs` is untouched, and this branch is not deployed. The reported queued Pages job/public old Step 2 build is a separate issue. See [STEP6_TEST.md](STEP6_TEST.md) for one-action-at-a-time local testing.
+
 
 # Project: Horizon
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 5 — local black-hole sandbox.** Room-based authoritative flight now includes a visible room-owned black hole, capped gravity, safe/danger/lethal regions, safe spawning and temporary server-owned death. Radii are fixed for this milestone. The owner reported manual acceptance passed on October 5, 2026, including gravity, death, multiplayer synchronization and reconnect behavior; 42 automated tests and builds previously passed. There is no combat, loot, health/respawn, landing, matchmaking, account system or match lifecycle. Step 3 is accepted; Step 4 remains the production baseline awaiting public acceptance. See [STEP5_TEST.md](STEP5_TEST.md) for this branch and [DEPLOY.md](DEPLOY.md) for the Step 4 deployment.
+**Current implementation: Phase 1, Step 6 — health, death and automatic respawn.** The accepted black-hole flight sandbox now has server-owned health (100), one damage path, a three-second tick-owned respawn delay, clear death presentation and safe same-identity respawn. Fixed black-hole radii, gravity, swept horizon detection, rooms and normal interpolation are preserved. Step 5 was accepted locally; Step 6 needs manual acceptance. No combat, weapons, shields, loot, final health HUD, landing, matchmaking, accounts or match lifecycle was added.
 
 
 ## Run locally
@@ -12,7 +13,7 @@ A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **
 Use Node.js 22.12+ (Node 24 LTS recommended). From your project folder:
 
 ```sh
-git switch step-5-black-hole
+git switch step-6-health-respawn
 npm ci
 npm run server
 ```
@@ -27,7 +28,13 @@ Open **http://localhost:5173**, enter a display name, leave the server URL at **
 
 See [MANUAL_TEST.md](MANUAL_TEST.md) for one-action-at-a-time Windows instructions and the full two-client acceptance test, including fake lag and disconnects.
 
-Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This reset is not a death/respawn mechanic and is rejected after black-hole death. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
+Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This living debug reset never heals or triggers respawn and is rejected while dead. Black-hole deaths now respawn automatically without refreshing or changing identity. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
+
+## Health, death and respawn
+
+`server/health.ts` exposes the server-only `applyDamage` entry point. Event-horizon contact sets health to zero exactly once, freezes the ship and starts a private simulation-time deadline. The existing 30Hz loop restores full health and selects a safe position from the black hole's current room state after 3000ms of simulation time. No detached per-player timers exist; disconnect removes the deadline with its player. The client displays server-provided remaining milliseconds, avoiding wall-clock skew, and never initiates respawn.
+
+Every respawn increments a life generation. Old-generation inputs/reset are rejected; client pending inputs/held keys are cleared. Remote interpolation discards only that player's previous-life samples so the teleport snaps, then ordinary smoothing resumes. If no safe position exists, remain dead and retry each tick. Reconnect continues to use a new nonpersistent identity, separately from same-identity automatic respawn.
 
 ## Rooms and identity
 
@@ -81,7 +88,8 @@ Phaser still gives a bundle-size warning; builds succeed. Production type-checki
 
 - `shared/flight.ts`: original flight values/validation, with optional server-owned acceleration.
 - `shared/black-hole.ts`: state/constants, gravity, region and swept horizon helpers.
-- `server/simulation.ts`: per-player authoritative gravity/death step.
+- `server/simulation.ts`: per-player gravity, swept damage and tick-owned safe respawn.
+- `server/health.ts`, `shared/lifecycle.ts`: common damage, health and respawn state/constants.
 - `shared/rooms.ts`, `shared/protocol.ts`: room configuration, sanitization and typed events.
 - `server/rooms.ts`: room/membership/color/spawn allocation.
 - `server/game.ts`: existing fixed loop, now room-scoped.
@@ -104,7 +112,7 @@ Phaser still gives a bundle-size warning; builds succeed. Production type-checki
 - Interpolation chooses safe freezing/catch-up over extrapolation on larger stalls. The fake-lag tool does not emulate every real-network failure.
 - Existing debug flight reset was retained for Step 2 compatibility and should be reconsidered before actual match rules.
 
-Step 4 deployment preparation is documented in DEPLOY.md; Step 5 manual acceptance is documented in STEP5_TEST.md; Step 6 and later systems remain unimplemented.
+Step 4 deployment preparation is documented in DEPLOY.md; Step 5 manual acceptance is documented in STEP5_TEST.md; Step 6 manual instructions are in STEP6_TEST.md; Step 7 and later systems remain unimplemented.
 
 ## Public Step 4 client
 
@@ -112,4 +120,4 @@ Client: https://rje101805-svg.github.io/project-horizon/
 Server: https://project-horizon-server.onrender.com
 Health: https://project-horizon-server.onrender.com/health
 
-Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not deploy this Step 5 branch or begin Step 6.
+Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not deploy this Step 6 branch or begin Step 7.

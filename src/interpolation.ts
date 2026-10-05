@@ -10,6 +10,11 @@ export class RemoteInterpolator {
   clear() { this.frames = []; this.lastRenderTime = -Infinity; }
   push(snapshot: Snapshot, arrivalMs: number) {
     if (this.frames.length && snapshot.tick <= this.frames[this.frames.length - 1].tick) return;
+    // Drop only this player's prior-life samples, even if every death snapshot
+    // was lost. A generation change is authoritative teleport evidence.
+    for (const player of snapshot.players) {
+      for (const frame of this.frames) frame.players = frame.players.filter(p => p.id !== player.id || p.lifeGeneration === player.lifeGeneration);
+    }
     this.frames.push({ ...snapshot, players: snapshot.players.map(p => ({ ...p })) });
     if (this.frames.length > MAX_BUFFERED_SNAPSHOTS) this.frames.shift();
     this.anchorTime = snapshot.timeMs; this.anchorArrival = arrivalMs;
