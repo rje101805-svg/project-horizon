@@ -2,16 +2,26 @@ import Phaser from 'phaser';
 import './style.css';
 import { WORLD, spawnFlight } from '../shared/flight';
 import { FlightConnection } from './network';
+import { RemoteInterpolator } from './interpolation';
+import { roomFromSearch, roomLink } from './room-links';
+import { normalizeRoomCode } from '../shared/rooms';
+import type { PlayerState, RoomInfo, Snapshot } from '../shared/protocol';
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const colors: Record<string, number> = { cyan: 0x72eee0, orange: 0xffaa66, purple: 0xb9a0ff };
 const planets = [{ x: 650, y: 700, r: 90, color: 0x6095d6, name: 'AZURE' }, { x: 1750, y: 650, r: 115, color: 0xc88066, name: 'EMBER' }, { x: 700, y: 1750, r: 105, color: 0x7caf9a, name: 'VERDANT' }, { x: 1800, y: 1750, r: 85, color: 0x9b8dd0, name: 'ECHO' }];
 let game: Phaser.Game | undefined;
+let connection: FlightConnection | undefined;
+let busy = false;
+type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
 class Horizon extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Container;
   private map!: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private connection!: FlightConnection;
   private aim = 0;
+  private ready = false;
+  private ships = new Map<string, Ship>();
+  private interpolator = new RemoteInterpolator();
+  constructor() { super('Horizon'); }
   create() {
     const stars = this.add.graphics();
     const random = new Phaser.Math.RandomDataGenerator(['horizon']);
@@ -27,24 +37,13 @@ class Horizon extends Phaser.Scene {
       g.fillStyle(0x080e1e, .25).fillCircle(p.x + p.r * .35, p.y - p.r * .15, p.r * .8);
       this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
     }
-    const hull = this.add.graphics();
-    hull.fillStyle(colors[el<HTMLSelectElement>('rocket').value]).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
-    hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
     const spawn = spawnFlight();
-    this.rocket = this.add.container(spawn.x, spawn.y, [hull]).setDepth(4);
+    this.rocket = this.add.container(spawn.x, spawn.y).setDepth(4);
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.map = this.add.graphics().setScrollFactor(0).setDepth(10);
-    this.connection = new FlightConnection(el<HTMLInputElement>('server-url').value,
-      (state, tick) => {
-        // Rendering only: position/velocity are never integrated in this client.
-        this.rocket.setPosition(state.x, state.y).setRotation(state.rotation);
-        el('position').textContent = `X ${state.x.toFixed(1)} · Y ${state.y.toFixed(1)}`;
-        el('velocity').textContent = `Speed ${Math.hypot(state.vx, state.vy).toFixed(1)}`;
-        el('tick').textContent = `Server tick ${tick}`;
-        this.drawMap();
-      }, status => { el('status').textContent = status; });
+    this.connection = connection!;
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
@@ -52,7 +51,8 @@ class Horizon extends Phaser.Scene {
     const cleanup = () => {
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
-      this.connection.close();
+      this.ready = false;
+      this.interpolator.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
@@ -60,11 +60,54 @@ class Horizon extends Phaser.Scene {
       pointer.updateWorldPoint(this.cameras.main);
       this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
     });
+    this.ready = true;
+    if (this.connection.latest) this.acceptSnapshot(this.connection.latest);
     this.drawMap();
     if (import.meta.env.DEV) Object.assign(window, { __HORIZON_FLIGHT__: this.connection });
   }
+  private addShip(player: PlayerState): Ship {
+    const hull = this.add.graphics();
+    hull.fillStyle(player.color).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
+    hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
+    const local = player.id === this.connection.socket.id;
+    const body = local ? this.rocket : this.add.container(player.x, player.y).setDepth(4);
+    body.add(hull);
+    const label = this.add.text(player.x, player.y + 27, player.name + (local ? ' (you)' : ''), {
+      fontSize: '13px', color: '#ffffff', backgroundColor: '#0e1729', padding: { x: 4, y: 2 },
+    }).setOrigin(.5, 0).setDepth(5);
+    const ship = { body, label }; this.ships.set(player.id, ship); return ship;
+  }
+  private placeShip(player: PlayerState) {
+    const ship = this.ships.get(player.id) ?? this.addShip(player);
+    ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
+    ship.label.setPosition(player.x, player.y + 27);
+  }
+  acceptSnapshot(snapshot: Snapshot) {
+    if (!this.ready) return;
+    const local = snapshot.players.find(p => p.id === this.connection.socket.id);
+    if (!local) return;
+    // Local player: latest authoritative state, no prediction or interpolation.
+    this.removeShips(snapshot.players.map(p => p.id));
+    this.placeShip(local);
+    el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
+    el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
+    el('tick').textContent = `Server tick ${snapshot.tick}`;
+    this.interpolator.push(snapshot, performance.now());
+  }
+  removeShips(ids: string[]) {
+    if (!this.ready) return;
+    this.interpolator.removeMissing(ids);
+    for (const [id, ship] of this.ships) if (!ids.includes(id)) {
+      // Keep the camera-follow container on reconnect, but clear its old hull.
+      if (ship.body === this.rocket) ship.body.removeAll(true); else ship.body.destroy();
+      ship.label.destroy(); this.ships.delete(id);
+    }
+  }
+  freezeRemoteShips() { this.interpolator.clear(); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
   update() {
+    for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
+    this.drawMap();
     if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.resetFlight();
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;
@@ -80,7 +123,10 @@ class Horizon extends Phaser.Scene {
     this.map.clear().fillStyle(0x0e1729, .95).fillRoundedRect(x - 5, y - 5, size + 10, size + 10, 8);
     this.map.lineStyle(1, 0x384c68).strokeRect(x, y, size, size);
     for (const p of planets) this.map.fillStyle(p.color).fillCircle(x + p.x * s, y + p.y * s, p.r * s);
-    this.map.fillStyle(0xffffff).fillCircle(x + this.rocket.x * s, y + this.rocket.y * s, 3);
+    for (const [id, ship] of this.ships) {
+      const color = this.connection.latest?.players.find(p => p.id === id)?.color ?? 0xffffff;
+      this.map.fillStyle(color).fillCircle(x + ship.body.x * s, y + ship.body.y * s, id === this.connection.socket.id ? 3 : 2);
+    }
   }
 }
 function launch() {
@@ -93,15 +139,64 @@ function launch() {
   game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 1100, height: 600, backgroundColor: '#080e1e', scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: Horizon });
   if (import.meta.env.DEV) Object.assign(window, { __HORIZON_GAME__: game });
 }
-el('play').onclick = () => {
+function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
+function updateRoom(room: RoomInfo) {
+  el('room-code-display').textContent = room.code;
+  el('player-count').textContent = `${room.playerIds.length} / ${room.maxPlayers} players`;
+  scene()?.removeShips(room.playerIds);
+}
+function goHome(message = '') {
+  connection?.close(); connection = undefined;
+  game?.destroy(true); game = undefined;
+  el('mission').hidden = true; el('home').hidden = false;
+  el('home-status').textContent = message;
+}
+async function enterRoom(mode: 'create' | 'join') {
+  if (busy) return;
   const field = el<HTMLInputElement>('server-url');
   try {
     const url = new URL(field.value);
     if (!['http:', 'https:'].includes(url.protocol) || (location.protocol === 'https:' && url.protocol !== 'https:')) throw new Error();
-    launch();
-  } catch { field.setCustomValidity('Enter a server URL (HTTPS is required on GitHub Pages).'); field.reportValidity(); }
-};
+  } catch { field.setCustomValidity('Enter a server URL (HTTPS is required on GitHub Pages).'); field.reportValidity(); return; }
+  const code = normalizeRoomCode(el<HTMLInputElement>('room-code').value);
+  if (mode === 'join' && !code) { el('home-status').textContent = 'Enter a valid 4-character room code.'; return; }
+  busy = true; el<HTMLButtonElement>('create').disabled = true; el<HTMLButtonElement>('join').disabled = true;
+  el('home-status').textContent = 'Connecting…';
+  connection?.close();
+  const current = new FlightConnection(field.value, {
+    snapshot: snapshot => scene()?.acceptSnapshot(snapshot),
+    room: updateRoom,
+    status: message => {
+      el(el('home').hidden ? 'status' : 'home-status').textContent = message;
+      if (message.startsWith('Disconnected')) scene()?.freezeRemoteShips();
+    },
+    roomLost: message => goHome(`Room ended or unavailable. ${message} Create or join a room again.`),
+  });
+  connection = current;
+  try {
+    const result = await current.enter(mode, el<HTMLInputElement>('display-name').value, code ?? '');
+    if (result.ok) {
+      launch(); updateRoom(result.room);
+      const checkbox = el<HTMLInputElement>('fake-lag'); current.setFakeLag(import.meta.env.DEV && checkbox.checked);
+    } else { goHome(result.error); }
+  } finally { busy = false; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
+}
+el('create').onclick = () => { void enterRoom('create'); };
+el('join').onclick = () => { void enterRoom('join'); };
 el<HTMLInputElement>('server-url').oninput = () => el<HTMLInputElement>('server-url').setCustomValidity('');
 el<HTMLInputElement>('server-url').value = import.meta.env.VITE_SERVER_URL || (['localhost', '127.0.0.1'].includes(location.hostname) ? 'http://localhost:3001' : '');
-el('restart').onclick = () => (game?.scene.scenes[0] as Horizon | undefined)?.resetFlight();
-el('leave').onclick = () => { game?.destroy(true); game = undefined; el('mission').hidden = true; el('home').hidden = false; };
+const linkedRoom = roomFromSearch(location.search);
+if (linkedRoom) { el<HTMLInputElement>('room-code').value = linkedRoom; el('home-status').textContent = `Room ${linkedRoom} ready to join. Confirm your name, then click Join room.`; }
+el<HTMLInputElement>('room-code').oninput = () => { const input = el<HTMLInputElement>('room-code'); input.value = input.value.toUpperCase(); };
+el('restart').onclick = () => scene()?.resetFlight();
+el('leave').onclick = () => goHome();
+async function copy(value: string) {
+  try { await navigator.clipboard.writeText(value); el('share-status').textContent = 'Copied'; }
+  catch { el('share-status').textContent = `Copy manually: ${value}`; }
+}
+el('copy-code').onclick = () => { if (connection?.room) void copy(connection.room.code); };
+el('copy-link').onclick = () => { if (connection?.room) void copy(roomLink(location.href, connection.room.code)); };
+if (import.meta.env.DEV) {
+  el('debug-network').hidden = false;
+  el<HTMLInputElement>('fake-lag').onchange = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked);
+}

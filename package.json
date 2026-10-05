@@ -11,7 +11,7 @@
     "build:pages": "tsc --noEmit && vite build --base=/project-horizon/ --outDir=docs && node scripts/finish-pages.mjs",
     "server": "tsx server/index.ts",
     "server:dev": "tsx watch server/index.ts",
-    "test:server": "tsx --test tests/server.test.ts"
+    "test:server": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "phaser": "^3.90.0",

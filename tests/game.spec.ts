@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import type { FlightConnection } from '../src/network';
 import type Phaser from 'phaser';
+import { io } from 'socket.io-client';
+import type { RoomResult } from '../shared/protocol';
 
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __HORIZON_GAME__: Phaser.Game };
 test('browser flies only from server snapshots, resets and disconnects cleanly', async ({ page }) => {
@@ -8,7 +10,7 @@ test('browser flies only from server snapshots, resets and disconnects cleanly',
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
   await page.locator('#server-url').fill('http://127.0.0.1:3002');
-  await page.getByRole('button', { name: 'Connect and fly' }).click();
+  await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('#status')).toContainText('server-authoritative');
   await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
@@ -28,6 +30,11 @@ test('browser flies only from server snapshots, resets and disconnects cleanly',
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
     return scene.rocket.x;
   })).toBe(1370);
+  // Keep the room alive through the tested reconnect (identity is ephemeral).
+  const peer = io('http://127.0.0.1:3002');
+  await new Promise<void>(resolve => peer.once('connect', () => resolve()));
+  const code = await page.locator('#room-code-display').textContent();
+  await new Promise<RoomResult>(resolve => peer.emit('joinRoom', { code, name: 'Peer' }, resolve));
   // Explicitly disconnect the actual transport. Keys cannot move the rocket now.
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.disconnect());
   await expect(page.locator('#status')).toContainText('Disconnected');
@@ -39,13 +46,15 @@ test('browser flies only from server snapshots, resets and disconnects cleanly',
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page.locator('#home')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connected)).toBe(false);
+  peer.disconnect();
   expect(errors).toEqual([]);
 });
 test('missing server never falls back to local movement', async ({ page }) => {
   await page.goto('/');
   await page.locator('#server-url').fill('http://127.0.0.1:39999');
-  await page.getByRole('button', { name: 'Connect and fly' }).click();
-  await expect(page.locator('#status')).toContainText('Cannot reach');
+  await page.getByRole('button', { name: 'Create room', exact: true }).click();
+  await expect(page.locator('#home-status')).toContainText('Cannot reach', { timeout: 7000 });
   await page.keyboard.down('d'); await page.waitForTimeout(300); await page.keyboard.up('d');
-  await expect(page.locator('#position')).toHaveText('Awaiting position');
+  await expect(page.locator('#home')).toBeVisible();
+  await expect(page.locator('canvas')).toHaveCount(0);
 });

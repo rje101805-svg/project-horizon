@@ -26,7 +26,7 @@ export function parseInput(value: unknown): PlayerInput | null {
   return { up: v.up as boolean, down: v.down as boolean, left: v.left as boolean, right: v.right as boolean,
     boost: v.boost as boolean, aim: Math.atan2(Math.sin(v.aim), Math.cos(v.aim)) };
 }
-// This function is NOT called by the browser. No local prediction in Step 2.
+// This function is NOT called by the browser. No local prediction in Step 3.
 export function stepFlight(state: FlightState, input: PlayerInput): void {
   const dx = Number(input.right) - Number(input.left);
   const dy = Number(input.down) - Number(input.up);

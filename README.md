@@ -1,102 +1,103 @@
 # Project: Horizon
 
-Project Horizon is a multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
+A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current build: Phase 1, Step 2 — Server Game Loop.** This build is a flight/networking sandbox, not a complete multiplayer battle royale. The Node.js + Socket.io server calculates movement; the Phaser browser client sends inputs and renders snapshots.
+**Current implementation: Phase 1, Step 3 — Two Players and Rooms.** A room-based flight sandbox. There is no combat, black hole, loot, health, landing, matchmaking, account system or match lifecycle. Step 4 and public deployment have not started. The user's manual acceptance test remains required.
 
-## Start locally
+## Run locally
 
-Use Node.js **22.12 or newer** (Node 24 LTS recommended). Run the following on your own computer to play at localhost. A localhost address from a cloud workspace is not reachable from your laptop without port forwarding.
-
-1. Download/clone the `work` branch, then open a terminal in its folder:
-   ```sh
-   git clone --branch work https://github.com/rje101805-svg/project-horizon.git
-   cd project-horizon
-   npm ci
-   ```
-   If you already cloned it, use `git switch work` and `git pull` first.
-2. Start the flight server in that terminal:
-   ```sh
-   npm run server
-   ```
-   Leave it running. You should see `Horizon flight server: http://localhost:3001 (30 ticks/s)`.
-3. Open a **second terminal in the same project folder**, and start the client:
-   ```sh
-   npm run dev
-   ```
-4. Open **http://localhost:5173**. Leave the flight server URL as **http://localhost:3001** and click **Connect and fly**. Wait for **Connected · server-authoritative flight · 30 Hz**.
-
-Both terminals must stay running. Ctrl+C stops a process. `npm run server:dev` optionally restarts the server when server/shared files change. A restart disconnects clients and resets flight on reconnect.
-
-Controls:
-- **WASD / arrows:** move, facing your movement direction.
-- **Shift (hold):** unlimited boost, preserving the existing sandbox's handling.
-- **Mouse movement while idle:** set aim direction, sent to and applied by the server.
-- **R / Reset flight:** request a server-side reset to the starting position.
-- **Back to home:** close the connection and return to selections.
-
-Pilot and rocket selections remain cosmetic. Stars, four planet landmarks, map boundary, camera follow, and minimap are reused from the existing implementation. Planets have no collisions or gravity. This sandbox has no damage, loot, black hole, extraction, combat, rooms or matchmaking. The earlier solo-survival build remains available in Git history at `cb1b76f`.
-
-## Prove movement is server-authoritative
-
-1. Start both processes as above. Hold D and Shift. The rocket moves, coordinates change, speed approaches 440, and the **Server tick** counter advances.
-2. Release keys. In the **server terminal**, press Ctrl+C. Wait until the client reports disconnection (or stopped snapshots). The rocket position and tick must freeze. Hold any movement key: the rocket must stay frozen. There is no offline movement fallback.
-3. Restart with `npm run server`. The client reconnects automatically, gets a new connection ID, and respawns at **X 1370.0 · Y 1200.0**. Movement works again. If you start with no server, the client shows a connection error and cannot fly.
-4. For direct protocol evidence, open browser developer tools → **Network**, select the Socket.io **WebSocket** request, and inspect its messages. Outgoing `input` events contain `up/down/left/right/boost/aim`; incoming `snapshot` events contain the server tick and `id/x/y/vx/vy/rotation`. Socket.io may initially use HTTP polling before upgrading, so look for the WebSocket once connected.
-5. Optional deeper check, only on the Vite development server: release keys and run this in the browser console:
-   ```js
-   window.__HORIZON_FLIGHT__.socket.emit('input', {
-     up: false, down: false, left: false, right: false,
-     boost: false, aim: 0, x: 999999, y: 999999, speed: 999999
-   });
-   ```
-   The rocket must not teleport or gain speed. The server ignores those extra fields. The automated tests check this too. These inspection handles are absent from production builds.
-
-## Architecture
-
-- `shared/flight.ts`: single source of truth for physics/constants/input validation. Normal speed 290 units/s, boost 440, response 7, normalized diagonals, inertial braking, 20-unit boundary margin; all preserved from the prior client movement formula.
-- `shared/protocol.ts`: input and snapshot types shared by client/server.
-- `server/game.ts`: connection-owned state, fixed 1/30-second simulation, latest-input application, server-side reset, disconnect cleanup, and snapshots every tick.
-- `server/index.ts`: starts the Node server and handles shutdown.
-- `src/network.ts`: input transmission, snapshots, reconnect and cleanup.
-- `src/main.ts`: Phaser input sampling and rendering. No local position/velocity integration, prediction, or physics fallback.
-
-The server uses a monotonic accumulator with a short scheduler interval to avoid 33ms rounding drift. Simulation steps always use exactly 1/30 second. Catch-up is bounded to five steps during stalls; prolonged server overload slows simulation rather than causing an unbounded backlog. Inputs expire after 250ms without refresh and the server then brakes the rocket. Blur/hidden-tab handling also releases movement. Input handling never advances physics, so sending extra messages does not increase speed.
-
-Every connection has independent server-owned flight state. Snapshots include all connected players, but this step renders only your own rocket. There are no custom gameplay rooms or lobbies. Reconnecting creates a fresh player rather than restoring a session.
-
-## Builds and tests
+Use Node.js 22.12+ (Node 24 LTS recommended). From your project folder:
 
 ```sh
-npm run build        # TypeScript checks (including server/shared/tests) + client dist/
-npm run build:pages  # TypeScript checks + GitHub Pages docs/ with /project-horizon/ base
-npm run preview      # Preview dist/ at http://localhost:4173; keep server running too
-npm test             # Physics, real Socket.io integration, and browser authority tests
+git switch work
+git pull
+npm ci
+npm run server
 ```
 
-If Chromium is not installed, run `npx playwright install chromium` before `npm test`. Tests use system Chromium when available, otherwise Playwright's browser. Browser tests manage their own client/server processes on ports 5175 and 3002. Server integration tests use an ephemeral port and real sockets.
+Keep that terminal running. In a second terminal in the same folder:
 
-Tests verify movement speeds, diagonal normalization, inertia, world bounds, malformed inputs, forged state rejection, fixed tick cadence, stale-input braking, server reset, disconnect cleanup, browser flight, reconnect, snapshot correction, and frozen flight without a connection. Phaser still produces a large bundle-size warning; the build succeeds.
+```sh
+npm run dev
+```
 
-## GitHub Pages and server hosting
+Open **http://localhost:5173**, enter a display name, leave the server URL at **http://localhost:3001**, and click **Create room**. In a second tab/window, enter another name and **Join room** with the generated code. Both programs run on your computer; a cloud workspace's localhost address is not your laptop's address.
 
-GitHub Pages continues to serve the static client from **work → /docs**, at the expected URL https://rje101805-svg.github.io/project-horizon/ once Pages is enabled. Build output is committed in `docs/`; rebuild and push it after client changes. Pages cannot run Node.js or Socket.io.
+See [MANUAL_TEST.md](MANUAL_TEST.md) for one-action-at-a-time Windows instructions and the full two-client acceptance test, including fake lag and disconnects.
 
-For online flight, run this server on a separate host supporting a persistent Node process and WebSocket connections, then enter its **HTTPS base URL** in the client home screen. No public server is deployed by this step. Without one, Pages loads the interface but cannot fly. HTTPS Pages cannot connect to an HTTP server.
+Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This reset is not a death/respawn mechanic. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
 
-Server configuration:
-- `PORT`: default `3001`; hosting platforms can set their assigned port.
-- `CLIENT_ORIGINS`: comma-separated exact browser origins (no paths/trailing slash). Defaults include localhost/127.0.0.1 ports 5173/4173 and `https://rje101805-svg.github.io`. Override for a different client address/port.
-- `VITE_SERVER_URL`: optional build-time client default, e.g. put `VITE_SERVER_URL=https://your-server.example` in an untracked `.env.local`, then rebuild Pages. The URL is public configuration, not a secret. The home-screen field can always override it.
+## Rooms and identity
 
-The `npm run server` command runs TypeScript with `tsx`; hosted environments must install development dependencies too (use `npm ci`, not `npm ci --omit=dev`). No API keys, accounts or database are required. `/health` reports loop readiness, tick rate, tick count, and connected-player count.
+- Codes are four uppercase characters drawn from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (no I/O/0/1). Joins trim/normalize lowercase. Server generation retries occupied codes up to 64 times, then gives a clean error instead of overwriting a room.
+- Cap: **8 players**, shared in `shared/rooms.ts`. Eight distinct predefined colors are allocated within a room, released on departure. Increasing the cap also requires expanding the palette.
+- Names have controls removed, whitespace trimmed, and at most 16 Unicode code points; empty/invalid names become `Pilot`. They are rendered as plain text, never HTML. The browser field also limits typed names.
+- Each socket has a unique server-side socket ID. The server owns name/color, room membership, input, position, velocity and rotation. No persistent identity or authentication.
+- Spawn selection searches a deterministic grid near the previous start, within map bounds, keeping at least 180 units from existing ships. The first player starts at X1370/Y1200. Clients cannot choose spawn coordinates.
+- One socket belongs to at most one gameplay room. Leave before changing rooms. Snapshots/membership broadcasts target only `flight:<room code>`; sockets outside rooms receive no gameplay snapshots.
+- Leaving, closing a tab or losing the connection removes membership and releases resources. Last departure deletes the room. A network outage is detected by Socket.io heartbeat timeout; it is not always instantaneous.
+- Reconnect uses a new socket identity and tries to rejoin the old room if it still exists. If nobody kept it alive, or the server restarted, return home with a clear error and create/join again. Rooms/sessions are deliberately not persistent.
 
-## Before Step 3
+## Simulation and rendering
 
-No blocker was found for one-client local authoritative flight. Limitations to account for before expanding networking:
-- Public play needs a separately hosted HTTPS/WebSocket server and verified allowed origins.
-- Network latency is now visible; no prediction, interpolation, reconciliation or bandwidth tuning has been implemented. Local feel should be close; remote feel needs latency testing before choosing those improvements.
-- This is a development server, with input validation and origin restrictions but no authentication, reconnect session persistence, per-client message-rate limit or scale/load testing. It is not hardened for an open competition.
-- Tests cover two-layer authority but not a full multiplayer match. Additional clients have independent state and are not rendered yet.
+The existing Node.js + Socket.io monotonic accumulator still runs **30 fixed simulation ticks/s**, using exactly 1/30 second per step. Catch-up remains bounded to five steps under a stall. The server applies each player's latest valid keys/aim and expires stale inputs after 250ms, braking with the original inertia. Messages cannot advance simulation or supply position/velocity/speed/identity/room state. The server publishes room-scoped volatile snapshots every tick and reliable membership updates when players join/leave.
 
-Step 3 has **not** been implemented. Rooms, matchmaking, other-player rendering, black-hole mechanics, loot, combat, health and results remain future work.
+**Local ship: copied directly from the newest accepted authoritative snapshot. No client-side prediction or reconciliation was added.** Camera smoothing remains visual only. Without snapshots the local position freezes; there is no offline movement fallback.
+
+**Remote ships only: buffered interpolation.** `src/interpolation.ts` retains at most 32 ordered snapshots. Snapshots carry simulation time (`tick × 1000/30`). At each render, estimate server time from the latest snapshot plus elapsed local monotonic time, then render **100ms (three ticks) behind**. Select the two surrounding frames and linearly blend x/y; rotate along the shortest angular arc. Clamp render time to available state and never move it backward.
+
+Late/duplicate/out-of-order ticks are discarded. If snapshots pause, remote visuals may finish blending up to the newest known position, then **freeze there**; they never extrapolate indefinitely. Small gaps blend over the available surrounding frames; long outages can produce a catch-up jump rather than guessing future flight. Reliable roster removal immediately deletes a ship and clears its buffered entries. Delayed old snapshots cannot resurrect departed ships. On transport disconnect, freeze the remaining visuals and clear interpolation history.
+
+## Development fake network
+
+Run `npm run dev`. After entering a room, check **DEV ONLY: fake network · 100ms each way ±30ms jitter** above the HUD. Enable it in both clients for a symmetric test; uncheck in both to disable. It is off by default (reload resets it), and toggling cancels queued work.
+
+`src/debug-lag.ts` delays outgoing **input delivery** and incoming **snapshot handling**, by approximately 100ms ±30ms in each direction. That adds about 200ms round trip; remote rendering then adds its 100ms interpolation buffer. Ordered deadlines prevent jitter from reordering older inputs. Room requests/reliable membership are undelayed. Focus release/neutral input bypasses the delay and clears pending work, avoiding stuck thrust. Disconnect/leave cancels queued packets, guarded again by a connection/membership epoch.
+
+This does not change server physics, tick rate, or authority. It simulates timing only, not bandwidth/loss. Production builds remove the fake-lag implementation and have no active checkbox or inspection handles. Local response will feel delayed with fake lag because prediction was intentionally excluded.
+
+## Share links
+
+**Copy code** copies the code. **Copy join link** copies the current client URL with `?room=ABCD`. The link preserves the existing path, including `/project-horizon/` on Pages. Valid codes are normalized/prefilled only; the user still confirms their name and clicks **Join room**. Invalid query values are ignored. Clipboard failures show text for manual copying.
+
+Links do not include a server URL. A localhost link works only on the computer running these programs. Connecting from another device or deploying the server is outside Step 3.
+
+## Tests and builds
+
+```sh
+npm test             # All logic, real-socket server integration, and browser tests
+npm run build        # TypeScript checks for client/server/shared/tests + dist/
+npm run preview      # Local production preview on localhost:4173; server still needed
+npm run server:dev   # Optional server restart-on-edit mode
+```
+
+If needed, run `npx playwright install chromium` before tests. They use system Chromium when available. Browser tests manage client/server on dedicated ports 5175/3002; integration tests use ephemeral ports. Tests cover code format/collisions, sanitation, capacities, spawns/colors, room isolation, independent movement, forged state rejection, tick cadence, stale inputs, resets, cleanup, join links, interpolation, fake lag and browser behavior. Automated success does not replace the manual feel/acceptance test.
+
+Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` remains the earlier Step 2 client**: Step 3 is not published. `npm run build:pages` remains available for a later explicitly authorized publishing task; do not run/commit it to deploy this milestone yet. Pages hosts only static files, not the Node server.
+
+## Files and configuration
+
+- `shared/flight.ts`: unchanged physics values and validation.
+- `shared/rooms.ts`, `shared/protocol.ts`: room configuration, sanitization and typed events.
+- `server/rooms.ts`: room/membership/color/spawn allocation.
+- `server/game.ts`: existing fixed loop, now room-scoped.
+- `server/index.ts`: existing startup/shutdown.
+- `src/network.ts`: input/snapshot transport, room acknowledgments, reconnect and cleanup.
+- `src/main.ts`: reused Phaser scene plus room UI and multi-ship rendering.
+- `src/interpolation.ts`, `src/debug-lag.ts`, `src/room-links.ts`: visual interpolation, development timing simulation, and share links.
+- `tests/`: Node logic/server tests and Playwright browser tests.
+- `AGENTS.md`: architecture/scope rules; `MANUAL_TEST.md`: Windows acceptance instructions.
+
+`PORT` defaults to 3001. `CLIENT_ORIGINS` accepts comma-separated exact client origins (no paths/trailing slash); defaults cover localhost/127.0.0.1 on 5173/4173 and the previous Pages origin. `VITE_SERVER_URL` optionally provides the client's build-time default; the UI can override it. The server runs TypeScript via `tsx`, so install with `npm ci` including development dependencies. No API keys/database are needed. `/health` reports tick rate/count and room/player counts without exposing room codes/player state.
+
+## Concerns before Step 4
+
+- Human two-window smoothness testing is still pending. Background/hidden tabs can throttle Phaser rendering; use visible windows to assess remote interpolation.
+- Local movement has real latency by design. Step 4 testing must decide whether prediction/reconciliation is necessary; it was not added here.
+- Rooms/identities are in memory. Empty rooms and all rooms on server restart disappear; rejoin can fail cleanly.
+- This single-process development server has validation/origin checks, but no authentication, per-client rate limiting, global room cap, persistence, or load testing. Room codes are convenient join codes, not a security boundary.
+- Socket.io's in-memory adapter makes membership operations synchronous. A later distributed/async adapter needs transaction/ack ordering changes before scale-out.
+- Interpolation chooses safe freezing/catch-up over extrapolation on larger stalls. The fake-lag tool does not emulate every real-network failure.
+- Existing debug flight reset was retained for Step 2 compatibility and should be reconsidered before actual match rules.
+
+Step 4 and all later gameplay systems are intentionally unimplemented.
