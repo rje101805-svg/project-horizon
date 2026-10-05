@@ -2,6 +2,16 @@
 
 This branch is **not deployed**. Production `work` and `/docs` remain at Step 4 (`9f0c821`). Step 4's public/two-network acceptance test is still pending because of the reported Pages runner outage. Do not use the public Pages/Render deployment to test Step 5.
 
+## Acceptance record — passed
+
+On October 5, 2026, the owner reported that Step 5 manual acceptance **passed** against implementation commit `b5bc281` on `step-5-black-hole`.
+
+Confirmed locally: black-hole visuals; safe spawning; normal flight; progressive gravity strengthening toward the center; danger/influence boundary; event-horizon death; frozen/dead state with movement blocked; two-player synchronization; late joining; synchronized death visibility; disconnect cleanup; reconnect-after-death creating a new living identity at a safe spawn; room isolation; and full-speed horizon crossing/tunneling prevention.
+
+Observed pull-in time was approximately **13–15 seconds** for a stationary ship from the tested exterior approach, with clearly increasing pull near the center. This is an owner-observed timing, not a universal timing guarantee: gravity remains zero outside the influence radius. The owner checked both server and Vite terminals and reported no runtime errors or crashes. Local processes were terminated after testing.
+
+Together with the previously passing 42 automated tests and builds, this completes **Step 5 acceptance within its defined local scope**. The fixed radii and temporary death/reconnect rules remain intentional. Step 4 public/two-network acceptance is a separate pending task. No deployment, merge or Step 6 work is authorized by this acceptance record.
+
 ## Start locally
 
 Do these actions one at a time. On a computer with this checkout and Node 24 installed:
@@ -50,12 +60,8 @@ Run `npm test`, `npm run build:server`, and `npm run build` (outputs `dist/`). D
 
 Before committing, verify `git diff 9f0c821 -- docs` is empty and `git rev-parse work` still starts with `9f0c821`. Commit only on `step-5-black-hole`; do not merge into `work` or deploy.
 
-No repository Actions workflow or Render blueprint was found. `DEPLOY.md` and prior setup specify Pages `work` → `/docs` and Render `work`, but documentation does not prove current live dashboard settings. The workspace's GitHub API request returned proxy 403, and no Render dashboard access is available. **This branch must remain unpushed until both settings are confirmed:**
-
-1. GitHub repository → Settings → Pages: confirm **Deploy from a branch**, branch **work**, folder **/docs**; no other automation deploys Step 5 branches.
-2. Render → `project-horizon-server` → Settings → Build & Deploy: confirm connected repository `rje101805-svg/project-horizon`, branch **work**, and that automatic deployment follows only that branch. Do not change the branch to Step 5 or manually deploy it.
-3. Report those settings before pushing `step-5-black-hole`. Pushing is optional and must not alter production.
+Deployment triggers were manually confirmed by the owner before the implementation branch was pushed: GitHub Pages deploys only `work` → `/docs`; Render deploys only `work`, with Auto-Deploy **On Commit** and PR Previews **Off**. Implementation commit `b5bc281` was pushed to `origin/step-5-black-hole` without merging or deploying. Preserve those settings; Step 5 remains undeployed.
 
 Final automated result: **42 tests passed** (34 Node logic/real-socket tests and 8 Playwright browser tests). Server-only type check, full TypeScript check, client production build to `dist/`, and Pages-path build to `/tmp/horizon-step5-pages` passed. Production assets contain no development inspection handles or fake-lag implementation. Original Step 1–4 behavior assertions passed. `/docs` is unchanged from `9f0c821` and `work` remains at that commit.
 
-Remaining manual concerns: gravity strength/visual readability need playtesting; public Step 4 acceptance remains pending; Step 5 changes the snapshot protocol and must be tested against its matching local server, not the Step 4 server. The existing Phaser bundle-size warning remains. Step 6 has not begun.
+Remaining limitations: public Step 4 acceptance remains pending; Step 5 changes the snapshot protocol and must be tested against its matching local server, not the Step 4 server. The existing Phaser bundle-size warning remains. Step 6 has not begun.

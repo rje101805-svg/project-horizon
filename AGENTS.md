@@ -1,8 +1,8 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 5 — local black-hole sandbox on `step-5-black-hole`. Step 4's public acceptance is pending. Do not begin Step 6, combat, health/respawn, loot, planetary physics, accounts, matchmaking or match lifecycle.
+Current scope: Phase 1, Step 5 — local black-hole sandbox on `step-5-black-hole`. Step 5 local manual acceptance passed on October 5, 2026; see `STEP5_TEST.md`. Step 4's public acceptance remains pending. Do not begin Step 6, combat, health/respawn, loot, planetary physics, accounts, matchmaking or match lifecycle.
 
-Protect production: leave `work` at `9f0c821`, do not merge, deploy, rebuild or commit `docs/`. Normal `npm run build` writes `dist/`. Commit only to `step-5-black-hole`; push only after the owner confirms Pages is sourced from `work` → `/docs` and Render is configured to auto-deploy exclusively from `work`. Repo documentation describes desired settings, not verified dashboard settings.
+Protect production: leave `work` at `9f0c821`, do not merge, deploy, rebuild or commit `docs/`. Normal `npm run build` writes `dist/`. Commit only to `step-5-black-hole`; push only after the owner confirms Pages is sourced from `work` → `/docs` and Render is configured to auto-deploy exclusively from `work`. The owner confirmed these dashboard settings before pushing `b5bc281`: Render Auto-Deploy On Commit, PR Previews Off, branch work; Pages work → /docs. Keep Step 5 undeployed.
 
 ## Step 5 black hole
 

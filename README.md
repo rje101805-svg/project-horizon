@@ -1,10 +1,10 @@
-> **Branch status: Step 5 local implementation.** Step 4 remains on `work` at `9f0c821`; its public acceptance test is pending. `/docs` still contains Step 4. This branch is not deployed. See [STEP5_TEST.md](STEP5_TEST.md) for local testing, temporary death/reconnect rules and publishing safeguards.
+> **Branch status: Step 5 fully accepted locally.** Step 4 remains on `work` at `9f0c821`; its public acceptance test is pending. `/docs` still contains Step 4. This branch is not deployed. See [STEP5_TEST.md](STEP5_TEST.md) for local testing, temporary death/reconnect rules and publishing safeguards.
 
 # Project: Horizon
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 5 — local black-hole sandbox.** Room-based authoritative flight now includes a visible room-owned black hole, capped gravity, safe/danger/lethal regions, safe spawning and temporary server-owned death. Radii are fixed for this milestone. There is no combat, loot, health/respawn, landing, matchmaking, account system or match lifecycle. Step 3 is accepted; Step 4 remains the production baseline awaiting public acceptance. See [STEP5_TEST.md](STEP5_TEST.md) for this branch and [DEPLOY.md](DEPLOY.md) for the Step 4 deployment.
+**Current implementation: Phase 1, Step 5 — local black-hole sandbox.** Room-based authoritative flight now includes a visible room-owned black hole, capped gravity, safe/danger/lethal regions, safe spawning and temporary server-owned death. Radii are fixed for this milestone. The owner reported manual acceptance passed on October 5, 2026, including gravity, death, multiplayer synchronization and reconnect behavior; 42 automated tests and builds previously passed. There is no combat, loot, health/respawn, landing, matchmaking, account system or match lifecycle. Step 3 is accepted; Step 4 remains the production baseline awaiting public acceptance. See [STEP5_TEST.md](STEP5_TEST.md) for this branch and [DEPLOY.md](DEPLOY.md) for the Step 4 deployment.
 
 
 ## Run locally
