@@ -1,40 +1,51 @@
 import { test, expect } from '@playwright/test';
-import { applyDamage, blackHoleRadius } from '../src/rules';
-test('black hole grows and shields absorb damage before hull', () => {
-  expect(blackHoleRadius(60)).toBe(820);
-  expect(applyDamage(100, 20, 30)).toEqual({ health: 90, shield: 0 });
-  expect(applyDamage(10, 0, 30).health).toBe(0);
-});
-test('launch, move, collect, survive, restart and extract', async ({ page }) => {
+import type { FlightConnection } from '../src/network';
+import type Phaser from 'phaser';
+
+type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __HORIZON_GAME__: Phaser.Game };
+test('browser flies only from server snapshots, resets and disconnects cleanly', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: 'Launch solo mission' }).click();
+  await page.locator('#server-url').fill('http://127.0.0.1:3002');
+  await page.getByRole('button', { name: 'Connect and fly' }).click();
   await expect(page.locator('canvas')).toBeVisible();
-  // This handle exists only on the development server. Drive the actual scene,
-  // including collisions and finish conditions, without waiting a full minute.
-  const scene = () => page.evaluateHandle(() => (window as unknown as { __HORIZON_GAME__: { scene: { scenes: unknown[] } } }).__HORIZON_GAME__.scene.scenes[0]);
-  const handle = await scene();
-  const before = await handle.evaluate((s: any) => s.rocket.x);
+  await expect(page.locator('#status')).toContainText('server-authoritative');
+  await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
   await page.keyboard.down('d');
-  await expect.poll(() => handle.evaluate((s: any) => s.rocket.x)).toBeGreaterThan(before + 50);
-  await page.keyboard.up('d');
-  await handle.evaluate((s: any) => { const item = s.loot.find((l: any) => l.kind === 'supply'); s.vx = s.vy = 0; s.rocket.setPosition(item.x, item.y); });
-  await expect(page.locator('#inventory')).toContainText('Supplies 1 / 5');
-  await handle.evaluate((s: any) => { const item = s.loot.find((l: any) => l.kind === 'shield'); s.vx = s.vy = 0; s.rocket.setPosition(item.x, item.y); });
-  await expect(page.locator('#shield-value')).toHaveText('40');
-  await handle.evaluate((s: any) => { s.vx = s.vy = 0; s.rocket.setPosition(1200, 1200); });
-  await expect.poll(() => page.locator('#shield-value').textContent()).not.toBe('40');
-  await handle.evaluate((s: any) => { s.health = 0; });
-  await expect(page.locator('#result-title')).toHaveText('Lost to the void.');
-  await page.getByRole('button', { name: 'Play again' }).click();
-  const fresh = await scene();
-  await expect(page.locator('#health-value')).toHaveText('100');
-  await page.keyboard.press('r');
-  await expect(page.locator('#inventory')).toContainText('Supplies 0 / 5');
-  await fresh.evaluate((s: any) => { s.supplies = 5; s.elapsed = 61; s.rocket.setPosition(2220, 220); });
-  await expect(page.locator('#result-title')).toHaveText('You escaped.');
+  await expect.poll(() => page.locator('#position').textContent()).not.toBe('X 1370.0 · Y 1200.0');
+  await page.keyboard.down('Shift');
+  await expect.poll(async () => Number((await page.locator('#velocity').textContent())?.split(' ')[1])).toBeGreaterThan(350);
+  await page.keyboard.up('d'); await page.keyboard.up('Shift');
+  await page.getByRole('button', { name: 'Reset flight [R]', exact: true }).click();
+  await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
+  // Mutating the rendered rocket is overwritten by the next server snapshot.
+  await page.evaluate(() => {
+    const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
+    scene.rocket.setPosition(50, 50);
+  });
+  await expect.poll(() => page.evaluate(() => {
+    const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
+    return scene.rocket.x;
+  })).toBe(1370);
+  // Explicitly disconnect the actual transport. Keys cannot move the rocket now.
+  await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.disconnect());
+  await expect(page.locator('#status')).toContainText('Disconnected');
+  const frozen = await page.locator('#position').textContent();
+  await page.keyboard.down('d'); await page.waitForTimeout(500); await page.keyboard.up('d');
+  expect(await page.locator('#position').textContent()).toBe(frozen);
+  await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connect());
+  await expect(page.locator('#status')).toContainText('server-authoritative');
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page.locator('#home')).toBeVisible();
+  expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connected)).toBe(false);
   expect(errors).toEqual([]);
+});
+test('missing server never falls back to local movement', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#server-url').fill('http://127.0.0.1:39999');
+  await page.getByRole('button', { name: 'Connect and fly' }).click();
+  await expect(page.locator('#status')).toContainText('Cannot reach');
+  await page.keyboard.down('d'); await page.waitForTimeout(300); await page.keyboard.up('d');
+  await expect(page.locator('#position')).toHaveText('Awaiting position');
 });

@@ -7,15 +7,21 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "playwright test",
-    "build:pages": "tsc --noEmit && vite build --base=/project-horizon/ --outDir=docs && node scripts/finish-pages.mjs"
+    "test": "npm run test:server && playwright test",
+    "build:pages": "tsc --noEmit && vite build --base=/project-horizon/ --outDir=docs && node scripts/finish-pages.mjs",
+    "server": "tsx server/index.ts",
+    "server:dev": "tsx watch server/index.ts",
+    "test:server": "tsx --test tests/server.test.ts"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "socket.io": "^4.8.4",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0",
     "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3",
     "vite": "^7.1.9"
   }

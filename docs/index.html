@@ -1,3 +1,25 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e1e"><title>Project Horizon</title>  <script type="module" crossorigin src="/project-horizon/assets/index-D6UBNeOs.js"></script>
-  <link rel="stylesheet" crossorigin href="/project-horizon/assets/index-D36VZkEV.css">
-</head><body><div id="app"><header><a href="./" class="brand">◈ HORIZON</a><span class="badge">SOLO PROTOTYPE · 01</span></header><main><section id="home"><p class="eyebrow">BEYOND THE EVENT HORIZON</p><h1>Outrun<br>the inevitable.</h1><p class="intro">Launch into a collapsing solar system. Explore distant planets, gather supplies, and survive the pull of the void.</p><div class="selection"><label>PILOT<select id="pilot"><option>Nova</option><option>Orion</option><option>Vega</option></select></label><label>ROCKET<select id="rocket"><option value="cyan">Spectre / Cyan</option><option value="orange">Ember / Orange</option><option value="purple">Violet / Purple</option></select></label></div><button id="play">Launch solo mission ↗</button><p class="small">Cosmetic selection · Multiplayer rooms coming later</p><div class="brief"><span>01 / EXPLORE</span><span>02 / COLLECT</span><span>03 / SURVIVE</span></div></section><section id="mission" hidden><div class="mission-top"><div><p class="eyebrow">LIVE MISSION</p><h2>Escape the collapse</h2></div><button id="restart" class="secondary">Restart [R]</button></div><div class="telemetry"><label>HULL <meter id="health" min="0" max="100" value="100"></meter><span id="health-value">100</span></label><label>SHIELD <meter id="shield" min="0" max="100" value="0"></meter><span id="shield-value">0</span></label><div id="inventory">Supplies 0 / 5</div><div id="timer">00:00</div></div><div id="game"></div><div class="mission-bottom"><span id="status" role="status">Collect 5 supplies. Reach the beacon after 60 seconds.</span><span>WASD / arrows · Shift boost · R restart</span></div></section><section id="results" hidden aria-live="polite"><p class="eyebrow">MISSION COMPLETE</p><h1 id="result-title"></h1><p id="result-detail"></p><button id="again">Play again ↗</button><button id="home-button" class="secondary">Back to home</button></section></main><footer><span>PROJECT HORIZON</span><span>Launch → explore → loot → survive</span><span>Phaser + TypeScript</span></footer></div></body></html>
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e1e"><title>Project Horizon</title>  <script type="module" crossorigin src="/project-horizon/assets/index-Bqm6Z-Vg.js"></script>
+  <link rel="stylesheet" crossorigin href="/project-horizon/assets/index-BczzKS56.css">
+</head>
+<body><div id="app">
+<header><a href="./" class="brand">◈ HORIZON</a><span class="badge">FLIGHT SANDBOX · STEP 2</span></header>
+<main>
+<section id="home">
+<p class="eyebrow">BEYOND THE EVENT HORIZON</p><h1>Project:<br>Horizon.</h1>
+<p class="intro">Explore the flight sandbox. Your rocket’s movement is calculated by the game server, 30 times per second.</p>
+<div class="selection"><label>PILOT<select id="pilot"><option>Nova</option><option>Orion</option><option>Vega</option></select></label><label>ROCKET<select id="rocket"><option value="cyan">Spectre / Cyan</option><option value="orange">Ember / Orange</option><option value="purple">Violet / Purple</option></select></label></div>
+<label class="endpoint">FLIGHT SERVER URL<input id="server-url" type="url" placeholder="https://your-flight-server.example" aria-describedby="server-help"></label>
+<p id="server-help" class="small">Local server: http://localhost:3001. GitHub Pages needs a separately hosted HTTPS server.</p>
+<button id="play">Connect and fly →</button><p class="small">Cosmetic selection · Rooms and combat are planned</p>
+</section>
+<section id="mission" hidden>
+<div class="mission-top"><div><p class="eyebrow">SERVER FLIGHT SANDBOX</p><h2>Explore the solar system</h2></div><div><button id="restart" class="secondary">Reset flight [R]</button> <button id="leave" class="secondary">Back to home</button></div></div>
+<div class="telemetry"><div id="position">Awaiting position</div><div id="velocity">Speed —</div><div id="tick">Server tick —</div></div>
+<div id="game"></div>
+<div class="mission-bottom"><span id="status" role="status">Connecting to flight server…</span><span>WASD / arrows · Shift boost · Mouse aim · R reset</span></div>
+</section>
+</main>
+<footer><span>PROJECT HORIZON</span><span>Phase 1 · Step 2: Server game loop</span><span>Phaser + TypeScript + Socket.io</span></footer>
+</div></body></html>
