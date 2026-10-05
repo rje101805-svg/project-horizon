@@ -1,10 +1,11 @@
+import { simulatePlayer } from './simulation';
 import { createServer } from 'node:http';
 import { performance } from 'node:perf_hooks';
 import { Server } from 'socket.io';
-import { idleInput, INPUT_TIMEOUT_MS, parseInput, stepFlight, TICK_MS, TICK_RATE } from '../shared/flight';
+import { parseInput, TICK_MS, TICK_RATE } from '../shared/flight';
 import type { ClientEvents, ServerEvents } from '../shared/protocol';
 
-import { chooseSpawn, RoomStore, roomChannel } from './rooms';
+import { RoomStore, roomChannel } from './rooms';
 
 export function createGameServer(allowedOrigins: string[], store = new RoomStore()) {
   const http = createServer((req, res) => {
@@ -41,27 +42,21 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     socket.on('input', raw => {
       const player = store.roomFor(socket.id)?.players.get(socket.id);
       const input = parseInput(raw);
-      if (player && input) { player.input = input; player.lastInput = performance.now(); }
+      if (player?.state.lifeState === 'active' && input) { player.input = input; player.lastInput = performance.now(); }
     });
     // Preserve Step 2's explicit debug reset; safe positions still server-owned.
-    socket.on('resetFlight', () => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player) player.reset = true; });
+    socket.on('resetFlight', () => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player?.state.lifeState === 'active') player.reset = true; });
     socket.on('disconnect', leave);
   });
   function simulate(now: number) {
     tick++;
     for (const room of store.rooms.values()) {
       for (const player of room.players.values()) {
-        if (player.reset) {
-          const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player).map(p => p.state));
-          if (spawn) Object.assign(player.state, spawn);
-          player.input = idleInput(); player.reset = false;
-        }
-        if (now - player.lastInput > INPUT_TIMEOUT_MS) player.input = { ...idleInput(), aim: player.state.rotation };
-        stepFlight(player.state, player.input);
+        simulatePlayer(player, room, now);
       }
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        tick, timeMs: tick * TICK_MS, roomCode: room.code,
+        tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
     }

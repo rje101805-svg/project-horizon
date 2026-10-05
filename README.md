@@ -1,16 +1,18 @@
+> **Branch status: Step 5 local implementation.** Step 4 remains on `work` at `9f0c821`; its public acceptance test is pending. `/docs` still contains Step 4. This branch is not deployed. See [STEP5_TEST.md](STEP5_TEST.md) for local testing, temporary death/reconnect rules and publishing safeguards.
+
 # Project: Horizon
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 4 — Deploy Early.** The accepted Step 3 room-based flight sandbox, now prepared for real internet play with Render and GitHub Pages. There is no combat, black hole, loot, health, landing, matchmaking, account system or match lifecycle. Step 3 has been manually accepted; the Step 4 public internet acceptance test remains pending. See [DEPLOY.md](DEPLOY.md) for actual deployment settings and verification limits.
+**Current implementation: Phase 1, Step 5 — local black-hole sandbox.** Room-based authoritative flight now includes a visible room-owned black hole, capped gravity, safe/danger/lethal regions, safe spawning and temporary server-owned death. Radii are fixed for this milestone. There is no combat, loot, health/respawn, landing, matchmaking, account system or match lifecycle. Step 3 is accepted; Step 4 remains the production baseline awaiting public acceptance. See [STEP5_TEST.md](STEP5_TEST.md) for this branch and [DEPLOY.md](DEPLOY.md) for the Step 4 deployment.
+
 
 ## Run locally
 
 Use Node.js 22.12+ (Node 24 LTS recommended). From your project folder:
 
 ```sh
-git switch work
-git pull
+git switch step-5-black-hole
 npm ci
 npm run server
 ```
@@ -25,7 +27,7 @@ Open **http://localhost:5173**, enter a display name, leave the server URL at **
 
 See [MANUAL_TEST.md](MANUAL_TEST.md) for one-action-at-a-time Windows instructions and the full two-client acceptance test, including fake lag and disconnects.
 
-Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This reset is not a death/respawn mechanic. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
+Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This reset is not a death/respawn mechanic and is rejected after black-hole death. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
 
 ## Rooms and identity
 
@@ -33,7 +35,7 @@ Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, R/Reset fli
 - Cap: **8 players**, shared in `shared/rooms.ts`. Eight distinct predefined colors are allocated within a room, released on departure. Increasing the cap also requires expanding the palette.
 - Names have controls removed, whitespace trimmed, and at most 16 Unicode code points; empty/invalid names become `Pilot`. They are rendered as plain text, never HTML. The browser field also limits typed names.
 - Each socket has a unique server-side socket ID. The server owns name/color, room membership, input, position, velocity and rotation. No persistent identity or authentication.
-- Spawn selection searches a deterministic grid near the previous start, within map bounds, keeping at least 180 units from existing ships. The first player starts at X1370/Y1200. Clients cannot choose spawn coordinates.
+- Spawn selection searches a deterministic grid near the previous start, within map bounds, keeping at least 180 units from existing ships and outside black-hole influence plus 80 units clearance. The first player starts at X1370/Y1200. Clients cannot choose spawn coordinates.
 - One socket belongs to at most one gameplay room. Leave before changing rooms. Snapshots/membership broadcasts target only `flight:<room code>`; sockets outside rooms receive no gameplay snapshots.
 - Leaving, closing a tab or losing the connection removes membership and releases resources. Last departure deletes the room. A network outage is detected by Socket.io heartbeat timeout; it is not always instantaneous.
 - Reconnect uses a new socket identity and tries to rejoin the old room if it still exists. If nobody kept it alive, or the server restarted, return home with a clear error and create/join again. Rooms/sessions are deliberately not persistent.
@@ -73,11 +75,13 @@ npm run server:dev   # Optional server restart-on-edit mode
 
 If needed, run `npx playwright install chromium` before tests. They use system Chromium when available. Browser tests manage client/server on dedicated ports 5175/3002; integration tests use ephemeral ports. Tests cover code format/collisions, sanitation, capacities, spawns/colors, room isolation, independent movement, forged state rejection, tick cadence, stale inputs, resets, cleanup, join links, interpolation, fake lag and browser behavior. Automated success does not replace the manual feel/acceptance test.
 
-Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` is now the Step 4 production client**, configured for `https://project-horizon-server.onrender.com` by `.env.production`. `npm run build:pages` now requires the actual HTTPS server URL; rebuild and commit `docs/` when client code or its public URL changes. Confirm the footer build ID matches `docs/build.json`. Pages hosts only static files, not the Node server.
+Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` is now the Step 4 production client**, configured for `https://project-horizon-server.onrender.com` by `.env.production`. `npm run build:pages` now requires the actual HTTPS server URL; do not rebuild or commit `docs/` on this branch. Confirm the footer build ID matches `docs/build.json`. Pages hosts only static files, not the Node server.
 
 ## Files and configuration
 
-- `shared/flight.ts`: unchanged physics values and validation.
+- `shared/flight.ts`: original flight values/validation, with optional server-owned acceleration.
+- `shared/black-hole.ts`: state/constants, gravity, region and swept horizon helpers.
+- `server/simulation.ts`: per-player authoritative gravity/death step.
 - `shared/rooms.ts`, `shared/protocol.ts`: room configuration, sanitization and typed events.
 - `server/rooms.ts`: room/membership/color/spawn allocation.
 - `server/game.ts`: existing fixed loop, now room-scoped.
@@ -100,7 +104,7 @@ Phaser still gives a bundle-size warning; builds succeed. Production type-checki
 - Interpolation chooses safe freezing/catch-up over extrapolation on larger stalls. The fake-lag tool does not emulate every real-network failure.
 - Existing debug flight reset was retained for Step 2 compatibility and should be reconsidered before actual match rules.
 
-Step 4 deployment preparation is documented in DEPLOY.md; later gameplay systems remain unimplemented.
+Step 4 deployment preparation is documented in DEPLOY.md; Step 5 manual acceptance is documented in STEP5_TEST.md; Step 6 and later systems remain unimplemented.
 
 ## Public Step 4 client
 
@@ -108,4 +112,4 @@ Client: https://rje101805-svg.github.io/project-horizon/
 Server: https://project-horizon-server.onrender.com
 Health: https://project-horizon-server.onrender.com/health
 
-Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not begin Step 5.
+Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not deploy this Step 5 branch or begin Step 6.

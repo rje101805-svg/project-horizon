@@ -27,7 +27,7 @@ export function parseInput(value: unknown): PlayerInput | null {
     boost: v.boost as boolean, aim: Math.atan2(Math.sin(v.aim), Math.cos(v.aim)) };
 }
 // This function is NOT called by the browser. No local prediction in Step 3.
-export function stepFlight(state: FlightState, input: PlayerInput): void {
+export function stepFlight(state: FlightState, input: PlayerInput, acceleration = { x: 0, y: 0 }): void {
   const dx = Number(input.right) - Number(input.left);
   const dy = Number(input.down) - Number(input.up);
   const length = Math.hypot(dx, dy) || 1;
@@ -35,6 +35,8 @@ export function stepFlight(state: FlightState, input: PlayerInput): void {
   const blend = 1 - Math.exp(-RESPONSE * TICK_SECONDS);
   state.vx += (dx / length * speed - state.vx) * blend;
   state.vy += (dy / length * speed - state.vy) * blend;
+  state.vx += acceleration.x * TICK_SECONDS;
+  state.vy += acceleration.y * TICK_SECONDS;
   state.x = Math.max(EDGE_MARGIN, Math.min(WORLD - EDGE_MARGIN, state.x + state.vx * TICK_SECONDS));
   state.y = Math.max(EDGE_MARGIN, Math.min(WORLD - EDGE_MARGIN, state.y + state.vy * TICK_SECONDS));
   state.rotation = input.aim;

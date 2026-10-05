@@ -1,3 +1,4 @@
+import type { BlackHoleState } from '../shared/black-hole';
 import Phaser from 'phaser';
 import './style.css';
 import { WORLD, spawnFlight } from '../shared/flight';
@@ -16,6 +17,8 @@ let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
 class Horizon extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Container;
+  private holeVisual!: Phaser.GameObjects.Graphics;
+  private holeKey = '';
   private map!: Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private connection!: FlightConnection;
@@ -39,6 +42,8 @@ class Horizon extends Phaser.Scene {
       g.fillStyle(0x080e1e, .25).fillCircle(p.x + p.r * .35, p.y - p.r * .15, p.r * .8);
       this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
     }
+    this.holeVisual = this.add.graphics().setDepth(2);
+    if (connection?.room) this.drawBlackHole(connection.room.blackHole);
     const spawn = spawnFlight();
     this.rocket = this.add.container(spawn.x, spawn.y).setDepth(4);
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
@@ -82,7 +87,9 @@ class Horizon extends Phaser.Scene {
   private placeShip(player: PlayerState) {
     const ship = this.ships.get(player.id) ?? this.addShip(player);
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
-    ship.label.setPosition(player.x, player.y + 27);
+    ship.body.setAlpha(player.lifeState === 'dead' ? .25 : 1);
+    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (player.lifeState === 'dead' ? ' · LOST' : ''));
+
   }
   acceptSnapshot(snapshot: Snapshot) {
     if (!this.ready) return;
@@ -90,11 +97,26 @@ class Horizon extends Phaser.Scene {
     if (!local) return;
     // Local player: latest authoritative state, no prediction or interpolation.
     this.removeShips(snapshot.players.map(p => p.id));
+    this.drawBlackHole(snapshot.blackHole);
     this.placeShip(local);
+    el('black-hole-status').textContent = local.lifeState === 'dead' ? 'Lost to the black hole. Leave and rejoin for a new identity; reset is disabled.' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
+    el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead';
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
     el('tick').textContent = `Server tick ${snapshot.tick}`;
     this.interpolator.push(snapshot, performance.now());
+  }
+  private drawBlackHole(hole: BlackHoleState) {
+    const key = JSON.stringify(hole);
+    if (key === this.holeKey) return;
+    this.holeKey = key;
+    const g = this.holeVisual;
+    g.clear().fillStyle(0x8149c9, .07).fillCircle(hole.x, hole.y, hole.influenceRadius);
+    g.lineStyle(2, 0xbb80ff, .45).strokeCircle(hole.x, hole.y, hole.influenceRadius);
+    for (let i = 5; i > 0; i--) g.lineStyle(i * 3, 0x9b65ff, .07).strokeCircle(hole.x, hole.y, hole.eventHorizonRadius + 12);
+    g.lineStyle(5, 0xffca85, .9).strokeEllipse(hole.x, hole.y, hole.eventHorizonRadius * 2.8, hole.eventHorizonRadius * 1.1);
+    g.fillStyle(0x010208).fillCircle(hole.x, hole.y, hole.eventHorizonRadius);
+    g.lineStyle(2, 0xd6abff).strokeCircle(hole.x, hole.y, hole.eventHorizonRadius);
   }
   removeShips(ids: string[]) {
     if (!this.ready) return;
@@ -125,6 +147,11 @@ class Horizon extends Phaser.Scene {
     this.map.clear().fillStyle(0x0e1729, .95).fillRoundedRect(x - 5, y - 5, size + 10, size + 10, 8);
     this.map.lineStyle(1, 0x384c68).strokeRect(x, y, size, size);
     for (const p of planets) this.map.fillStyle(p.color).fillCircle(x + p.x * s, y + p.y * s, p.r * s);
+    const hole = this.connection.latest?.blackHole ?? this.connection.room?.blackHole;
+    if (hole) {
+      this.map.lineStyle(1, 0xbb80ff, .7).strokeCircle(x + hole.x * s, y + hole.y * s, hole.influenceRadius * s);
+      this.map.fillStyle(0xd6abff).fillCircle(x + hole.x * s, y + hole.y * s, hole.eventHorizonRadius * s);
+    }
     for (const [id, ship] of this.ships) {
       const color = this.connection.latest?.players.find(p => p.id === id)?.color ?? 0xffffff;
       this.map.fillStyle(color).fillCircle(x + ship.body.x * s, y + ship.body.y * s, id === this.connection.socket.id ? 3 : 2);
@@ -132,6 +159,8 @@ class Horizon extends Phaser.Scene {
   }
 }
 function launch() {
+  el<HTMLButtonElement>('restart').disabled = false;
+  el('black-hole-status').textContent = 'Awaiting authoritative region';
   el('position').textContent = 'Awaiting position';
   el('velocity').textContent = 'Speed —';
   el('tick').textContent = 'Server tick —';

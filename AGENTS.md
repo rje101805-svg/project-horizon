@@ -1,6 +1,18 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 4 — deploy the accepted rooms/flight build early. Do not implement Step 5 or add combat, health, death/respawn, loot, black holes, planetary physics, accounts or matchmaking unless explicitly requested. The previous Step 2 reset is retained only as an explicit flight-sandbox/debug control, not a death/respawn system.
+Current scope: Phase 1, Step 5 — local black-hole sandbox on `step-5-black-hole`. Step 4's public acceptance is pending. Do not begin Step 6, combat, health/respawn, loot, planetary physics, accounts, matchmaking or match lifecycle.
+
+Protect production: leave `work` at `9f0c821`, do not merge, deploy, rebuild or commit `docs/`. Normal `npm run build` writes `dist/`. Commit only to `step-5-black-hole`; push only after the owner confirms Pages is sourced from `work` → `/docs` and Render is configured to auto-deploy exclusively from `work`. Repo documentation describes desired settings, not verified dashboard settings.
+
+## Step 5 black hole
+
+- `shared/black-hole.ts` centralizes fixed initial radii/position, gravity cap/strength, spawn clearance, region classification and swept horizon checks. Each `GameRoom` owns a fresh black-hole state; `RoomInfo` acknowledgments and every `Snapshot` contain its complete current state. No growth clock or match lifecycle yet.
+- `server/simulation.ts` is called once per player by the existing 30Hz loop. It passes gravity acceleration into `stepFlight`; the browser never runs it. Gravity is zero outside influence, capped inverse-square inside, and finite at center. Existing response/speeds/inertia are unchanged in safe space.
+- Spawn/reset selection excludes influence radius plus clearance and preserves separation. All joins/reconnects use it; fail cleanly if no safe candidate exists.
+- `PlayerState.lifeState` (`active`/`dead`) is distinct from socket/room membership. Death is a swept inclusive segment-circle check, including tangent and exterior-to-exterior crossings. Dead ships remain frozen in snapshots/roster, ignore input/reset, and are dimmed/labeled LOST. This is temporary Step 5 behavior, not persistent lives or respawn.
+- Reconnect creates a new socket identity and a safe active ship if the room survives. Death is not retained across identities; if the last socket leaves, room deletion/reconnect failure remains unchanged. No persistent session claims.
+- Remote death immediately uses the newest authoritative position/status instead of interpolating back through alive states. Other remote flight retains interpolation. Client region warnings use the server's classification, never client-derived gameplay decisions.
+
 
 ## Authority and rooms
 
@@ -25,7 +37,7 @@ Current scope: Phase 1, Step 4 — deploy the accepted rooms/flight build early.
 
 `npm test` runs Node logic/real-socket integration tests and Playwright browser tests on dedicated ports 3002/5175. `npm run build` checks client/server/shared/tests and builds `dist/`. System Chromium is used when installed; otherwise install Playwright Chromium.
 
-Step 4 authorizes publishing the client/server once the actual Render URL and dashboard setup are resolved. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
+Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Step 5. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
 
 Render deploys from the repository ROOT (`server/` imports `shared/`). `PORT` and `0.0.0.0` binding are already supported. `tsx` is a runtime dependency; `npm run server`/`npm start` run the same authoritative process. See `DEPLOY.md` for commands that also work on the existing pushed Step 3 code while obtaining the real service URL before the final Step 4 commit.
 

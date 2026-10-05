@@ -30,7 +30,7 @@ export class RemoteInterpolator {
     return latest.players.filter(p => p.id !== selfId).map(player => {
       const a = before.players.find(p => p.id === player.id);
       const b = after.players.find(p => p.id === player.id);
-      if (!a || !b) return { ...player }; // new arrival, no earlier sample
+      if (player.lifeState === 'dead' || !a || !b) return { ...player }; // new arrival, no earlier sample
       const angle = Math.atan2(Math.sin(b.rotation - a.rotation), Math.cos(b.rotation - a.rotation));
       return { ...player, x: a.x + (b.x - a.x) * fraction, y: a.y + (b.y - a.y) * fraction,
         rotation: a.rotation + angle * fraction };

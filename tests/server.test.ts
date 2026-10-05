@@ -1,3 +1,5 @@
+import { RoomStore } from '../server/rooms';
+import { createBlackHole, classifyRegion } from '../shared/black-hole';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io } from 'socket.io-client';
@@ -71,8 +73,8 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
   } finally { socket.disconnect(); await server.close(); }
 });
 
-async function setup() {
-  const server = createGameServer([]); const sockets: Socket<ServerEvents, ClientEvents>[] = [];
+async function setup(store?: RoomStore) {
+  const server = createGameServer([], store); const sockets: Socket<ServerEvents, ClientEvents>[] = [];
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}`;
@@ -160,4 +162,40 @@ test('origin policy admits Pages-style HTTPS origin and rejects unrelated WebSoc
     const connected = new Promise<void>((resolve, reject) => { allowed.once('connect', () => resolve()); allowed.once('connect_error', reject); }); allowed.connect(); await connected;
     const rejected = new Promise<void>(resolve => denied.once('connect_error', () => resolve())); denied.connect(); await rejected; assert.equal(denied.connected, false);
   } finally { allowed.disconnect(); denied.disconnect(); await server.close(); }
+});
+
+test('room snapshots agree on black hole/death; late join and reconnect get complete state and safe new identity', async () => {
+  const store = new RoomStore(() => 'ABCD'); const t = await setup(store);
+  try {
+    const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
+    assert.deepEqual(result.room.blackHole, createBlackHole());
+    await t.join(b, result.room.code);
+    const room = store.rooms.get(result.room.code)!;
+    // A server-side fixture, never a network position command. Customize state
+    // to prove late joins receive current room state rather than client defaults.
+    room.blackHole.eventHorizonRadius = 95;
+    const player = room.players.get(a.id!)!;
+    Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000 });
+    const [sa, sb] = await Promise.all([
+      nextSnapshot(a, s => s.players.find(p => p.id === a.id)?.lifeState === 'dead'),
+      nextSnapshot(b, s => s.players.find(p => p.id === a.id)?.lifeState === 'dead'),
+    ]);
+    assert.equal(sa.tick, sb.tick); assert.deepEqual(sa.blackHole, sb.blackHole); assert.deepEqual(sa.players, sb.players);
+    const frozen = sa.players.find(p => p.id === a.id)!;
+    a.emit('resetFlight'); a.emit('input', { ...idleInput(), right: true });
+    assert.deepEqual((await nextSnapshot(a, s => s.tick > sa.tick + 2)).players.find(p => p.id === a.id), frozen);
+    const late = await t.connect(); const joined = await t.join(late, room.code); assert.ok(joined.ok);
+    assert.deepEqual(joined.room.blackHole, room.blackHole);
+    const lateState = await nextSnapshot(late);
+    assert.deepEqual(lateState.blackHole, room.blackHole);
+    assert.equal(lateState.players.find(p => p.id === a.id)?.lifeState, 'dead');
+    const oldId = a.id!; a.disconnect();
+    await new Promise(r => setTimeout(r, 60));
+    const newIdentity = await t.connect(); const rejoined = await t.join(newIdentity, room.code); assert.ok(rejoined.ok);
+    assert.notEqual(rejoined.selfId, oldId);
+    const recovered = await nextSnapshot(newIdentity);
+    assert.equal(recovered.players.some(p => p.id === oldId), false);
+    const newPlayer = recovered.players.find(p => p.id === newIdentity.id)!;
+    assert.equal(newPlayer.lifeState, 'active'); assert.equal(classifyRegion(newPlayer, recovered.blackHole), 'safe');
+  } finally { await t.close(); }
 });

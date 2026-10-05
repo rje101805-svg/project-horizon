@@ -1,3 +1,4 @@
+import { createBlackHole } from '../shared/black-hole';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RemoteInterpolator } from '../src/interpolation';
@@ -5,7 +6,7 @@ import { roomFromSearch, roomLink } from '../src/room-links';
 import { spawnFlight } from '../shared/flight';
 import type { Snapshot } from '../shared/protocol';
 function frame(tick: number, timeMs: number, x: number, rotation = 0): Snapshot {
-  return { tick, timeMs, roomCode: 'ABCD', players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, x, rotation }] };
+  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, lifeState: 'active', region: 'safe' }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, lifeState: 'active', region: 'safe', x, rotation }] };
 }
 test('remote rendering blends buffered positions and excludes local player', () => {
   const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0); buffer.push(frame(2, 100, 100), 100);
@@ -29,4 +30,11 @@ test('join links normalize valid codes, reject invalid codes, preserve Pages pat
   assert.equal(roomFromSearch('?room=abcd'), 'ABCD'); assert.equal(roomFromSearch('?room=ABIO'), null); assert.equal(roomFromSearch('?x=1'), null);
   const link = roomLink('https://example.github.io/project-horizon/?x=1#top', 'ABCD');
   assert.equal(link, 'https://example.github.io/project-horizon/?x=1&room=ABCD#top');
+});
+
+test('remote death freezes at newest authoritative position without interpolation rewind', () => {
+  const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0);
+  const dead = frame(2, 100, 100); dead.players[1].lifeState = 'dead'; dead.players[1].region = 'lethal';
+  buffer.push(dead, 100); const remote = buffer.sample(150, 'me')[0];
+  assert.equal(remote.x, 100); assert.equal(remote.lifeState, 'dead');
 });
