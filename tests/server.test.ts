@@ -136,3 +136,28 @@ test('intentional leave/disconnect emits membership updates and cleans empty roo
     a.disconnect(); await new Promise(r => setTimeout(r, 100)); const health = await t.health(); assert.equal(health.players, 0); assert.equal(health.rooms, 0);
   } finally { await t.close(); }
 });
+
+test('real RTT probe acknowledges immediately and health remains lightweight and uncached', async () => {
+  const t = await setup();
+  try {
+    const socket = await t.connect(); const started = performance.now();
+    await new Promise<void>((resolve, reject) => socket.timeout(1000).emit('latencyProbe', error => error ? reject(error) : resolve()));
+    assert.ok(performance.now() - started < 1000);
+    const address = t.server.http.address(); assert.ok(address && typeof address !== 'string');
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`);
+    assert.equal(response.status, 200); assert.equal(response.headers.get('cache-control'), 'no-store');
+    const data = await response.json(); assert.equal(data.ok, true); assert.equal(data.tickRate, 30); assert.equal(data.rooms, 0);
+  } finally { await t.close(); }
+});
+test('origin policy admits Pages-style HTTPS origin and rejects unrelated WebSocket origins', async () => {
+  const server = createGameServer(['https://example.github.io']);
+  await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
+  const address = server.http.address(); assert.ok(address && typeof address !== 'string');
+  const url = `http://127.0.0.1:${address.port}`;
+  const allowed = io(url, { transports: ['websocket'], extraHeaders: { Origin: 'https://example.github.io' }, autoConnect: false });
+  const denied = io(url, { transports: ['websocket'], extraHeaders: { Origin: 'https://unrelated.example' }, autoConnect: false, reconnection: false });
+  try {
+    const connected = new Promise<void>((resolve, reject) => { allowed.once('connect', () => resolve()); allowed.once('connect_error', reject); }); allowed.connect(); await connected;
+    const rejected = new Promise<void>(resolve => denied.once('connect_error', () => resolve())); denied.connect(); await rejected; assert.equal(denied.connected, false);
+  } finally { allowed.disconnect(); denied.disconnect(); await server.close(); }
+});

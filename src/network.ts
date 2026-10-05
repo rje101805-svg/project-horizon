@@ -7,6 +7,7 @@ export interface ConnectionCallbacks {
   room: (room: RoomInfo) => void;
   status: (message: string) => void;
   roomLost: (message: string) => void;
+  ping?: (milliseconds: number | null) => void;
 }
 export class FlightConnection {
   readonly socket: Socket<ServerEvents, ClientEvents>;
@@ -19,12 +20,16 @@ export class FlightConnection {
   private epoch = 0;
   private name = 'Pilot';
   private closed = false;
+  private cancelWait: (() => void) | null = null;
+  private lastProbe = 0;
+  private probing = false;
   private readonly lag = import.meta.env.DEV ? new DebugLag() : null;
   constructor(url: string, private callbacks: ConnectionCallbacks) {
-    this.socket = io(url, { autoConnect: false });
+    this.socket = io(url, { autoConnect: false, reconnectionDelay: 2000, reconnectionDelayMax: 5000, timeout: 10000 });
     this.socket.on('connect', () => {
       this.invalidate(); this.tick = -1; this.input = idleInput(); this.lastSnapshot = Date.now();
       callbacks.status('Connected · awaiting room');
+      this.lastProbe = 0;
       if (this.room) {
         const code = this.room.code;
         void this.request('join', this.name, code).then(result => {
@@ -51,9 +56,10 @@ export class FlightConnection {
       };
       if (this.lag) this.lag.schedule('snapshot', accept); else accept();
     });
-    this.socket.on('disconnect', () => { this.invalidate(); this.input = idleInput(); callbacks.status('Disconnected · flight frozen · reconnecting…'); });
-    this.socket.on('connect_error', () => callbacks.status('Cannot reach flight server. Start it or check the server URL.'));
+    this.socket.on('disconnect', () => { this.invalidate(); this.input = idleInput(); callbacks.ping?.(null); callbacks.status('Disconnected · flight frozen · reconnecting…'); });
+    this.socket.on('connect_error', () => callbacks.status('Cannot reach flight server yet · server may be waking up · retrying automatically…'));
     this.timer = setInterval(() => {
+      if (this.socket.connected && Date.now() - this.lastProbe >= 3000) this.measurePing();
       if (this.socket.connected && this.room) {
         const input = { ...this.input }, epoch = this.epoch;
         const send = () => { if (epoch === this.epoch && this.socket.connected && this.room) this.socket.volatile.emit('input', input); };
@@ -65,13 +71,19 @@ export class FlightConnection {
   async enter(mode: 'create' | 'join', name: string, code = ''): Promise<RoomResult> {
     this.name = name;
     if (!this.socket.connected) {
+      this.callbacks.status('Connecting to server…');
       const connected = await new Promise<boolean>(resolve => {
-        const done = () => { clearTimeout(timer); this.socket.off('connect', onConnect); resolve(true); };
-        const onConnect = () => done();
-        const timer = setTimeout(() => { this.socket.off('connect', onConnect); resolve(false); }, 4000);
+        const finish = (success: boolean) => {
+          clearTimeout(timer); clearTimeout(waking); this.socket.off('connect', onConnect);
+          this.cancelWait = null; resolve(success);
+        };
+        const onConnect = () => finish(true);
+        const waking = setTimeout(() => this.callbacks.status('Server may be waking up · retrying automatically…'), 8000);
+        const timer = setTimeout(() => finish(false), 120000);
+        this.cancelWait = () => finish(false);
         this.socket.once('connect', onConnect); this.socket.connect();
       });
-      if (!connected || this.closed) return { ok: false, error: 'Cannot reach flight server. Start it or check the server URL.' };
+      if (!connected || this.closed) return { ok: false, error: 'Cannot reach flight server after waiting. Check the URL and /health, then try again.' };
     }
     return this.request(mode, name, code);
   }
@@ -90,6 +102,16 @@ export class FlightConnection {
       else this.socket.timeout(4000).emit('joinRoom', { name, code }, reply);
     });
   }
+  private measurePing() {
+    if (this.probing || !this.socket.connected || this.closed) return;
+    this.probing = true; this.lastProbe = Date.now();
+    const started = performance.now(), id = this.socket.id;
+    // Actual Socket.io acknowledgment RTT. Never routed through DebugLag.
+    this.socket.timeout(5000).emit('latencyProbe', error => {
+      this.probing = false;
+      if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
+    });
+  }
   private invalidate() { this.epoch++; this.lag?.clear(); this.latest = null; }
   setInput(input: PlayerInput) { this.input = input; }
   setFakeLag(enabled: boolean) { this.lag?.setEnabled(enabled); this.release(); }
@@ -97,7 +119,7 @@ export class FlightConnection {
   reset() { this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight'); }
   close() {
     if (this.closed) return;
-    this.closed = true; this.invalidate(); this.room = null; clearInterval(this.timer);
+    this.closed = true; this.cancelWait?.(); this.invalidate(); this.room = null; clearInterval(this.timer);
     if (this.socket.connected) this.socket.emit('leaveRoom', () => {});
     this.socket.removeAllListeners(); this.socket.disconnect();
   }

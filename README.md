@@ -2,7 +2,7 @@
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 3 — Two Players and Rooms.** A room-based flight sandbox. There is no combat, black hole, loot, health, landing, matchmaking, account system or match lifecycle. Step 4 and public deployment have not started. The user's manual acceptance test remains required.
+**Current implementation: Phase 1, Step 4 — Deploy Early.** The accepted Step 3 room-based flight sandbox, now prepared for real internet play with Render and GitHub Pages. There is no combat, black hole, loot, health, landing, matchmaking, account system or match lifecycle. Step 3 has been manually accepted; the Step 4 public internet acceptance test remains pending. See [DEPLOY.md](DEPLOY.md) for actual deployment settings and verification limits.
 
 ## Run locally
 
@@ -73,7 +73,7 @@ npm run server:dev   # Optional server restart-on-edit mode
 
 If needed, run `npx playwright install chromium` before tests. They use system Chromium when available. Browser tests manage client/server on dedicated ports 5175/3002; integration tests use ephemeral ports. Tests cover code format/collisions, sanitation, capacities, spawns/colors, room isolation, independent movement, forged state rejection, tick cadence, stale inputs, resets, cleanup, join links, interpolation, fake lag and browser behavior. Automated success does not replace the manual feel/acceptance test.
 
-Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` remains the earlier Step 2 client**: Step 3 is not published. `npm run build:pages` remains available for a later explicitly authorized publishing task; do not run/commit it to deploy this milestone yet. Pages hosts only static files, not the Node server.
+Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` is now the Step 4 production client**, configured for `https://project-horizon-server.onrender.com` by `.env.production`. `npm run build:pages` now requires the actual HTTPS server URL; rebuild and commit `docs/` when client code or its public URL changes. Confirm the footer build ID matches `docs/build.json`. Pages hosts only static files, not the Node server.
 
 ## Files and configuration
 
@@ -90,14 +90,22 @@ Phaser still gives a bundle-size warning; builds succeed. Production type-checki
 
 `PORT` defaults to 3001. `CLIENT_ORIGINS` accepts comma-separated exact client origins (no paths/trailing slash); defaults cover localhost/127.0.0.1 on 5173/4173 and the previous Pages origin. `VITE_SERVER_URL` optionally provides the client's build-time default; the UI can override it. The server runs TypeScript via `tsx`, so install with `npm ci` including development dependencies. No API keys/database are needed. `/health` reports tick rate/count and room/player counts without exposing room codes/player state.
 
-## Concerns before Step 4
+## Remaining public acceptance checks
 
-- Human two-window smoothness testing is still pending. Background/hidden tabs can throttle Phaser rendering; use visible windows to assess remote interpolation.
-- Local movement has real latency by design. Step 4 testing must decide whether prediction/reconciliation is necessary; it was not added here.
+- Step 3 local manual testing passed; two-computer real-network acceptance is still pending. Background/hidden tabs can throttle Phaser rendering; use visible windows to assess remote interpolation.
+- Local movement has real latency by design. Real-network testing must decide whether prediction/reconciliation is necessary; it was not added here.
 - Rooms/identities are in memory. Empty rooms and all rooms on server restart disappear; rejoin can fail cleanly.
 - This single-process development server has validation/origin checks, but no authentication, per-client rate limiting, global room cap, persistence, or load testing. Room codes are convenient join codes, not a security boundary.
 - Socket.io's in-memory adapter makes membership operations synchronous. A later distributed/async adapter needs transaction/ack ordering changes before scale-out.
 - Interpolation chooses safe freezing/catch-up over extrapolation on larger stalls. The fake-lag tool does not emulate every real-network failure.
 - Existing debug flight reset was retained for Step 2 compatibility and should be reconsidered before actual match rules.
 
-Step 4 and all later gameplay systems are intentionally unimplemented.
+Step 4 deployment preparation is documented in DEPLOY.md; later gameplay systems remain unimplemented.
+
+## Public Step 4 client
+
+Client: https://rje101805-svg.github.io/project-horizon/
+Server: https://project-horizon-server.onrender.com
+Health: https://project-horizon-server.onrender.com/health
+
+Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not begin Step 5.

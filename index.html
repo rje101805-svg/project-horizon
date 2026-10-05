@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e1e"><title>Project Horizon</title></head>
 <body><div id="app">
-<header><a href="./" class="brand">◈ HORIZON</a><span class="badge">TWO PLAYERS & ROOMS · STEP 3</span></header>
+<header><a href="./" class="brand">◈ HORIZON</a><span class="badge">EARLY INTERNET TEST · STEP 4</span></header>
 <main>
 <section id="home">
 <p class="eyebrow">BEYOND THE EVENT HORIZON</p><h1>Project:<br>Horizon.</h1>
@@ -12,16 +12,17 @@
 <label class="endpoint">FLIGHT SERVER URL<input id="server-url" type="url" placeholder="https://your-flight-server.example" aria-describedby="server-help"></label>
 <p id="server-help" class="small">Local server: http://localhost:3001. GitHub Pages needs a separately hosted HTTPS server.</p>
 <div class="room-entry"><button id="create">Create room</button><label>ROOM CODE<input id="room-code" type="text" maxlength="4" placeholder="ABCD" autocomplete="off"></label><button id="join" class="secondary">Join room</button></div>
+<button id="cancel-connect" class="secondary" hidden>Cancel connection</button>
 <p id="home-status" class="small" role="status" aria-live="polite"></p>
 </section>
 <section id="mission" hidden>
 <div class="mission-top"><div><p class="eyebrow">SERVER FLIGHT SANDBOX</p><h2>Explore the solar system</h2></div><div><button id="restart" class="secondary">Reset flight [R]</button> <button id="leave" class="secondary">Back to home</button></div></div>
 <div class="room-bar"><strong>Room <span id="room-code-display"></span></strong><span id="player-count"></span><button id="copy-code" class="secondary">Copy code</button><button id="copy-link" class="secondary">Copy join link</button><span id="share-status" role="status"></span></div>
 <label id="debug-network" class="debug" hidden><input id="fake-lag" type="checkbox"> DEV ONLY: fake network · 100ms each way ±30ms jitter</label>
-<div class="telemetry"><div id="position">Awaiting position</div><div id="velocity">Speed —</div><div id="tick">Server tick —</div></div>
+<div class="telemetry"><div id="position">Awaiting position</div><div id="velocity">Speed —</div><div id="tick">Server tick —</div><div id="ping">Ping: —</div></div>
 <div id="game"></div>
 <div class="mission-bottom"><span id="status" role="status">Connecting to flight server…</span><span>WASD / arrows · Shift boost · Mouse aim · R reset</span></div>
 </section>
 </main>
-<footer><span>PROJECT HORIZON</span><span>Phase 1 · Step 3: Two players and rooms</span><span>Phaser + TypeScript + Socket.io</span></footer>
+<footer><span>PROJECT HORIZON</span><span>Phase 1 · Step 4: Deploy early</span><span id="build-stamp"></span></footer>
 </div><script type="module" src="/src/main.ts"></script></body></html>

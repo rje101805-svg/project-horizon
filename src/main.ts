@@ -4,6 +4,7 @@ import { WORLD, spawnFlight } from '../shared/flight';
 import { FlightConnection } from './network';
 import { RemoteInterpolator } from './interpolation';
 import { roomFromSearch, roomLink } from './room-links';
+import { defaultServerUrl, isLoopback, validateServerUrl } from './config';
 import { normalizeRoomCode } from '../shared/rooms';
 import type { PlayerState, RoomInfo, Snapshot } from '../shared/protocol';
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -11,6 +12,7 @@ const planets = [{ x: 650, y: 700, r: 90, color: 0x6095d6, name: 'AZURE' }, { x:
 let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
+let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
 class Horizon extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Container;
@@ -146,6 +148,9 @@ function updateRoom(room: RoomInfo) {
   scene()?.removeShips(room.playerIds);
 }
 function goHome(message = '') {
+  attemptId++; busy = false;
+  el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false;
+  el('cancel-connect').hidden = true;
   connection?.close(); connection = undefined;
   game?.destroy(true); game = undefined;
   el('mission').hidden = true; el('home').hidden = false;
@@ -155,36 +160,46 @@ async function enterRoom(mode: 'create' | 'join') {
   if (busy) return;
   const field = el<HTMLInputElement>('server-url');
   try {
-    const url = new URL(field.value);
-    if (!['http:', 'https:'].includes(url.protocol) || (location.protocol === 'https:' && url.protocol !== 'https:')) throw new Error();
-  } catch { field.setCustomValidity('Enter a server URL (HTTPS is required on GitHub Pages).'); field.reportValidity(); return; }
+    field.value = validateServerUrl(field.value, isLoopback(location.hostname));
+    if (location.protocol === 'https:' && new URL(field.value).protocol !== 'https:') throw new Error('HTTPS clients require an HTTPS server.');
+  } catch (error) { field.setCustomValidity(error instanceof Error ? error.message : 'Enter a valid server URL.'); field.reportValidity(); return; }
   const code = normalizeRoomCode(el<HTMLInputElement>('room-code').value);
   if (mode === 'join' && !code) { el('home-status').textContent = 'Enter a valid 4-character room code.'; return; }
+  const attempt = ++attemptId;
+  el('cancel-connect').hidden = false;
   busy = true; el<HTMLButtonElement>('create').disabled = true; el<HTMLButtonElement>('join').disabled = true;
   el('home-status').textContent = 'Connecting…';
+  el('ping').textContent = 'Ping: —';
   connection?.close();
   const current = new FlightConnection(field.value, {
-    snapshot: snapshot => scene()?.acceptSnapshot(snapshot),
-    room: updateRoom,
+    snapshot: snapshot => { if (connection === current) scene()?.acceptSnapshot(snapshot); },
+    room: room => { if (connection === current) updateRoom(room); },
+    ping: milliseconds => { if (connection === current) el('ping').textContent = milliseconds === null ? 'Ping: —' : `Ping: ${milliseconds} ms`; },
     status: message => {
+      if (connection !== current) return;
       el(el('home').hidden ? 'status' : 'home-status').textContent = message;
       if (message.startsWith('Disconnected')) scene()?.freezeRemoteShips();
     },
-    roomLost: message => goHome(`Room ended or unavailable. ${message} Create or join a room again.`),
+    roomLost: message => { if (connection === current) goHome(`Room ended or unavailable. ${message} Create or join a room again.`); },
   });
   connection = current;
   try {
     const result = await current.enter(mode, el<HTMLInputElement>('display-name').value, code ?? '');
+    if (attempt !== attemptId) return;
     if (result.ok) {
       launch(); updateRoom(result.room);
       const checkbox = el<HTMLInputElement>('fake-lag'); current.setFakeLag(import.meta.env.DEV && checkbox.checked);
     } else { goHome(result.error); }
-  } finally { busy = false; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
+  } finally {
+    if (attempt === attemptId) { busy = false; el('cancel-connect').hidden = true; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
+  }
 }
 el('create').onclick = () => { void enterRoom('create'); };
 el('join').onclick = () => { void enterRoom('join'); };
 el<HTMLInputElement>('server-url').oninput = () => el<HTMLInputElement>('server-url').setCustomValidity('');
-el<HTMLInputElement>('server-url').value = import.meta.env.VITE_SERVER_URL || (['localhost', '127.0.0.1'].includes(location.hostname) ? 'http://localhost:3001' : '');
+el<HTMLInputElement>('server-url').value = defaultServerUrl(import.meta.env.DEV, location.hostname, import.meta.env.VITE_SERVER_URL);
+el('build-stamp').textContent = `Build: ${__HORIZON_BUILD__.buildId}`;
+el('cancel-connect').onclick = () => goHome('Connection cancelled.');
 const linkedRoom = roomFromSearch(location.search);
 if (linkedRoom) { el<HTMLInputElement>('room-code').value = linkedRoom; el('home-status').textContent = `Room ${linkedRoom} ready to join. Confirm your name, then click Join room.`; }
 el<HTMLInputElement>('room-code').oninput = () => { const input = el<HTMLInputElement>('room-code'); input.value = input.value.toUpperCase(); };

@@ -1,6 +1,6 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 3 — two players and rooms. Do not implement Step 4, deploy, or add combat, health, death/respawn, loot, black holes, planetary physics, accounts or matchmaking unless explicitly requested. The previous Step 2 reset is retained only as an explicit flight-sandbox/debug control, not a death/respawn system.
+Current scope: Phase 1, Step 4 — deploy the accepted rooms/flight build early. Do not implement Step 5 or add combat, health, death/respawn, loot, black holes, planetary physics, accounts or matchmaking unless explicitly requested. The previous Step 2 reset is retained only as an explicit flight-sandbox/debug control, not a death/respawn system.
 
 ## Authority and rooms
 
@@ -25,4 +25,10 @@ Current scope: Phase 1, Step 3 — two players and rooms. Do not implement Step 
 
 `npm test` runs Node logic/real-socket integration tests and Playwright browser tests on dedicated ports 3002/5175. `npm run build` checks client/server/shared/tests and builds `dist/`. System Chromium is used when installed; otherwise install Playwright Chromium.
 
-`docs/` is the previously committed Pages client. **Step 3 must not publish/deploy:** do not regenerate/commit docs during this task. Validate Pages compatibility in a temporary directory with `npx vite build --base=/project-horizon/ --outDir=/tmp/horizon-step3-pages`. `npm run build:pages` remains available only for a later explicitly authorized client publishing action. Pages cannot run the server. The full manual Windows acceptance test is in `MANUAL_TEST.md`; passing automated tests does not replace it.
+Step 4 authorizes publishing the client/server once the actual Render URL and dashboard setup are resolved. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
+
+Render deploys from the repository ROOT (`server/` imports `shared/`). `PORT` and `0.0.0.0` binding are already supported. `tsx` is a runtime dependency; `npm run server`/`npm start` run the same authoritative process. See `DEPLOY.md` for commands that also work on the existing pushed Step 3 code while obtaining the real service URL before the final Step 4 commit.
+
+`src/config.ts` centralizes endpoint validation: production defaults never fall back to localhost; public endpoints require HTTPS. `vite.config.ts` emits a content-based visible build ID plus `build.json`; HEAD at build time is metadata, not the final commit of generated output. `scripts/build-pages.mjs` requires an explicit real server URL before changing `docs/`. Keep Pages source `work` → `/docs`, rebuild and commit it only after the actual URL is supplied and verified.
+
+Cold starts use one Socket.io manager with bounded initial waiting, automatic backoff and cancel handling. Never create duplicate connections/room requests during retry. `latencyProbe` is an acknowledgment-only real RTT sample, bypassing debug delay; it does not alter simulation. Retain Step 3 room/isolation/interpolation behavior and the DEV-only fake-lag boundary. No prediction or reconciliation.

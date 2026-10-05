@@ -18,7 +18,7 @@ If you do not have Git, download the ZIP from https://github.com/rje101805-svg/p
 ## Start the server and client
 
 7. In the first terminal, type `npm run server` and press Enter.
-8. Wait for the line saying `Horizon flight server: http://localhost:3001 (30 ticks/s)`.
+8. Wait for the line saying `Horizon flight server listening on 0.0.0.0:3001 (30 ticks/s)`.
 9. Leave that terminal open and running.
 10. Return to the project folder in File Explorer.
 11. Click its address bar, type `cmd`, and press Enter. This opens a second terminal in the same folder.

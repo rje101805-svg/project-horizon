@@ -8,7 +8,7 @@ import { chooseSpawn, RoomStore, roomChannel } from './rooms';
 
 export function createGameServer(allowedOrigins: string[], store = new RoomStore()) {
   const http = createServer((req, res) => {
-    if (req.url === '/health') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
+    if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
     else res.writeHead(404).end();
   });
   const io = new Server<ClientEvents, ServerEvents>(http, {
@@ -19,6 +19,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   });
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
     socket.on('createRoom', (request, reply) => {
       if (typeof reply !== 'function') return;

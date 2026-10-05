@@ -10,6 +10,7 @@ export interface ServerEvents {
   roomState: (room: RoomInfo) => void;
 }
 export interface ClientEvents {
+  latencyProbe: (reply: () => void) => void;
   input: (input: PlayerInput) => void;
   resetFlight: () => void; // Existing Step 2 development flight reset, not gameplay respawn.
   createRoom: (request: RoomRequest, reply: (result: RoomResult) => void) => void;
