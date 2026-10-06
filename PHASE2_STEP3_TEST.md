@@ -97,3 +97,22 @@ Pages artifacts remain synchronized because the established work workflow requir
 ## Authoritative checkpoint validation
 
 Commit 1 validation: full `npm test -- --workers=1` passed **81 Node / 17 browser tests**, zero failures/skips. This preserves all prior 71 Node / 16 browser tests and adds nine projectile logic/interpolation cases, one real-socket security/replication case and one two-browser hold/fire/damage/refill case. Client typecheck/production build, server TypeScript check, Pages build and diff whitespace check pass. Existing combat security integration now checks refill alongside all earlier actions with default and production authorization disabled. Production JS excludes DEV handles, fake-lag and combat-debug implementation. No local projectile prediction is present in this checkpoint.
+
+
+## Visual prediction checkpoint
+
+The authoritative checkpoint is `13f28a80f35672ca8cb2a4667a8e5f96c4487788`. Only after that committed checkpoint, `src/projectile-prediction.ts` adds immediate temporary bullet circles using the locally predicted ship pose/velocity and the shared muzzle configuration. Records are bounded by the owner cap and contain visual positions/velocities plus request identifiers, not damage/collision/resource state. Rendering never mutates ammo, cooldown, health, snapshots or server projectiles.
+
+Confirmation matches owner ID + shot sequence + lifeGeneration + teleportSequence. A matching authoritative snapshot replaces the local visual; a defensive render guard prevents duplicates even if render occurs before reconciliation. Accepted IDs absent in a subsequent tick remove the visual even when the shot hit before a replicated frame or an acknowledgment arrived late. Rejections remove the request's visual. Unconfirmed records expire after 1000ms. Life/teleport changes, disconnect, membership changes, release/canceled fake-lag queues clear pending visuals. Server logic is unchanged by this checkpoint. Under latency, replacement can visibly correct bullet position; prediction makes firing immediate but does not make displayed hit results authoritative.
+
+### Change inventory
+
+Created: `shared/projectiles.ts`, `server/projectiles.ts`, `src/projectile-view.ts`, `src/projectile-prediction.ts`, `tests/projectiles.test.ts`, `tests/projectiles-server.test.ts`, `tests/projectiles.spec.ts`, `tests/projectile-prediction.test.ts`, `tests/projectile-prediction.spec.ts`, and this guide.
+
+Modified: `shared/protocol.ts` (fire/snapshot types), `shared/combat.ts` (DEV action union), `server/rooms.ts` (room bullets/sequence), `server/game.ts` (validation handler/tick replication), `server/combat.ts` (central DEV refill), `server/combat-debug.ts` (authorized refill), `src/network.ts` (hold cadence/lag/visual lifecycle), `src/main.ts` (input/render/debug), `src/hud.ts` (weapon diagnostics), `src/combat-debug.ts` (DEV F), `index.html` (controls/diagnostics), `tests/combat-server.test.ts` (refill security), `tests/interpolation.test.ts` (complete empty-projectile snapshot fixtures), `README.md`, `AGENTS.md`, and generated `docs/index.html`, `docs/build.json` and hashed assets. No dependency, deployment setting, shared movement, ship prediction/interpolation or unrelated artifact fix changes.
+
+## Final verification results
+
+Commit 2 validation: full `npm test -- --workers=1` passed **86 Node / 18 browser tests**, zero failures/skips. Five visual prediction logic tests cover immediate/velocity-only visuals and non-mutation, matching/deduplication, wrong-owner/rejection handling, accepted shots absent before replication, and timeout/cap/lifecycle cleanup. The new browser test verifies prediction before a 150ms-delayed server request, authoritative replacement without duplicates, rejected-shot cleanup and leave cleanup. The authoritative two-client firing test and every original Phase 1/P2S1/P2S2 test pass unchanged in their behavior assertions.
+
+Client TypeScript/production build, server TypeScript check, Pages production build and git whitespace validation pass at both checkpoints. Final production JS exclusion checks pass for dist and docs (no window inspection handles, fake-lag or combat-debug implementation). Vite retains the existing advisory about the large Phaser bundle; builds succeed. Final Pages Build ID: `client-058527005acb`. Actual user perception of latency-related moving-target hit discrepancies remains a manual acceptance item, not a claim of lag compensation.
