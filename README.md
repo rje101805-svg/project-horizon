@@ -1,11 +1,11 @@
-> **Branch status: Step 6 implemented; local manual acceptance pending.** Based on accepted Step 5 `6db0ae7`. Production `work` remains at Step 4 `9f0c821`, `/docs` is untouched, and this branch is not deployed. The reported queued Pages job/public old Step 2 build is a separate issue. See [STEP6_TEST.md](STEP6_TEST.md) for one-action-at-a-time local testing.
+> **Branch status: Step 6 fully accepted locally.** Based on accepted Step 5 `6db0ae7`. Production `work` remains at Step 4 `9f0c821`, `/docs` is untouched, and this branch is not deployed. The reported queued Pages job/public old Step 2 build is a separate issue. See [STEP6_TEST.md](STEP6_TEST.md) for one-action-at-a-time local testing.
 
 
 # Project: Horizon
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 6 — health, death and automatic respawn.** The accepted black-hole flight sandbox now has server-owned health (100), one damage path, a three-second tick-owned respawn delay, clear death presentation and safe same-identity respawn. Fixed black-hole radii, gravity, swept horizon detection, rooms and normal interpolation are preserved. Step 5 was accepted locally; Step 6 needs manual acceptance. No combat, weapons, shields, loot, final health HUD, landing, matchmaking, accounts or match lifecycle was added.
+**Current implementation: Phase 1, Step 6 — health, death and automatic respawn.** The accepted black-hole flight sandbox now has server-owned health (100), one damage path, a three-second tick-owned respawn delay, clear death presentation and safe same-identity respawn. Fixed black-hole radii, gravity, swept horizon detection, rooms and normal interpolation are preserved. Steps 5 and 6 are accepted locally. The owner reported Step 6 manual acceptance passed with no gameplay issues observed; the acceptance record is in STEP6_TEST.md. No combat, weapons, shields, loot, final health HUD, landing, matchmaking, accounts or match lifecycle was added.
 
 
 ## Run locally

@@ -1,8 +1,16 @@
 # Step 6 — health, death and automatic respawn
 
-Status: implementation and automated verification; **manual acceptance pending**. This branch is `step-6-health-respawn`, based directly on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Step 5's acceptance record remains in `STEP5_TEST.md` for that historical branch.
+Status: implementation, automated verification and **local manual acceptance passed**. This branch is `step-6-health-respawn`, based directly on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Step 5's acceptance record remains in `STEP5_TEST.md` for that historical branch.
 
 Production is unchanged: `work` remains at `9f0c821`, `/docs` contains Step 4, and neither Step 5 nor Step 6 is deployed. The owner reports the public Pages site still serves Step 2 while the Step 4 Pages job is queued. Do not reconfigure, cancel/retrigger or otherwise fix that deployment here. Step 4 public acceptance remains separately pending.
+
+## Acceptance record — passed
+
+On October 5, 2026 (America/Indianapolis), the owner reported that Step 6 manual acceptance **passed** against implementation commit `29ff50294f002e3b25fbe561eb9060ac3ed1f9de` on `step-6-health-respawn`.
+
+Confirmed during manual testing: smooth two-player movement; black-hole death; zero health and dead state; death presentation; automatic respawn; full-health safe respawn; respawn snapping; repeated death/respawn cycles; remote-player visibility; and disconnect cleanup. The owner reported **no gameplay issues observed**.
+
+Together with the previously passing 54 automated tests and type/build checks, this completes **Step 6 acceptance within its defined local scope**. This record does not claim additional manual checks beyond those the owner reported. Step 4 public acceptance remains a separate pending task. Acceptance does not authorize a merge, deployment or Step 7 work.
 
 ## Start locally — one action at a time
 
@@ -83,4 +91,4 @@ Before commit/push, verify `/docs` is identical to `9f0c821`, `work` still resol
 
 The owner's prior dashboard confirmation persists: Render auto-deploys **work only**, On Commit, with PR Previews Off; GitHub Pages deploys **work → /docs only**. No repository Actions workflow/Render blueprint or configuration change is introduced. Pushing this isolated branch does not change either production source branch under those confirmed settings. Do not create a deployment, change settings or touch the queued Pages job.
 
-Manual acceptance remains pending. Known limits: health currently changes only via lethal horizon contact; black-hole radii remain fixed; identity/sessions are nonpersistent; respawn may wait if no safe position exists; server stalls can lengthen wall-clock delay because the deadline uses simulation seconds. The existing Phaser bundle-size warning remains. Step 7, combat and deployment are out of scope.
+Local manual acceptance passed as recorded above. Known limits: health currently changes only via lethal horizon contact; black-hole radii remain fixed; identity/sessions are nonpersistent; respawn may wait if no safe position exists; server stalls can lengthen wall-clock delay because the deadline uses simulation seconds. The existing Phaser bundle-size warning remains. Step 7, combat and deployment are out of scope.

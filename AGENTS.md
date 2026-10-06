@@ -1,6 +1,6 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 6 — server-authoritative health/death/automatic respawn on `step-6-health-respawn`, directly based on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Step 6 manual acceptance is pending; Step 5 is locally accepted. Step 4 public acceptance remains pending. Do not begin Step 7/final HUD, combat, weapons, shields, ammo, loot, planetary physics, accounts, matchmaking or match lifecycle.
+Current scope: Phase 1, Step 6 — server-authoritative health/death/automatic respawn on `step-6-health-respawn`, directly based on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Steps 5 and 6 are locally accepted. The owner reported Step 6 manual acceptance passed on October 5, 2026; see `STEP6_TEST.md`. Step 4 public acceptance remains pending. Do not begin Step 7/final HUD, combat, weapons, shields, ammo, loot, planetary physics, accounts, matchmaking or match lifecycle.
 
 Protect production and baseline: leave `work` at `9f0c821` and `step-5-black-hole` at `6db0ae7`. Do not merge, deploy, rebuild or commit `docs/`, reconfigure Render/Pages, or cancel/retrigger the queued Step 4 Pages job. Normal `npm run build` writes `dist/`. Commit/push only `step-6-health-respawn`. The owner confirmed Render work-only Auto-Deploy On Commit, PR Previews Off; Pages work → /docs only. This confirmation authorizes the isolated Step 6 branch push, not deployment.
 
