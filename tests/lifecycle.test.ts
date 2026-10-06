@@ -24,24 +24,25 @@ test('new players have full bounded health and initial active lifecycle state', 
 });
 test('damage ignores invalid amounts/time and clamps health through one reusable server path', () => {
   const { player } = fixture();
+  player.state.shield = 0; // Health-only fixture; shield-first behavior has dedicated combat tests.
   for (const amount of [NaN, Infinity, -Infinity, -10, 0]) {
-    assert.equal(applyDamage(player, amount, 'black-hole', 0), false);
+    assert.equal(applyDamage(player, amount, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, 0), false);
     assert.equal(player.state.health, MAX_HEALTH);
   }
-  assert.equal(applyDamage(player, MAX_HEALTH, 'black-hole', NaN), false);
-  assert.equal(applyDamage(player, MAX_HEALTH, 'black-hole', -1), false);
-  assert.equal(applyDamage(player, 25, 'black-hole', 0), false); assert.equal(player.state.health, 75);
-  player.state.health = 1000; applyDamage(player, 1, 'black-hole', 0); assert.equal(player.state.health, 99);
-  assert.equal(applyDamage(player, 10000, 'black-hole', 100), true);
-  assert.equal(player.state.health, 0); assert.equal(player.state.deathSource, 'black-hole');
+  assert.equal(applyDamage(player, MAX_HEALTH, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, NaN), false);
+  assert.equal(applyDamage(player, MAX_HEALTH, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, -1), false);
+  assert.equal(applyDamage(player, 25, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, 0), false); assert.equal(player.state.health, 75);
+  player.state.health = 1000; applyDamage(player, 1, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, 0); assert.equal(player.state.health, 99);
+  assert.equal(applyDamage(player, 10000, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, 100), true);
+  assert.equal(player.state.health, 0); assert.deepEqual(player.state.deathSource, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' });
   assert.equal(player.state.deathSequence, 1); assert.equal(player.respawnAtMs, 100 + RESPAWN_DELAY_MS);
-  assert.equal(applyDamage(player, MAX_HEALTH, 'black-hole', 200), false);
+  assert.equal(applyDamage(player, MAX_HEALTH, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, 200), false);
   assert.equal(player.state.deathSequence, 1); assert.equal(player.respawnAtMs, 100 + RESPAWN_DELAY_MS);
 });
 test('horizon death uses damage state, blocks movement/reset and cannot repeat while dead', () => {
   const { room, player, kill } = fixture(); kill(1000);
   assert.equal(player.state.health, 0); assert.equal(player.state.lifeState, 'dead');
-  assert.equal(player.state.deathSource, 'black-hole'); assert.equal(player.state.deathSequence, 1);
+  assert.deepEqual(player.state.deathSource, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }); assert.equal(player.state.deathSequence, 1);
   assert.equal(player.state.respawnRemainingMs, RESPAWN_DELAY_MS);
   const location = { x: player.state.x, y: player.state.y };
   player.input = { ...idleInput(), right: true, boost: true }; player.reset = true;

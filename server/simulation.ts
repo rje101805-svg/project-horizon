@@ -1,7 +1,7 @@
+import { advanceCombatTick, resetCombatState } from './combat';
 import { stepMovement } from '../shared/movement';
 import { retireInputs } from './inputs';
 import { applyDamage } from './health';
-import { MAX_HEALTH } from '../shared/lifecycle';
 import { classifyRegion } from '../shared/black-hole';
 import { idleInput, INPUT_TIMEOUT_MS } from '../shared/flight';
 import { chooseSpawn, type GameRoom, type RoomPlayer } from './rooms';
@@ -17,13 +17,15 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
     const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player).map(p => p.state), room.blackHole);
     // Retry next tick if no safe spawn exists. Never revive into danger.
     if (!spawn) return;
-    Object.assign(player.state, spawn, { health: MAX_HEALTH, lifeState: 'active', region: 'safe',
+    resetCombatState(player);
+    Object.assign(player.state, spawn, { lifeState: 'active', region: 'safe',
       lifeGeneration: player.state.lifeGeneration + 1, deathSource: null, respawnRemainingMs: 0 });
     player.state.teleportSequence++;
     player.respawnAtMs = null;
     player.input = idleInput(); player.lastInput = -Infinity;
     return; // teleport only; no movement integration on the respawn tick
   }
+  advanceCombatTick(player);
   if (player.reset) {
     const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player).map(p => p.state), room.blackHole);
     if (spawn) { Object.assign(player.state, spawn); player.state.teleportSequence++; }
@@ -43,7 +45,7 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
   }
   if (now - player.lastInput > INPUT_TIMEOUT_MS) player.input = { ...idleInput(), aim: player.state.rotation };
   if (stepMovement(player.state, player.input, room.blackHole)) {
-    applyDamage(player, MAX_HEALTH, 'black-hole', simulationTimeMs);
+    applyDamage(player, player.state.maxHealth + player.state.maxShield, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, simulationTimeMs);
     player.state.region = 'lethal';
     return;
   }

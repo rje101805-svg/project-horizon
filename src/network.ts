@@ -145,6 +145,12 @@ export class FlightConnection {
   private invalidate() { this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
   setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
+  scheduleDevelopmentAction(action: () => void) {
+    if (!import.meta.env.DEV) return;
+    const epoch = this.epoch;
+    const guarded = () => { if (epoch === this.epoch && this.socket.connected && this.room) action(); };
+    if (this.lag) this.lag.schedule('input', guarded); else guarded();
+  }
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };

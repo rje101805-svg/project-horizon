@@ -1,3 +1,4 @@
+import type { CombatDebugRequest, CombatDebugResult } from './combat';
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
@@ -13,6 +14,7 @@ export interface ServerEvents {
 }
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface ClientEvents {
+  combatDebug: (request: CombatDebugRequest, reply: (result: CombatDebugResult) => void) => void;
   latencyProbe: (reply: () => void) => void;
   input: (input: InputMessage) => void;
   resetFlight: (lifeGeneration: number) => void; // Existing Step 2 development flight reset, not gameplay respawn.

@@ -1,3 +1,4 @@
+import { consumeAmmo, startReload, startFireCooldown, setShieldUp } from '../server/combat';
 import { applyDamage } from '../server/health';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
@@ -45,10 +46,11 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     const id = (await localState(page))!.id, room = store.rooms.get(code)!, player = room.players.get(id)!;
     await page.keyboard.press('F3'); await expect(page.locator('#debug-overlay')).toBeVisible();
     await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
-    applyDamage(player, 25, 'black-hole', tick * TICK_MS); await frame();
+    applyDamage(player, player.state.shield + 25, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, tick * TICK_MS); await frame();
     await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH - 25} / ${MAX_HEALTH}`);
     await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH - 25);
     for (let cycle = 0; cycle < 2; cycle++) {
+      consumeAmmo(player, 3); startReload(player); startFireCooldown(player); setShieldUp(player, true);
       // Server-side fixture avoids waiting for flight time or respawn wall time.
       Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000, vy: 0 });
       await frame();
@@ -78,6 +80,12 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       await expect(page.locator('#debug-overlay')).toBeVisible();
       await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
       expect(player.state.id).toBe(id); expect(player.state.lifeGeneration).toBe(cycle + 1);
+      expect(player.state.shield).toBe(player.state.maxShield); expect(player.state.ammo).toBe(player.state.maxAmmo);
+      expect(player.state.isReloading).toBe(false); expect(player.state.reloadRemainingMs).toBe(0);
+      expect(player.state.fireCooldownRemainingMs).toBe(0); expect(player.state.shieldUp).toBe(false);
+      expect(player.state.status).toBe('ALIVE'); expect(player.state.controllerType).toBe('HUMAN');
+      await expect(page.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
+      await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
       expect(player.state.vx).toBe(0); expect(player.state.vy).toBe(0);
       await expect.poll(() => peer.evaluate(id => {
         const body = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].ships.get(id)?.body;

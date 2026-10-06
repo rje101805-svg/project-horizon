@@ -1,3 +1,11 @@
+# Phase 2 Step 2 feature branch
+
+`phase2/step2-combat-state` adds server-owned shield/ammo/reload/cooldown/status state, shield-first typed damage and centralized reset/API infrastructure. Step 1 prediction/reconciliation remains intact. Manual acceptance is pending; this branch is not deployed.
+
+See [PHASE2_STEP2_TEST.md](PHASE2_STEP2_TEST.md) for exact local two-client instructions, server debug authorization, security checks and implementation details. Start the development server with `COMBAT_DEBUG=1 npm run server` (Bash) or `$env:COMBAT_DEBUG='1'; npm run server` (PowerShell). Run `npm run dev` separately; F3 exposes fixed self-only test actions. Without the explicit flag, the server rejects them. `NODE_ENV=production` always rejects them, even with the flag.
+
+The historical notes below describe earlier milestones. Health/shield/ammo are now real snapshot values; there are still no weapons, projectiles, eliminations, Shield Up effects or later gameplay.
+
 # Phase 2 Step 1 feature branch
 
 `phase2/step1-prediction` adds fixed-tick local ship prediction and server reconciliation, with shared thrust/inertia/bounds/gravity and the existing 100ms remote interpolation. Health, death/respawn and room membership remain authoritative. No combat features are included. Manual acceptance is pending; this branch is not deployed to the live Pages URL.

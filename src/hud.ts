@@ -1,3 +1,4 @@
+import { MAX_SHIELD, MAX_AMMO, clampCombatValue, type CombatState } from '../shared/combat';
 import { TICK_RATE } from '../shared/flight';
 import { clampHealth, MAX_HEALTH } from '../shared/lifecycle';
 import type { PlayerState } from '../shared/protocol';
@@ -46,12 +47,20 @@ export class GameplayHud {
   private clearHealth() {
     this.bar.value = 0; write(this.node('hud-health-value'), `— / ${MAX_HEALTH}`);
     write(this.node('hud-life'), 'Awaiting server');
+    write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —');
   }
   health(player: Pick<PlayerState, 'health' | 'lifeState'>) {
     const shown = healthPresentation(player.health);
     if (this.bar.value !== shown.value) this.bar.value = shown.value;
     write(this.node('hud-health-value'), shown.text);
     write(this.node('hud-life'), player.lifeState === 'dead' ? 'Dead · respawning' : 'Alive');
+  }
+  combat(s: CombatState) {
+    write(this.node('hud-shield'), `SHIELD ${clampCombatValue(s.shield, MAX_SHIELD)} / ${s.maxShield}`);
+    write(this.node('hud-ammo'), `AMMO ${clampCombatValue(s.ammo, MAX_AMMO)} / ${s.maxAmmo}`);
+    write(this.node('debug-combat'), `${s.status} · ${s.controllerType} · kills ${s.kills} · Shield Up ${s.shieldUp ? 'ON' : 'OFF'}`);
+    write(this.node('debug-reload'), s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
+    write(this.node('debug-cooldown'), `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);
   }
   setRoom(players: number, connected: boolean, now = performance.now()) {
     if (connected !== this.connected) this.snapshots.reset(now);

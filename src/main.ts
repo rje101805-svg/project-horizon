@@ -111,6 +111,7 @@ class Horizon extends Phaser.Scene {
     this.drawBlackHole(snapshot.blackHole);
     this.placeShip(this.connection.renderedLocal(0) ?? local);
     hud.health(local);
+    hud.combat(local);
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
     const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
@@ -280,6 +281,7 @@ async function copy(value: string) {
 el('copy-code').onclick = () => { if (connection?.room) void copy(connection.room.code); };
 el('copy-link').onclick = () => { if (connection?.room) void copy(roomLink(location.href, connection.room.code)); };
 if (import.meta.env.DEV) {
+  void import('./combat-debug').then(({ installCombatDebug }) => installCombatDebug(() => connection));
   el('debug-network').hidden = false;
   const updateLag = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked, 150, el<HTMLInputElement>('fake-jitter').checked ? 30 : 0);
   el<HTMLInputElement>('fake-lag').onchange = updateLag;

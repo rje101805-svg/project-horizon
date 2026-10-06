@@ -4,7 +4,7 @@ import { randomInt } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface RoomPlayer { combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
 export interface GameRoom { code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const roomChannel = (code: string) => `flight:${code}`;
 export function generateRoomCode(): string {
@@ -55,7 +55,7 @@ export class RoomStore {
     const color = SHIP_COLORS.find(c => [...room.players.values()].every(p => p.state.color !== c));
     const spawn = chooseSpawn([...room.players.values()].map(p => p.state), room.blackHole);
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
-    room.players.set(id, { state: { id, name: sanitizeName(name), color, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
+    room.players.set(id, { combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
   }

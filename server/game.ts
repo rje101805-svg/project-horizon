@@ -1,3 +1,4 @@
+import { combatDebugEnabled, runCombatDebug } from './combat-debug';
 import { acceptMovementInput } from './inputs';
 import { simulatePlayer } from './simulation';
 import { createServer } from 'node:http';
@@ -8,7 +9,7 @@ import type { ClientEvents, ServerEvents } from '../shared/protocol';
 
 import { RoomStore, roomChannel } from './rooms';
 
-export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean } = {}) {
+export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean; combatDebug?: boolean } = {}) {
   const http = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
     else res.writeHead(404).end();
@@ -19,8 +20,13 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     allowRequest: (req, callback) => callback(null, !req.headers.origin || allowedOrigins.includes(req.headers.origin)),
     maxHttpBufferSize: 4096,
   });
+  const debugAuthorized = combatDebugEnabled(options.combatDebug);
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('combatDebug', (request, reply) => {
+      if (typeof reply !== 'function') return;
+      reply(runCombatDebug(store.roomFor(socket.id)?.players.get(socket.id), request, debugAuthorized));
+    });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
     socket.on('createRoom', (request, reply) => {

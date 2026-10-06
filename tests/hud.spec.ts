@@ -10,7 +10,7 @@ test('HUD placeholders, F3 controls, actual RTT/metrics and room-scoped roster u
   await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
   await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH);
   await expect(page.locator('#hud-health-bar')).toHaveJSProperty('max', MAX_HEALTH);
-  for (const [id, text] of [['shield', 'SHIELD —'], ['weapon', 'WEAPON —'], ['ammo', 'AMMO —']]) await expect(page.locator(`#hud-${id}`)).toHaveText(text);
+  for (const [id, text] of [['shield', 'SHIELD 50 / 50'], ['weapon', 'WEAPON —'], ['ammo', 'AMMO 12 / 12']]) await expect(page.locator(`#hud-${id}`)).toHaveText(text);
   await expect(page.locator('#debug-overlay')).toBeHidden();
   await page.keyboard.press('F3'); await expect(page.locator('#debug-overlay')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F3', repeat: true })));

@@ -21,3 +21,6 @@
 .debug-overlay strong { color: #72eee0; }
 .debug-details { border-top: 1px solid #34435e; margin-top: 8px; padding-top: 8px; color: #aab6ce; }
 @media(max-width:1000px) { .gameplay-hud,.debug-overlay { position: relative; top: auto; bottom: auto; left: auto; width: 100%; max-width: none; margin: 8px 0; transform: none; } }
+
+.combat-controls { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 4px; max-width: 300px; }
+.combat-controls button { font-size: 11px; padding: 5px 8px; }
