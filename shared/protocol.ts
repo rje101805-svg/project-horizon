@@ -1,7 +1,7 @@
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
-export interface PlayerState extends FlightState, LifeState { id: string; name: string; color: number; region: BlackHoleRegion }
+export interface PlayerState extends FlightState, LifeState { id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
 export interface RoomInfo { code: string; playerIds: string[]; maxPlayers: number; blackHole: BlackHoleState }
 export interface Snapshot { tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
@@ -11,7 +11,7 @@ export interface ServerEvents {
   snapshot: (snapshot: Snapshot) => void;
   roomState: (room: RoomInfo) => void;
 }
-export interface InputMessage extends PlayerInput { lifeGeneration: number }
+export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface ClientEvents {
   latencyProbe: (reply: () => void) => void;
   input: (input: InputMessage) => void;

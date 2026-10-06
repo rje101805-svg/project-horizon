@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 import type { RoomResult } from '../shared/protocol';
 
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __HORIZON_GAME__: Phaser.Game };
-test('browser flies only from server snapshots, resets and disconnects cleanly', async ({ page }) => {
+test('browser predicts authoritative flight, resets and disconnects cleanly', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/');
@@ -21,7 +21,7 @@ test('browser flies only from server snapshots, resets and disconnects cleanly',
   await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.getByRole('button', { name: 'Reset flight [R]', exact: true }).click();
   await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
-  // Mutating the rendered rocket is overwritten by the next server snapshot.
+  // Mutating the render object is overwritten by the next predicted render.
   await page.evaluate(() => {
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
     scene.rocket.setPosition(50, 50);

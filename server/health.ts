@@ -1,3 +1,4 @@
+import { retireInputs } from './inputs';
 import { idleInput } from '../shared/flight';
 import { clampHealth, RESPAWN_DELAY_MS, type DamageSource } from '../shared/lifecycle';
 import type { RoomPlayer } from './rooms';
@@ -9,6 +10,8 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
   if (player.state.health > 0) return false;
   player.state.lifeState = 'dead';
   player.state.deathSequence++;
+  player.state.teleportSequence++;
+  retireInputs(player);
   player.state.deathSource = source;
   player.state.vx = player.state.vy = 0;
   player.state.respawnRemainingMs = RESPAWN_DELAY_MS;

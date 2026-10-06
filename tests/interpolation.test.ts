@@ -7,7 +7,7 @@ import { roomFromSearch, roomLink } from '../src/room-links';
 import { spawnFlight } from '../shared/flight';
 import type { Snapshot } from '../shared/protocol';
 function frame(tick: number, timeMs: number, x: number, rotation = 0): Snapshot {
-  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe' }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', x, rotation }] };
+  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, x, rotation }] };
 }
 test('remote rendering blends buffered positions and excludes local player', () => {
   const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0); buffer.push(frame(2, 100, 100), 100);
@@ -63,4 +63,24 @@ test('respawn still snaps when every death snapshot was lost; other ships retain
   const sample = buffer.sample(250, 'me');
   assert.equal(sample.find(p => p.id === 'remote')?.x, 1850);
   assert.equal(sample.find(p => p.id === 'other')?.x, 150);
+});
+
+test('same-life flight reset purges pre-teleport remote history without blending', () => {
+  const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0);
+  const reset = frame(2, 100, 1370); reset.players[1].teleportSequence = 1; buffer.push(reset, 100);
+  assert.equal(buffer.sample(100, 'me')[0].x, 1370);
+  const later = frame(3, 200, 1470); later.players[1].teleportSequence = 1; buffer.push(later, 200);
+  assert.equal(buffer.sample(250, 'me')[0].x, 1420);
+});
+test('remote interpolation absorbs ordered latency jitter and clamps a short delivery stall', () => {
+  const buffer = new RemoteInterpolator(); let previous = 0;
+  for (let tick = 1; tick <= 30; tick++) {
+    const time = tick * 1000 / 30, arrival = time + 150 + (tick % 2 ? -20 : 20);
+    buffer.push(frame(tick, time, time * .29), arrival);
+    const remote = buffer.sample(arrival + 10, 'me')[0];
+    assert.ok(Number.isFinite(remote.x)); assert.ok(remote.x >= previous); assert.ok(remote.x <= time * .29);
+    previous = remote.x;
+  }
+  const frozen = buffer.sample(3000, 'me')[0].x;
+  assert.equal(frozen, 290); assert.equal(buffer.sample(4000, 'me')[0].x, frozen);
 });

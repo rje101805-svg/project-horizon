@@ -29,6 +29,9 @@ class Horizon extends Phaser.Scene {
   private ready = false;
   private lastLocalLife: string | null = null;
   private lastLocalGeneration = -1;
+  private lastTeleport = -1;
+  private lastRender = performance.now();
+  private lastDebug = 0;
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
@@ -56,6 +59,9 @@ class Horizon extends Phaser.Scene {
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.map = this.add.graphics().setScrollFactor(0).setDepth(10);
     this.connection = connection!;
+    // Handle the key transition itself: a short tap can begin and end between
+    // rendered frames, so frame polling may miss it. Key repeat does not reset.
+    this.keys.R.on('down', () => this.resetFlight());
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
@@ -100,14 +106,14 @@ class Horizon extends Phaser.Scene {
     if (!this.ready) return;
     const local = snapshot.players.find(p => p.id === this.connection.socket.id);
     if (!local) return;
-    // Local player: latest authoritative state, no prediction or interpolation.
+    // Lifecycle/HUD stay authoritative; only local movement is predicted.
     this.removeShips(snapshot.players.map(p => p.id));
     this.drawBlackHole(snapshot.blackHole);
-    this.placeShip(local);
+    this.placeShip(this.connection.renderedLocal(0) ?? local);
     hud.health(local);
-    if (this.lastLocalGeneration >= 0 && local.lifeGeneration !== this.lastLocalGeneration) this.cameras.main.centerOn(local.x, local.y);
-    this.lastLocalGeneration = local.lifeGeneration;
-    const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}`;
+    if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
+    this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
+    const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
     if (lifeKey !== this.lastLocalLife) {
       this.input.keyboard!.resetKeys(); this.aim = 0; this.connection.release();
       this.lastLocalLife = lifeKey;
@@ -149,9 +155,17 @@ class Horizon extends Phaser.Scene {
   resetFlight() { this.aim = 0; this.connection.reset(); }
   update() {
     hud.frame();
+    const now = performance.now(), elapsed = now - this.lastRender; this.lastRender = now;
+    const local = this.connection.renderedLocal(elapsed);
+    if (local && this.connection.socket.connected && this.connection.latest) this.placeShip(local);
+    if (now - this.lastDebug >= 250) {
+      this.lastDebug = now;
+      const p = this.connection.prediction;
+      el('debug-prediction').textContent = `Input ${p.sequence} · ack ${p.acknowledged} · pending ${p.pending.length}${p.overflow ? ' · paused (queue full)' : ''}`;
+      el('debug-correction').textContent = `Correction ${p.correction.toFixed(2)} · remote delay 100 ms`;
+    }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.drawMap();
-    if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.resetFlight();
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;
     const up = this.keys.W.isDown || this.keys.UP.isDown;
@@ -242,7 +256,7 @@ async function enterRoom(mode: 'create' | 'join') {
     if (attempt !== attemptId) return;
     if (result.ok) {
       launch(); updateRoom(result.room);
-      const checkbox = el<HTMLInputElement>('fake-lag'); current.setFakeLag(import.meta.env.DEV && checkbox.checked);
+      const checkbox = el<HTMLInputElement>('fake-lag'); current.setFakeLag(import.meta.env.DEV && checkbox.checked, 150, el<HTMLInputElement>('fake-jitter').checked ? 30 : 0);
     } else { goHome(result.error); }
   } finally {
     if (attempt === attemptId) { busy = false; el('cancel-connect').hidden = true; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
@@ -267,7 +281,9 @@ el('copy-code').onclick = () => { if (connection?.room) void copy(connection.roo
 el('copy-link').onclick = () => { if (connection?.room) void copy(roomLink(location.href, connection.room.code)); };
 if (import.meta.env.DEV) {
   el('debug-network').hidden = false;
-  el<HTMLInputElement>('fake-lag').onchange = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked);
+  const updateLag = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked, 150, el<HTMLInputElement>('fake-jitter').checked ? 30 : 0);
+  el<HTMLInputElement>('fake-lag').onchange = updateLag;
+  el<HTMLInputElement>('fake-jitter').onchange = updateLag;
 }
 
 window.addEventListener('keydown', event => {

@@ -1,4 +1,4 @@
-// The original sandbox's movement values, now used by the authoritative server.
+// Shared fixed-tick flight values for authority and local prediction.
 export const WORLD = 2400;
 export const CENTER = WORLD / 2;
 export const TICK_RATE = 30;
@@ -26,7 +26,7 @@ export function parseInput(value: unknown): PlayerInput | null {
   return { up: v.up as boolean, down: v.down as boolean, left: v.left as boolean, right: v.right as boolean,
     boost: v.boost as boolean, aim: Math.atan2(Math.sin(v.aim), Math.cos(v.aim)) };
 }
-// This function is NOT called by the browser. No local prediction in Step 3.
+// One fixed simulation tick, independent of rendering and packet arrival.
 export function stepFlight(state: FlightState, input: PlayerInput, acceleration = { x: 0, y: 0 }): void {
   const dx = Number(input.right) - Number(input.left);
   const dy = Number(input.down) - Number(input.up);

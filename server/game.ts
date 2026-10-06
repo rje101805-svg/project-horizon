@@ -1,8 +1,9 @@
+import { acceptMovementInput } from './inputs';
 import { simulatePlayer } from './simulation';
 import { createServer } from 'node:http';
 import { performance } from 'node:perf_hooks';
 import { Server } from 'socket.io';
-import { parseInput, TICK_MS, TICK_RATE } from '../shared/flight';
+import { TICK_MS, TICK_RATE } from '../shared/flight';
 import type { ClientEvents, ServerEvents } from '../shared/protocol';
 
 import { RoomStore, roomChannel } from './rooms';
@@ -41,8 +42,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     socket.on('leaveRoom', reply => { leave(); if (typeof reply === 'function') reply(); });
     socket.on('input', raw => {
       const player = store.roomFor(socket.id)?.players.get(socket.id);
-      const input = parseInput(raw);
-      if (player?.state.lifeState === 'active' && input && raw?.lifeGeneration === player.state.lifeGeneration) { player.input = input; player.lastInput = performance.now(); }
+      if (player) acceptMovementInput(player, raw, performance.now());
     });
     // Preserve Step 2's explicit debug reset; safe positions still server-owned.
     socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player?.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });

@@ -7,6 +7,7 @@ import { MAX_HEALTH, RESPAWN_DELAY_MS } from '../shared/lifecycle';
 import { idleInput, TICK_MS } from '../shared/flight';
 import { classifyRegion } from '../shared/black-hole';
 import type { ServerEvents, ClientEvents, RoomResult, Snapshot, InputMessage } from '../shared/protocol';
+let inputSequence = 0;
 type Client = Socket<ServerEvents, ClientEvents>;
 async function setup() {
   const store = new RoomStore(); const server = createGameServer([], store, { autoTick: false });
@@ -43,14 +44,14 @@ test('real sockets receive same-identity death/respawn and late-join health; cli
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
     await t.join(b, result.room.code); const id = a.id!;
     const room = t.store.roomFor(id)!, player = room.players.get(id)!;
-    a.emit('input', { ...idleInput(), lifeGeneration: 0, health: 0, lifeState: 'dead', respawnRemainingMs: 0 } as InputMessage);
+    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, health: 0, lifeState: 'dead', respawnRemainingMs: 0 } as InputMessage);
     const [initial] = await t.frame([a, b]); assert.equal(initial.players.find(p => p.id === id)!.health, MAX_HEALTH);
     // Server fixture drives swept contact. The network accepts no position command.
     Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000 });
     const [deathA, deathB] = await t.frame([a, b]); assert.deepEqual(deathA.players, deathB.players);
     assert.equal(player.state.health, 0); assert.equal(player.state.lifeState, 'dead'); assert.equal(player.state.deathSequence, 1);
     const deathAt = deathA.timeMs; const location = { x: player.state.x, y: player.state.y };
-    a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true, health: MAX_HEALTH, lifeState: 'active' } as InputMessage);
+    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true, health: MAX_HEALTH, lifeState: 'active' } as InputMessage);
     a.emit('resetFlight', 0);
     const [stillDead] = await t.frame([a, b]); assert.equal(stillDead.players.find(p => p.id === id)!.health, 0);
     assert.deepEqual({ x: player.state.x, y: player.state.y }, location);
@@ -69,9 +70,9 @@ test('real sockets receive same-identity death/respawn and late-join health; cli
     assert.equal(player.state.vx, 0); assert.equal(player.state.vy, 0);
     const spawnX = player.state.x;
     // Inputs/reset sent in the previous life must not affect the new life.
-    a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true }); a.emit('resetFlight', 0);
+    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true }); a.emit('resetFlight', 0);
     await t.frame([a]); assert.equal(player.state.x, spawnX); assert.equal(player.state.vx, 0);
-    a.emit('input', { ...idleInput(), lifeGeneration: 1, right: true }); await t.frame([a]);
+    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 2, lifeGeneration: 1, right: true }); await t.frame([a]);
     assert.ok(player.state.x > spawnX); assert.ok(player.state.vx > 0);
     const newLate = await t.connect(); await t.join(newLate, room.code, 'After respawn');
     const [aliveSnapshot] = await t.frame([newLate]);

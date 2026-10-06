@@ -8,6 +8,7 @@ import { createGameServer } from '../server/game';
 import { idleInput, parseInput, spawnFlight, stepFlight, EDGE_MARGIN, WORLD, TICK_SECONDS } from '../shared/flight';
 import type { ClientEvents, ServerEvents, Snapshot, RoomResult, InputMessage } from '../shared/protocol';
 
+let inputSequence = 0;
 function nextSnapshot(socket: Socket<ServerEvents, ClientEvents>, condition: (s: Snapshot) => boolean = () => true): Promise<Snapshot> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { socket.off('snapshot', listener); reject(new Error('Snapshot timeout')); }, 4000);
@@ -49,15 +50,17 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
     assert.equal(first.players[0].x, 1370);
     // Type assertion only bypasses compile-time checking; the server must reject
     // the forged runtime fields as an authority boundary.
-    socket.emit('input', { ...idleInput(), lifeGeneration: 0, x: 99999, vx: 99999, speed: 99999 } as InputMessage);
+    socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, x: 99999, vx: 99999, speed: 99999 } as InputMessage);
     const unchanged = await nextSnapshot(socket, s => s.tick > first.tick + 2);
     assert.equal(unchanged.players[0].x, 1370);
-    const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), lifeGeneration: 0, right: true }), 30);
+    const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true }), 30);
     try {
       const moving = await nextSnapshot(socket, s => s.players[0].x > 1420);
       assert.ok(moving.players[0].vx <= 290);
+      assert.ok(moving.players[0].lastProcessedInput > 0);
       const start = performance.now();
       const later = await nextSnapshot(socket, () => performance.now() - start >= 1000);
+      assert.ok(later.players[0].lastProcessedInput > moving.players[0].lastProcessedInput);
       assert.ok(later.tick - moving.tick >= 28 && later.tick - moving.tick <= 33);
     } finally { clearInterval(heartbeat); }
     // Without fresh inputs, the held movement must expire and coast to rest.
@@ -107,7 +110,7 @@ test('two players move independently; forged identity, position, velocity and ro
   try {
     const a = await t.connect(), b = await t.connect(); const room = await t.create(a); assert.ok(room.ok);
     await t.join(b, room.room.code); const first = await nextSnapshot(a); const originalB = first.players.find(p => p.id === b.id)!;
-    const heartbeat = setInterval(() => a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true, id: b.id, roomCode: 'FAKE', x: 99999, y: 99999, vx: 99999, vy: 99999, speed: 99999 } as InputMessage), 30);
+    const heartbeat = setInterval(() => a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true, id: b.id, roomCode: 'FAKE', x: 99999, y: 99999, vx: 99999, vy: 99999, speed: 99999 } as InputMessage), 30);
     try {
       const later = await nextSnapshot(a, s => s.players.find(p => p.id === a.id)!.x > first.players[0].x + 40);
       const stateA = later.players.find(p => p.id === a.id)!, stateB = later.players.find(p => p.id === b.id)!;
@@ -182,7 +185,7 @@ test('room snapshots agree on black hole/death; late join and reconnect get comp
     ]);
     assert.equal(sa.tick, sb.tick); assert.deepEqual(sa.blackHole, sb.blackHole); assert.deepEqual(sa.players, sb.players);
     const frozen = sa.players.find(p => p.id === a.id)!;
-    a.emit('resetFlight', 0); a.emit('input', { ...idleInput(), lifeGeneration: 0, right: true });
+    a.emit('resetFlight', 0); a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true });
     const stillDead = (await nextSnapshot(a, s => s.tick > sa.tick + 2)).players.find(p => p.id === a.id)!;
     // Countdown now advances while the dead ship's physics stays frozen.
     assert.equal(stillDead.x, frozen.x); assert.equal(stillDead.y, frozen.y);

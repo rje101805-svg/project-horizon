@@ -85,9 +85,11 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       }, id)).toEqual({ x: player.state.x, y: player.state.y, alpha: 1 });
       // Held key from the old life was cleared; fresh press restores movement.
       const spawnX = player.state.x; await frame(); expect(player.state.x).toBe(spawnX);
+      await page.locator('canvas').click({ position: { x: 400, y: 300 } });
       await page.keyboard.up('d'); await page.keyboard.down('d');
-      // Wait for the browser's normal frame/input delivery, not respawn time.
-      await expect.poll(() => player.input.right).toBe(true); await frame();
+      // Ordered tick commands can follow queued neutral ticks. Drive the real
+      // simulation while waiting, as a running server does (no wall-time respawn).
+      await expect.poll(async () => { await frame(); return player.state.x; }, { intervals: [33] }).toBeGreaterThan(spawnX);
       expect(player.state.x).toBeGreaterThan(spawnX); await page.keyboard.up('d');
     }
     expect(errors).toEqual([]);

@@ -13,7 +13,7 @@ export class RemoteInterpolator {
     // Drop only this player's prior-life samples, even if every death snapshot
     // was lost. A generation change is authoritative teleport evidence.
     for (const player of snapshot.players) {
-      for (const frame of this.frames) frame.players = frame.players.filter(p => p.id !== player.id || p.lifeGeneration === player.lifeGeneration);
+      for (const frame of this.frames) frame.players = frame.players.filter(p => p.id !== player.id || p.lifeGeneration === player.lifeGeneration && p.teleportSequence === player.teleportSequence);
     }
     this.frames.push({ ...snapshot, players: snapshot.players.map(p => ({ ...p })) });
     if (this.frames.length > MAX_BUFFERED_SNAPSHOTS) this.frames.shift();

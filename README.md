@@ -1,3 +1,11 @@
+# Phase 2 Step 1 feature branch
+
+`phase2/step1-prediction` adds fixed-tick local ship prediction and server reconciliation, with shared thrust/inertia/bounds/gravity and the existing 100ms remote interpolation. Health, death/respawn and room membership remain authoritative. No combat features are included. Manual acceptance is pending; this branch is not deployed to the live Pages URL.
+
+Run `npm ci`, `npm run server`, and (in a second terminal) `npm run dev`. Use two visible browser windows at the printed local client address, create/join the same room, and select the local server at `http://localhost:3001`. Enable the development fake-network checkbox for **150ms each way**; toggle its separate jitter checkbox for **±30ms**. F3 shows prediction metrics. See [PHASE2_STEP1_TEST.md](PHASE2_STEP1_TEST.md) for the complete acceptance procedure and implementation details.
+
+The Phase 1 notes below describe the accepted historical baseline. Their statements excluding local prediction and describing 100ms fake lag are superseded on this feature branch.
+
 > **Integration status: Steps 5–7 accepted locally and integrated into `work`.** Production `/docs` is rebuilt for the Render server. After the push, wait for both deployments and verify the new footer Build ID. Deployed acceptance and Step 8 two-computer testing remain pending; Phase 1 is not yet complete.
 
 

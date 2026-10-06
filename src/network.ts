@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { idleInput, TICK_MS, type PlayerInput } from '../shared/flight';
 import type { ClientEvents, RoomInfo, RoomResult, ServerEvents, Snapshot } from '../shared/protocol';
+import { LocalPredictor } from './prediction';
 import { DebugLag } from './debug-lag';
 export interface ConnectionCallbacks {
   snapshot: (snapshot: Snapshot) => void;
@@ -11,6 +12,10 @@ export interface ConnectionCallbacks {
   ping?: (milliseconds: number | null) => void;
 }
 export class FlightConnection {
+  readonly prediction = new LocalPredictor();
+  private previousTime = performance.now();
+  private accumulator = 0;
+  private pendingRelease = false;
   readonly socket: Socket<ServerEvents, ClientEvents>;
   room: RoomInfo | null = null;
   latest: Snapshot | null = null;
@@ -60,9 +65,11 @@ export class FlightConnection {
         snapshot = { ...snapshot, players: snapshot.players.filter(p => ids.has(p.id)) };
         const previous = this.latest?.players.find(p => p.id === this.socket.id);
         const local = snapshot.players.find(p => p.id === this.socket.id)!;
-        if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration) {
+        if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
           this.lag?.clear(); this.input = idleInput();
         }
+        const teleport = this.prediction.reconcile(local, snapshot.blackHole);
+        if (teleport) this.accumulator = 0;
         this.tick = snapshot.tick; this.lastSnapshot = Date.now(); this.latest = snapshot;
         callbacks.snapshot(snapshot); callbacks.status('Connected · server-authoritative flight · 30 Hz');
       };
@@ -72,15 +79,24 @@ export class FlightConnection {
     this.socket.on('connect_error', () => callbacks.status('Cannot reach flight server yet · server may be waking up · retrying automatically…'));
     this.timer = setInterval(() => {
       if (this.socket.connected && Date.now() - this.lastProbe >= 3000) this.measurePing();
-      if (this.socket.connected && this.room) {
-        const local = this.latest?.players.find(p => p.id === this.socket.id);
-        if (!local || local.lifeState === 'dead') return;
-        const input = { ...this.input, lifeGeneration: local.lifeGeneration }, epoch = this.epoch;
-        const send = () => { if (epoch === this.epoch && this.socket.connected && this.room) this.socket.volatile.emit('input', input); };
-        if (this.lag) this.lag.schedule('input', send); else send();
-        if (Date.now() - this.lastSnapshot > 1000) callbacks.status('Server snapshots stopped · flight frozen');
+      const now = performance.now(), elapsed = now - this.previousTime;
+      this.previousTime = now;
+      if (!this.socket.connected || !this.room || !this.latest || Date.now() - this.lastSnapshot > 1000 || elapsed > 250) {
+        this.accumulator = 0;
+        if (this.socket.connected && this.room && this.latest && Date.now() - this.lastSnapshot > 1000) callbacks.status('Server snapshots stopped · flight frozen');
+        return;
       }
-    }, TICK_MS);
+      this.accumulator += Math.max(0, elapsed);
+      while (this.accumulator >= TICK_MS) {
+        this.accumulator -= TICK_MS;
+        const release = this.pendingRelease;
+        const input = this.prediction.tick(release ? { ...idleInput(), aim: this.input.aim } : this.input, release), epoch = this.epoch;
+        if (!input) continue;
+        this.pendingRelease = false;
+        const send = () => { if (epoch === this.epoch && this.socket.connected && this.room) this.socket.emit('input', input); };
+        if (this.lag && !release) this.lag.schedule('input', send); else send();
+      }
+    }, 5);
   }
   async enter(mode: 'create' | 'join', name: string, code = ''): Promise<RoomResult> {
     this.name = name;
@@ -126,10 +142,14 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; }
+  private invalidate() { this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
   setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
-  setFakeLag(enabled: boolean) { this.lag?.setEnabled(enabled); this.release(); }
-  release() { this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim }; if (this.socket.connected && this.room) this.socket.volatile.emit('input', { ...this.input, lifeGeneration: this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1 }); }
+  setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
+  renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
+  release() {
+    this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
+    this.pendingRelease = true;
+  }
   reset() { this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight', this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1); }
   close() {
     if (this.closed) return;

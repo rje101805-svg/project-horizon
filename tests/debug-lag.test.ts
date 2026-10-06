@@ -15,3 +15,11 @@ test('disabling fake network cancels delayed packets instead of replaying stale 
   lag.schedule('input', () => calls++); lag.schedule('snapshot', () => calls++); lag.setEnabled(false);
   lag.schedule('input', () => calls++); await new Promise(r => setTimeout(r, 160)); assert.equal(calls, 1);
 });
+test('150ms latency without jitter delays both directions and toggling discards work', async () => {
+  const lag = new DebugLag(); lag.setEnabled(true, 150, 0);
+  const start = performance.now(), delivered: number[] = [];
+  await Promise.all((['input', 'snapshot'] as const).map(direction => new Promise<void>(resolve => {
+    lag.schedule(direction, () => { delivered.push(performance.now() - start); resolve(); });
+  })));
+  assert.equal(delivered.length, 2); assert.ok(delivered.every(ms => ms >= 140)); lag.clear();
+});
