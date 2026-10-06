@@ -9,6 +9,7 @@ test('cold-start retries recover through one room request; ping and build stamp 
   unavailable = false;
   await expect(page.locator('#status')).toContainText('server-authoritative', { timeout: 15000 });
   await expect(page.locator('#player-count')).toHaveText('1 / 8 players');
+  await page.keyboard.press('F3'); await expect(page.locator('#ping')).toBeVisible();
   await expect(page.locator('#ping')).toHaveText(/Ping: \d+ ms/, { timeout: 7000 });
   await expect(page.locator('#build-stamp')).toHaveText(/Build: client-[a-f0-9]{12}/);
 });

@@ -7,6 +7,7 @@ export interface ConnectionCallbacks {
   room: (room: RoomInfo) => void;
   status: (message: string) => void;
   roomLost: (message: string) => void;
+  snapshotReceived?: () => void; // valid raw arrival, before DEV visual delay
   ping?: (milliseconds: number | null) => void;
 }
 export class FlightConnection {
@@ -16,6 +17,7 @@ export class FlightConnection {
   private timer: ReturnType<typeof setInterval>;
   private input = idleInput();
   private tick = -1;
+  private receivedTick = -1;
   private lastSnapshot = 0;
   private epoch = 0;
   private name = 'Pilot';
@@ -44,6 +46,11 @@ export class FlightConnection {
       this.room = room; callbacks.room(room);
     });
     this.socket.on('snapshot', snapshot => {
+      // Observe existing packets only. No extra traffic, and not a count of
+      // delayed render callbacks or snapshots from another membership/room.
+      if (this.socket.connected && snapshot.roomCode === this.room?.code && snapshot.tick > this.receivedTick && snapshot.players.some(p => p.id === this.socket.id)) {
+        this.receivedTick = snapshot.tick; callbacks.snapshotReceived?.();
+      }
       const epoch = this.epoch;
       const accept = () => {
         if (epoch !== this.epoch || !this.socket.connected || snapshot.roomCode !== this.room?.code || snapshot.tick <= this.tick) return;
@@ -119,7 +126,7 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.epoch++; this.lag?.clear(); this.latest = null; }
+  private invalidate() { this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; }
   setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean) { this.lag?.setEnabled(enabled); this.release(); }
   release() { this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim }; if (this.socket.connected && this.room) this.socket.volatile.emit('input', { ...this.input, lifeGeneration: this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1 }); }

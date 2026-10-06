@@ -1,3 +1,4 @@
+import { applyDamage } from '../server/health';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
@@ -42,11 +43,19 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     await expect(peer.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     const id = (await localState(page))!.id, room = store.rooms.get(code)!, player = room.players.get(id)!;
+    await page.keyboard.press('F3'); await expect(page.locator('#debug-overlay')).toBeVisible();
+    await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
+    applyDamage(player, 25, 'black-hole', tick * TICK_MS); await frame();
+    await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH - 25} / ${MAX_HEALTH}`);
+    await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH - 25);
     for (let cycle = 0; cycle < 2; cycle++) {
       // Server-side fixture avoids waiting for flight time or respawn wall time.
       Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000, vy: 0 });
       await frame();
       await expect(page.locator('#death-overlay')).toBeVisible();
+      await expect(page.locator('#hud-health-value')).toHaveText(`0 / ${MAX_HEALTH}`);
+      await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', 0);
+      await expect(page.locator('#debug-overlay')).toBeVisible();
       await expect(page.locator('#death-health')).toHaveText(`Health 0 / ${MAX_HEALTH} · Black hole`);
       await expect(page.locator('#death-countdown')).toHaveText('Respawning in 3.0s');
       await expect(page.locator('#restart')).toBeDisabled();
@@ -62,8 +71,11 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       await expect(page.locator('#death-countdown')).toHaveText('Respawning in 1.5s');
       expect(player.state.lifeState).toBe('dead'); expect(player.state.deathSequence).toBe(cycle + 1);
       if (cycle === 0) await page.screenshot({ path: 'test-results/step6-death.png' });
-      await advance(Math.ceil(RESPAWN_DELAY_MS / TICK_MS) - 45); await frame();
+      await advance(Math.ceil(RESPAWN_DELAY_MS / TICK_MS) - 45 + 1); await frame();
       await expect(page.locator('#death-overlay')).toBeHidden();
+      await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
+      await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH);
+      await expect(page.locator('#debug-overlay')).toBeVisible();
       await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
       expect(player.state.id).toBe(id); expect(player.state.lifeGeneration).toBe(cycle + 1);
       expect(player.state.vx).toBe(0); expect(player.state.vy).toBe(0);

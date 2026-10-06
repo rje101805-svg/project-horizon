@@ -7,3 +7,17 @@
 .death-overlay[hidden] { display: none; }
 .death-overlay h2 { color: #d6abff; }
 #death-countdown { font-size: 24px; color: #ffca85; }
+
+.gameplay-hud,.debug-overlay { position: absolute; z-index: 30; background: rgba(8, 14, 30, .94); border: 1px solid #34435e; border-radius: 8px; padding: 12px; pointer-events: none; }
+.gameplay-hud { top: 14px; left: 50%; transform: translateX(-50%); width: min(430px, calc(100% - 28px)); }
+.health-heading { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+#hud-life { margin-left: auto; color: #aab6ce; font-size: 11px; }
+#hud-health-bar { display: block; width: 100%; height: 10px; border: 0; border-radius: 5px; overflow: hidden; margin: 9px 0 12px; accent-color: #72eee0; background: #26314a; }
+#hud-health-bar::-webkit-progress-bar { background: #26314a; }
+#hud-health-bar::-webkit-progress-value { background: #72eee0; }
+#hud-health-bar::-moz-progress-bar { background: #72eee0; }
+.hud-slots { display: flex; justify-content: space-between; gap: 12px; color: #aab6ce; font-size: 11px; letter-spacing: 1px; }
+.debug-overlay { top: 14px; left: 14px; max-width: calc(100% - 28px); font: 12px/1.7 monospace; }
+.debug-overlay strong { color: #72eee0; }
+.debug-details { border-top: 1px solid #34435e; margin-top: 8px; padding-top: 8px; color: #aab6ce; }
+@media(max-width:1000px) { .gameplay-hud,.debug-overlay { position: relative; top: auto; bottom: auto; left: auto; width: 100%; max-width: none; margin: 8px 0; transform: none; } }

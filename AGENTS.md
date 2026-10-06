@@ -1,8 +1,18 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 6 — server-authoritative health/death/automatic respawn on `step-6-health-respawn`, directly based on accepted Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`. Steps 5 and 6 are locally accepted. The owner reported Step 6 manual acceptance passed on October 5, 2026; see `STEP6_TEST.md`. Step 4 public acceptance remains pending. Do not begin Step 7/final HUD, combat, weapons, shields, ammo, loot, planetary physics, accounts, matchmaking or match lifecycle.
+Current scope: Phase 1, Step 7 — HUD and toggleable debug on `step-7-hud-debug`, directly based on accepted Step 6 `f7890cfb23c88c7f70673043103e83456df30fb5`. Steps 5/6 are locally accepted; Step 7 manual acceptance is pending. Step 4 public acceptance remains separately pending. Do not begin Step 8, combat, weapons/shields/ammo systems, loot, black-hole growth, planetary physics, accounts, matchmaking or match lifecycle.
 
-Protect production and baseline: leave `work` at `9f0c821` and `step-5-black-hole` at `6db0ae7`. Do not merge, deploy, rebuild or commit `docs/`, reconfigure Render/Pages, or cancel/retrigger the queued Step 4 Pages job. Normal `npm run build` writes `dist/`. Commit/push only `step-6-health-respawn`. The owner confirmed Render work-only Auto-Deploy On Commit, PR Previews Off; Pages work → /docs only. This confirmation authorizes the isolated Step 6 branch push, not deployment.
+Protect production and baselines: leave `work` at `9f0c821`, `step-5-black-hole` at `6db0ae7`, and `step-6-health-respawn` at `f7890cf`. Do not merge, deploy, rebuild or commit `docs/`, reconfigure Render/Pages, or cancel/retrigger the queued Step 4 Pages job. Normal `npm run build` writes `dist/`; Pages-path checks must write `/tmp`. Commit/push only `step-7-hud-debug`. The owner confirmed Render work-only Auto-Deploy On Commit, PR Previews Off; Pages work → /docs only. This confirmation permits the isolated branch push, not deployment.
+
+## Step 7 presentation and metrics
+
+- `src/hud.ts` is presentation only: the local authoritative snapshot supplies health, clamped visually with shared MAX_HEALTH. The progress bar cannot affect damage/lifecycle. Shield/weapon/ammo are em-dash placeholders with no fake values or systems.
+- F3 toggles the default-hidden debug panel and ignores key-repeat, without resetting keys or changing flight/death/respawn. Existing position/speed/tick/ping telemetry is inside debug; room/share UI remains unchanged. Compact/narrow layouts avoid overlapping canvas/minimap; health stays visible during death.
+- Ping reuses the existing RTT callback. Room player count uses reliable RoomInfo.playerIds, including dead connected members. Configured target Hz comes from shared TICK_RATE; never infer it from the tick number.
+- SampleRate counts actual Phaser updates / valid snapshot arrivals over monotonic elapsed time in one-second samples. No new timer, animation loop, network message or dependency. Rates are independent: render FPS and packet receive rate are distinct from configured 30Hz simulation.
+- `src/network.ts` adds only a client-local snapshotReceived observer before DEV fake lag, with current room/socket identity/monotonic tick guards and an observation marker reset on invalidation. It does not alter packet acceptance, protocol, physics or authoritative state. Disconnect clears receive availability/counters; healthy-but-stalled delivery can measure 0/s.
+- HUD/debug writes unchanged values only when necessary; metric DOM refresh is capped at four times/second. Do not add a competing health/room model. Step 7 does not modify server/shared gameplay, Step 6 lifecycle, interpolation or production DEV-code exclusion. See STEP7_TEST.md for focused manual acceptance.
+
 
 ## Step 6 lifecycle
 
@@ -13,7 +23,7 @@ Protect production and baseline: leave `work` at `9f0c821` and `step-5-black-hol
 - Replicated `respawnRemainingMs` avoids wall-clock skew; client display cannot decide respawn. `deathSequence` increments once per death; full snapshots carry source, health and life state. No repeated death-event stream.
 - Inputs/reset carry their life generation; server validates current living generation. Old-life packets cannot move/reset a respawned ship. The retained living flight reset never heals/respawns. Client lifecycle changes clear delayed inputs/snapshots, held keys and neutralize input.
 - Remote interpolation purges only a respawned player's old-generation records, snaps to the new state, then resumes ordinary interpolation. Generation changes handle even lost death snapshots. Local ship/camera snaps on respawn. Disconnect removes deadline ownership; stale references cannot revive removed membership.
-- Death overlay and temporary health/life text are Step 6 test aids. Preserve existing ping/telemetry; do not create the final Step 7 health bar, shield/weapon/ammo slots or debug overlay. See `STEP6_TEST.md` for manual acceptance.
+- Step 6 death overlay/lifecycle are preserved. Step 7 adds presentation around them without changing authority. See `STEP6_TEST.md` for the accepted historical lifecycle checks.
 
 
 ## Step 5 black hole
@@ -49,7 +59,7 @@ Protect production and baseline: leave `work` at `9f0c821` and `step-5-black-hol
 
 `npm test` runs Node logic/real-socket integration tests and Playwright browser tests on dedicated ports 3002/5175. `npm run build` checks client/server/shared/tests and builds `dist/`. System Chromium is used when installed; otherwise install Playwright Chromium.
 
-Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Step 5 or Step 6. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
+Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Steps 5–7. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
 
 Render deploys from the repository ROOT (`server/` imports `shared/`). `PORT` and `0.0.0.0` binding are already supported. `tsx` is a runtime dependency; `npm run server`/`npm start` run the same authoritative process. See `DEPLOY.md` for commands that also work on the existing pushed Step 3 code while obtaining the real service URL before the final Step 4 commit.
 

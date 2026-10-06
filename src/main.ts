@@ -1,3 +1,4 @@
+import { GameplayHud } from './hud';
 import { MAX_HEALTH } from '../shared/lifecycle';
 import type { BlackHoleState } from '../shared/black-hole';
 import Phaser from 'phaser';
@@ -10,6 +11,7 @@ import { defaultServerUrl, isLoopback, validateServerUrl } from './config';
 import { normalizeRoomCode } from '../shared/rooms';
 import type { PlayerState, RoomInfo, Snapshot } from '../shared/protocol';
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const hud = new GameplayHud(document);
 const planets = [{ x: 650, y: 700, r: 90, color: 0x6095d6, name: 'AZURE' }, { x: 1750, y: 650, r: 115, color: 0xc88066, name: 'EMBER' }, { x: 700, y: 1750, r: 105, color: 0x7caf9a, name: 'VERDANT' }, { x: 1800, y: 1750, r: 85, color: 0x9b8dd0, name: 'ECHO' }];
 let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
@@ -102,6 +104,7 @@ class Horizon extends Phaser.Scene {
     this.removeShips(snapshot.players.map(p => p.id));
     this.drawBlackHole(snapshot.blackHole);
     this.placeShip(local);
+    hud.health(local);
     if (this.lastLocalGeneration >= 0 && local.lifeGeneration !== this.lastLocalGeneration) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration;
     const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}`;
@@ -145,6 +148,7 @@ class Horizon extends Phaser.Scene {
   freezeRemoteShips() { this.interpolator.clear(); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
   update() {
+    hud.frame();
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.drawMap();
     if (Phaser.Input.Keyboard.JustDown(this.keys.R)) this.resetFlight();
@@ -174,6 +178,7 @@ class Horizon extends Phaser.Scene {
   }
 }
 function launch() {
+  hud.begin();
   el('death-overlay').hidden = true;
   el('life-status').textContent = 'Awaiting life state';
   el<HTMLButtonElement>('restart').disabled = false;
@@ -190,6 +195,7 @@ function launch() {
 function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
 function updateRoom(room: RoomInfo) {
   el('room-code-display').textContent = room.code;
+  hud.setRoom(room.playerIds.length, connection?.socket.connected ?? false);
   el('player-count').textContent = `${room.playerIds.length} / ${room.maxPlayers} players`;
   scene()?.removeShips(room.playerIds);
 }
@@ -198,6 +204,7 @@ function goHome(message = '') {
   el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false;
   el('cancel-connect').hidden = true;
   connection?.close(); connection = undefined;
+  hud.setRoom(0, false);
   game?.destroy(true); game = undefined;
   el('mission').hidden = true; el('home').hidden = false;
   el('home-status').textContent = message;
@@ -215,16 +222,17 @@ async function enterRoom(mode: 'create' | 'join') {
   el('cancel-connect').hidden = false;
   busy = true; el<HTMLButtonElement>('create').disabled = true; el<HTMLButtonElement>('join').disabled = true;
   el('home-status').textContent = 'Connecting…';
-  el('ping').textContent = 'Ping: —';
+  hud.setPing(null);
   connection?.close();
   const current = new FlightConnection(field.value, {
     snapshot: snapshot => { if (connection === current) scene()?.acceptSnapshot(snapshot); },
     room: room => { if (connection === current) updateRoom(room); },
-    ping: milliseconds => { if (connection === current) el('ping').textContent = milliseconds === null ? 'Ping: —' : `Ping: ${milliseconds} ms`; },
+    snapshotReceived: () => { if (connection === current) hud.snapshotReceived(); },
+    ping: milliseconds => { if (connection === current) hud.setPing(milliseconds); },
     status: message => {
       if (connection !== current) return;
       el(el('home').hidden ? 'status' : 'home-status').textContent = message;
-      if (message.startsWith('Disconnected')) scene()?.freezeRemoteShips();
+      if (message.startsWith('Disconnected')) { hud.setRoom(0, false); scene()?.freezeRemoteShips(); }
     },
     roomLost: message => { if (connection === current) goHome(`Room ended or unavailable. ${message} Create or join a room again.`); },
   });
@@ -261,3 +269,9 @@ if (import.meta.env.DEV) {
   el('debug-network').hidden = false;
   el<HTMLInputElement>('fake-lag').onchange = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked);
 }
+
+window.addEventListener('keydown', event => {
+  if (event.code !== 'F3' || el('mission').hidden) return;
+  event.preventDefault();
+  if (!event.repeat) hud.toggle();
+});
