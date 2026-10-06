@@ -1,5 +1,5 @@
 import type { FireRequest, FireResult, ProjectileState } from './projectiles';
-import type { CombatDebugRequest, CombatDebugResult } from './combat';
+import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult } from './combat';
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
@@ -15,6 +15,7 @@ export interface ServerEvents {
 }
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface ClientEvents {
+  reload: (request: ReloadRequest, reply: (result: ReloadResult) => void) => void;
   fire: (request: FireRequest, reply: (result: FireResult) => void) => void;
   combatDebug: (request: CombatDebugRequest, reply: (result: CombatDebugResult) => void) => void;
   latencyProbe: (reply: () => void) => void;

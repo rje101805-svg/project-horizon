@@ -76,7 +76,7 @@ for (const [label, enabled, jitter] of [['normal', false, 0], ['150ms', true, 0]
   });
 }
 test('gravity predictions stay stable and reset/respawn discard old inputs under jitter', async ({ page }) => {
-  const store = new RoomStore(); const server = createGameServer(['http://127.0.0.1:5175'], store);
+  const store = new RoomStore(); const server = createGameServer(['http://127.0.0.1:5175'], store, { combatDebug: true });
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); if (!address || typeof address === 'string') throw Error('Missing server');
   try {

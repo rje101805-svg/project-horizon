@@ -29,7 +29,7 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
       const request = (action: CombatDebugAction, markers = { lifeGeneration: 0, teleportSequence: 0 }) =>
         new Promise<CombatDebugResult>(resolve => a.emit('combatDebug', { action, ...markers, targetId: b.id, health: 9999 } as Parameters<ClientEvents['combatDebug']>[0], resolve));
       if (mode !== 'enabled') {
-        for (const action of ['damage', 'ammo', 'reload', 'shield', 'cooldown', 'refill'] as const) {
+        for (const action of ['damage', 'ammo', 'reload', 'cooldown', 'refill'] as const) {
           assert.deepEqual(await request(action), { ok: false, message: 'Combat debug disabled by server' });
         }
         assert.deepEqual(p.state, initial); assert.deepEqual(peer.state, peerInitial);
@@ -39,14 +39,13 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
         assert.equal((await request('reload')).ok, true); assert.equal(p.combatTimers.reload, 45);
         server.step(); assert.equal(p.combatTimers.reload, 44);
         assert.equal((await request('reload')).ok, false); assert.equal(p.combatTimers.reload, 44);
-        assert.equal((await request('shield')).ok, true); assert.equal(p.state.shieldUp, true);
         assert.equal((await request('cooldown')).ok, true);
         assert.equal((await request('damage', { lifeGeneration: 1, teleportSequence: 0 })).ok, false);
         assert.deepEqual(peer.state, peerInitial); // Forged target is ignored: only own server socket ID is used.
         const snapshot = new Promise<Snapshot>(resolve => b.once('snapshot', resolve)); server.step();
         const state = (await snapshot).players.find(s => s.id === a.id)!;
         assert.equal(state.shield, 15); assert.equal(state.ammo, 11); assert.equal(state.isReloading, true);
-        assert.equal(state.shieldUp, true); assert.equal(state.controllerType, 'HUMAN'); assert.equal(state.status, 'ALIVE');
+        assert.equal(state.controllerType, 'HUMAN'); assert.equal(state.status, 'ALIVE');
         assert.equal(state.reloadRemainingMs, p.state.reloadRemainingMs);
         for (let i = 0; i < 43; i++) server.step();
         assert.equal(p.state.ammo, 12); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadProgress, 1);

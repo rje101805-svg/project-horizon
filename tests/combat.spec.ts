@@ -12,7 +12,7 @@ test('development controls report default server rejection without changing HUD'
   await expect(page.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
 });
 
-test('enabled controls use authoritative snapshots for damage, ammo, reload and state-only shield', async ({ page, context }) => {
+test('enabled controls use authoritative snapshots for damage, ammo, reload', async ({ page, context }) => {
   const store = new RoomStore(), server = createGameServer(['http://127.0.0.1:5175'], store, { autoTick: false, combatDebug: true });
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); if (!address || typeof address === 'string') throw new Error('Missing address');
@@ -54,9 +54,9 @@ test('enabled controls use authoritative snapshots for damage, ammo, reload and 
     expect(p.state.ammo).toBe(12); await frame();
     await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
     await expect(page.locator('#debug-reload')).toHaveText('Reload ready');
-    await click('shield'); await expect(page.locator('#debug-combat')).toContainText('ALIVE · HUMAN · kills 0 · Shield Up ON');
+    await expect(page.locator('#debug-combat')).toHaveText('ALIVE · HUMAN · kills 0');
     await click('cooldown'); expect(p.state.fireCooldownRemainingMs).toBeGreaterThan(0);
-    await expect.poll(() => peer.evaluate(id => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(s => s.id === id)?.shieldUp, id)).toBe(true);
+    await expect.poll(() => peer.evaluate(id => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(s => s.id === id)?.shield, id)).toBe(0);
     expect(p.state.health).toBe(80); expect(p.state.ammo).toBe(12);
     // Real delayed request/snapshot handling never changes the tick deadline.
     await page.locator('#fake-lag').check();

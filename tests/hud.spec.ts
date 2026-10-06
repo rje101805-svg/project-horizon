@@ -34,7 +34,8 @@ test('HUD placeholders, F3 controls, actual RTT/metrics and room-scoped roster u
   await expect(page.locator('#debug-overlay')).toBeHidden();
   await expect.poll(() => page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest!.players[0].x)).toBeGreaterThan(before);
   await page.keyboard.up('d'); await page.keyboard.press('r');
-  await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
+  await expect(page.locator('#hud-reload')).toHaveText(''); // R on a full magazine is a no-op, not a flight reset.
+  expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest!.players[0].x)).toBeGreaterThan(before);
   await page.keyboard.press('F3');
   const code = (await page.locator('#room-code-display').textContent())!;
   const peer = await context.newPage(); await peer.goto('/'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');

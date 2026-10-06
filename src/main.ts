@@ -66,13 +66,19 @@ class Horizon extends Phaser.Scene {
     this.map = this.add.graphics().setScrollFactor(0).setDepth(10);
     this.connection = connection!;
     // Handle the key transition itself: a short tap can begin and end between
-    // rendered frames, so frame polling may miss it. Key repeat does not reset.
-    this.keys.R.on('down', () => this.resetFlight());
+    // rendered frames, so frame polling may miss it. Key repeat never reloads.
+    const reload = (event: KeyboardEvent) => {
+      const target = event.target as HTMLInputElement;
+      const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
+      if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
+    };
+    window.addEventListener('keydown', reload);
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', visibility);
     const cleanup = () => {
+      window.removeEventListener('keydown', reload);
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.ready = false;
@@ -284,7 +290,6 @@ el('cancel-connect').onclick = () => goHome('Connection cancelled.');
 const linkedRoom = roomFromSearch(location.search);
 if (linkedRoom) { el<HTMLInputElement>('room-code').value = linkedRoom; el('home-status').textContent = `Room ${linkedRoom} ready to join. Confirm your name, then click Join room.`; }
 el<HTMLInputElement>('room-code').oninput = () => { const input = el<HTMLInputElement>('room-code'); input.value = input.value.toUpperCase(); };
-el('restart').onclick = () => scene()?.resetFlight();
 el('leave').onclick = () => goHome();
 async function copy(value: string) {
   try { await navigator.clipboard.writeText(value); el('share-status').textContent = 'Copied'; }
@@ -293,7 +298,7 @@ async function copy(value: string) {
 el('copy-code').onclick = () => { if (connection?.room) void copy(connection.room.code); };
 el('copy-link').onclick = () => { if (connection?.room) void copy(roomLink(location.href, connection.room.code)); };
 if (import.meta.env.DEV) {
-  void import('./combat-debug').then(({ installCombatDebug }) => installCombatDebug(() => connection));
+  void import('./combat-debug').then(({ installCombatDebug }) => installCombatDebug(() => connection, () => scene()?.resetFlight()));
   el('debug-network').hidden = false;
   const updateLag = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked, 150, el<HTMLInputElement>('fake-jitter').checked ? 30 : 0);
   el<HTMLInputElement>('fake-lag').onchange = updateLag;

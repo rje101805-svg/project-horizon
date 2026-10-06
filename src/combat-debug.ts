@@ -1,11 +1,16 @@
 import type { FlightConnection } from './network';
 import type { CombatDebugAction } from '../shared/combat';
 // Loaded only in development. The server independently authorizes every action.
-export function installCombatDebug(connection: () => FlightConnection | undefined) {
+export function installCombatDebug(connection: () => FlightConnection | undefined, reset: () => void) {
   document.getElementById('combat-controls')!.hidden = false;
+  const resetButton = document.getElementById('restart')!;
+  resetButton.hidden = false; resetButton.onclick = reset;
   window.addEventListener('keydown', event => {
-    if (event.code === 'KeyF' && !event.repeat && !['INPUT', 'TEXTAREA'].includes((event.target as HTMLElement)?.tagName)) {
-      document.querySelector<HTMLButtonElement>('[data-combat-action="refill"]')!.click();
+    const target = event.target as HTMLInputElement;
+    const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
+    if (event.code === 'F4' && !event.repeat && !typing &&
+        !document.getElementById('mission')!.hidden) {
+      event.preventDefault(); reset();
     }
   });
   for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-combat-action]'))) {

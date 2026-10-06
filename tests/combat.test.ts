@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
 import { applyDamage, consumeAmmo, startReload, completeReload, startFireCooldown, canFireFromCooldown,
-  setShieldUp, setStatus, resetCombatState, advanceCombatTick } from '../server/combat';
+  setStatus, resetCombatState, advanceCombatTick } from '../server/combat';
 import { combatDebugEnabled, runCombatDebug } from '../server/combat-debug';
 import { MAX_HEALTH, MAX_SHIELD, MAX_AMMO, RELOAD_DURATION, FIRE_COOLDOWN, type DamageSource } from '../shared/combat';
 import { TICK_MS } from '../shared/flight';
@@ -16,14 +16,14 @@ function fixture() {
   return { store, room, player };
 }
 const source: DamageSource = { type: 'PLAYER', playerId: 'attacker' };
-test('new human combat state is full, ALIVE, idle, cooldown ready and Shield Up off', () => {
+test('new human combat state is full, ALIVE, idle, cooldown ready', () => {
   const { player: p } = fixture();
   assert.equal(p.state.health, MAX_HEALTH); assert.equal(p.state.maxHealth, MAX_HEALTH);
   assert.equal(p.state.shield, MAX_SHIELD); assert.equal(p.state.maxShield, MAX_SHIELD);
   assert.equal(p.state.ammo, MAX_AMMO); assert.equal(p.state.maxAmmo, MAX_AMMO);
   assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadRemainingMs, 0);
   assert.equal(p.state.fireCooldownRemainingMs, 0); assert.equal(canFireFromCooldown(p), true);
-  assert.equal(p.state.shieldUp, false); assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'HUMAN');
+  assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'HUMAN');
   assert.equal(p.state.kills, 0); assert.equal(p.state.lastDamageSource, null);
 });
 test('damage absorbs shield first, overflows to health, clamps and never eliminates', () => {
@@ -61,8 +61,8 @@ test('reload advances only by fixed ticks, duplicate never restarts and prematur
   assert.equal(p.state.ammo, MAX_AMMO); assert.equal(completeReload(p), false);
   p.state.ammo = NaN; assert.equal(startReload(p), false);
 });
-test('cooldown ticks down exactly and Shield Up has no cooldown, damage or movement effects', () => {
-  const a = fixture(), b = fixture(); setShieldUp(b.player, true);
+test('cooldown ticks down exactly and combat state has no movement effects', () => {
+  const a = fixture(), b = fixture();
   assert.equal(startFireCooldown(b.player), true); assert.equal(startFireCooldown(b.player), false);
   const duration = b.player.state.fireCooldownRemainingMs;
   assert.equal(duration, Math.ceil(FIRE_COOLDOWN / TICK_MS) * TICK_MS);
@@ -73,7 +73,6 @@ test('cooldown ticks down exactly and Shield Up has no cooldown, damage or movem
   assert.equal(a.player.state.health, b.player.state.health); assert.equal(a.player.state.shield, b.player.state.shield);
   for (const p of [a.player, b.player]) stepMovement(p.state, { ...idleInput(), right: true }, a.room.blackHole);
   assert.equal(a.player.state.x, b.player.state.x); assert.equal(a.player.state.vx, b.player.state.vx);
-  assert.equal(setShieldUp(b.player, false), true);
 });
 test('status is centralized and independent of controller type; no alien/winner systems are invoked', () => {
   const { player: p } = fixture();
@@ -84,7 +83,7 @@ test('status is centralized and independent of controller type; no alien/winner 
   p.state.controllerType = 'BOT'; resetCombatState(p); assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'BOT');
 });
 test('black-hole death stays lethal through shields and respawn centrally resets every combat field', () => {
-  const { player: p, room } = fixture(); consumeAmmo(p, 3); startReload(p); startFireCooldown(p); setShieldUp(p, true);
+  const { player: p, room } = fixture(); consumeAmmo(p, 3); startReload(p); startFireCooldown(p);
   Object.assign(p.state, { x: room.blackHole.x, y: room.blackHole.y });
   simulatePlayer(p, room, 0, 0); assert.equal(p.state.lifeState, 'dead'); assert.equal(p.state.health, 0); assert.equal(p.state.shield, 0);
   assert.deepEqual(p.state.deathSource, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' });
@@ -92,7 +91,7 @@ test('black-hole death stays lethal through shields and respawn centrally resets
   simulatePlayer(p, room, 99999999, RESPAWN_DELAY_MS);
   assert.equal(p.state.lifeState, 'active'); assert.equal(p.state.health, MAX_HEALTH); assert.equal(p.state.shield, MAX_SHIELD);
   assert.equal(p.state.ammo, MAX_AMMO); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadRemainingMs, 0);
-  assert.equal(p.state.reloadProgress, 0); assert.equal(p.state.fireCooldownRemainingMs, 0); assert.equal(p.state.shieldUp, false);
+  assert.equal(p.state.reloadProgress, 0); assert.equal(p.state.fireCooldownRemainingMs, 0);
   assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'HUMAN'); assert.equal(p.state.lifeGeneration, 1);
   assert.ok(p.state.teleportSequence > marker); assert.equal(p.pendingInputs.length, 0);
 });

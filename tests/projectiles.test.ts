@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
 import { fire, advanceProjectiles, projectileSnapshot } from '../server/projectiles';
 import { BASIC_BLASTER, parseFire, circleEntry } from '../shared/projectiles';
-import { advanceCombatTick, consumeAmmo, startReload, refillAmmo, setShieldUp } from '../server/combat';
+import { advanceCombatTick, consumeAmmo, startReload, refillAmmo } from '../server/combat';
 import { TICK_SECONDS, TICK_MS, WORLD } from '../shared/flight';
 import { ProjectileView } from '../src/projectile-view';
 const request = (sequence = 1, aim = 0) => ({ sequence, aim, lifeGeneration: 0, teleportSequence: 0 });
@@ -42,15 +42,16 @@ test('hold/spam enforces six fixed ticks between successful shots independent of
   }
   assert.equal(accepted,5); assert.equal(p.state.ammo,7); assert.equal(room.projectiles.size,5);
 });
-test('zero ammo/reload/dead/zero-health/noncontestant rejects; Shield Up has no firing effect', () => {
+test('zero ammo/reload/dead/zero-health/noncontestant rejects', () => {
   const {room,p} = fixture(); consumeAmmo(p,12); assert.equal(fire(room,p,request(),0).ok,false);
+  assert.equal(p.state.isReloading,true); for(let i=0;i<45;i++)advanceCombatTick(p);
   assert.equal(refillAmmo(p),true); consumeAmmo(p); startReload(p); assert.equal(fire(room,p,request(2),0).ok,false);
   assert.equal(refillAmmo(p),false); for(let i=0;i<45;i++)advanceCombatTick(p);
   let sequence=2;
   for(const changes of [{lifeState:'dead'},{lifeState:'active',health:0},{health:100,status:'ALIEN'},{status:'OUT'}]) {
     Object.assign(p.state,changes); assert.equal(fire(room,p,request(++sequence),0).ok,false);
   }
-  Object.assign(p.state,{status:'ALIVE',lifeState:'active',health:100}); setShieldUp(p,true);
+  Object.assign(p.state,{status:'ALIVE',lifeState:'active',health:100});
   assert.equal(fire(room,p,request(p.lastFireSequence+1),0).ok,true);
   refillAmmo(p); assert.equal(fire(room,p,request(p.lastFireSequence+1),0).ok,false); // Refill cannot reset cooldown.
 });
@@ -84,7 +85,8 @@ test('misses expire exactly at configured lifetime, bounds and existing horizon 
 test('active cap is per owner; cleanup removes old-life and disconnected-owner projectiles', () => {
   const {room,p,store}=fixture();
   for(let n=1;n<=BASIC_BLASTER.maxActive;n++) { assert.equal(fire(room,p,request(n),0).ok,true); ready(p); }
-  refillAmmo(p); const denied=fire(room,p,request(13),0); assert.ok(!denied.ok); assert.equal(denied.reason,'Projectile cap');
+  for(let i=0;i<39;i++)advanceCombatTick(p); // Last round now starts the 45-tick reload.
+  assert.equal(refillAmmo(p),true); const denied=fire(room,p,request(13),0); assert.ok(!denied.ok); assert.equal(denied.reason,'Projectile cap');
   assert.equal(p.state.ammo,12); p.state.teleportSequence++; advanceProjectiles(room); assert.equal(room.projectiles.size,0);
   assert.equal(fire(room,p,{...request(14),teleportSequence:1},0).ok,true); store.leave('a'); assert.equal(room.projectiles.size,0);
 });

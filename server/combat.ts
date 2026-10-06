@@ -13,8 +13,8 @@ function syncTimers(player: RoomPlayer) {
   s.fireCooldownProgress = 1 - t.cooldown / COOLDOWN_TICKS;
 }
 export function resetCombatState(player: RoomPlayer) {
-  const { controllerType, kills } = player.state;
-  Object.assign(player.state, initialCombatState(), { controllerType, kills });
+  const { controllerType, kills, reloadSession } = player.state;
+  Object.assign(player.state, initialCombatState(), { controllerType, kills, reloadSession });
   player.combatTimers = { reload: 0, cooldown: 0, reloadCompleted: false }; syncTimers(player);
 }
 export function applyDamage(player: RoomPlayer, amount: number, source: DamageSource) {
@@ -36,7 +36,7 @@ export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {
 }
 export function startReload(player: RoomPlayer): boolean {
   const s = player.state;
-  if (s.lifeState !== 'active' || s.status === 'OUT' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= MAX_AMMO) return false;
+  if (s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= MAX_AMMO) return false;
   player.combatTimers.reload = RELOAD_TICKS; player.combatTimers.reloadCompleted = false; syncTimers(player); return true;
 }
 export function completeReload(player: RoomPlayer): boolean {
@@ -47,10 +47,6 @@ export function canFireFromCooldown(player: RoomPlayer): boolean { return player
 export function startFireCooldown(player: RoomPlayer): boolean {
   if (player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
   player.combatTimers.cooldown = COOLDOWN_TICKS; syncTimers(player); return true;
-}
-export function setShieldUp(player: RoomPlayer, enabled: boolean): boolean {
-  if (typeof enabled !== 'boolean' || player.state.lifeState !== 'active') return false;
-  player.state.shieldUp = enabled; return true; // No damage, flight or firing effects.
 }
 export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   if (!['ALIVE', 'ALIEN', 'OUT'].includes(status)) return false;

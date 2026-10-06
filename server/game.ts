@@ -1,3 +1,4 @@
+import { reload } from './reload';
 import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
 import { combatDebugEnabled, runCombatDebug } from './combat-debug';
 import { acceptMovementInput } from './inputs';
@@ -29,6 +30,11 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       const room = store.roomFor(socket.id);
       reply(fire(room, room?.players.get(socket.id), request, tick));
     });
+    socket.on('reload', (request, reply) => {
+      if (typeof reply !== 'function') return;
+      const room = store.roomFor(socket.id);
+      reply(reload(room, room?.players.get(socket.id), request));
+    });
     socket.on('combatDebug', (request, reply) => {
       if (typeof reply !== 'function') return;
       reply(runCombatDebug(store.roomFor(socket.id)?.players.get(socket.id), request, debugAuthorized));
@@ -57,7 +63,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       if (player) acceptMovementInput(player, raw, performance.now());
     });
     // Preserve Step 2's explicit debug reset; safe positions still server-owned.
-    socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (player?.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });
+    socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (debugAuthorized && player?.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });
     socket.on('disconnect', leave);
   });
   function simulate(now: number) {

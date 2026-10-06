@@ -1,3 +1,5 @@
+> Current milestone: **P2S4 reload/ammo gameplay**, awaiting manual acceptance. R manually reloads a partial/empty magazine in 1.5 seconds; the final accepted round immediately starts auto-reload. Server timers, ammo and completion are authoritative. DEV reset is F4 with COMBAT_DEBUG=1; DEV refill is a marked debug button, no F shortcut. Actual ship shield HP is preserved; the obsolete Shield Up ability placeholder is removed. See [PHASE2_STEP4_TEST.md](PHASE2_STEP4_TEST.md). Historical sections below describe earlier milestones.
+
 # Phase 2 Step 3 — shooting/projectiles
 
 Work is based on accepted P2S2 `1df8f3607da5d4b060a049b2fbe854267c40a2f4`. The authoritative projectile checkpoint precedes a separate visual prediction checkpoint. Manual acceptance is pending. See [PHASE2_STEP3_TEST.md](PHASE2_STEP3_TEST.md) for two-client tests and temporary DEV refill/security instructions.
@@ -50,7 +52,7 @@ Open **http://localhost:5173**, enter a display name, leave the server URL at **
 
 See [MANUAL_TEST.md](MANUAL_TEST.md) for one-action-at-a-time Windows instructions and the full two-client acceptance test, including fake lag and disconnects.
 
-Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, F3 for debug, R/Reset flight for the retained Step 2 debug flight reset, Back to home to leave. This living debug reset never heals or triggers respawn and is rejected while dead. Black-hole deaths now respawn automatically without refreshing or changing identity. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
+Controls: WASD/arrows for thrust, Shift boost, mouse aim while idle, F3 for debug, R for gameplay reload, DEV F4/Reset flight for the retained debug flight reset (requires COMBAT_DEBUG=1 and a non-production server), Back to home to leave. This living debug reset never heals or triggers respawn and is rejected while dead. Black-hole deaths now respawn automatically without refreshing or changing identity. Planets remain non-colliding landmarks, and ship colors are server-assigned for multiplayer. Normal speed (290), boost (440), inertia, camera, stars, map bounds and minimap preserve Step 2's flight feel.
 
 ## HUD and debug
 

@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e1e"><title>Project Horizon</title>  <script type="module" crossorigin src="/project-horizon/assets/index-CwvbujhO.js"></script>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#080e1e"><title>Project Horizon</title>  <script type="module" crossorigin src="/project-horizon/assets/index-DNoWKDjX.js"></script>
   <link rel="stylesheet" crossorigin href="/project-horizon/assets/index-CGsdfHcQ.css">
 </head>
 <body><div id="app">
-<header><a href="./" class="brand">◈ HORIZON</a><span class="badge">LOCAL PROJECTILE TEST · STEP 3</span></header>
+<header><a href="./" class="brand">◈ HORIZON</a><span class="badge">RELOAD / AMMO TEST · STEP 4</span></header>
 <main>
 <section id="home">
 <p class="eyebrow">BEYOND THE EVENT HORIZON</p><h1>Project:<br>Horizon.</h1>
@@ -18,17 +18,17 @@
 <p id="home-status" class="small" role="status" aria-live="polite"></p>
 </section>
 <section id="mission" hidden>
-<div class="mission-top"><div><p class="eyebrow">SERVER FLIGHT SANDBOX</p><h2>Explore the solar system</h2></div><div><button id="restart" class="secondary">Reset flight [R]</button> <button id="leave" class="secondary">Back to home</button></div></div>
+<div class="mission-top"><div><p class="eyebrow">SERVER FLIGHT SANDBOX</p><h2>Explore the solar system</h2></div><div><button id="restart" class="secondary" hidden>DEV reset flight [F4]</button> <button id="leave" class="secondary">Back to home</button></div></div>
 <div class="room-bar"><strong>Room <span id="room-code-display"></span></strong><span id="player-count"></span><button id="copy-code" class="secondary">Copy code</button><button id="copy-link" class="secondary">Copy join link</button><span id="share-status" role="status"></span></div>
 <div id="debug-network" class="debug" hidden><label><input id="fake-lag" type="checkbox"> DEV ONLY: fake network · 150ms each way</label> <label><input id="fake-jitter" type="checkbox" checked> ±30ms jitter</label></div>
 <p id="black-hole-status">Awaiting authoritative region</p><div class="game-stage">
-<div class="gameplay-hud" aria-label="Gameplay HUD"><div class="health-heading"><strong>HEALTH</strong><span id="hud-health-value"></span><span id="hud-life">Awaiting server</span></div><progress id="hud-health-bar" aria-label="Health" value="0"></progress><div class="hud-slots"><span id="hud-shield">SHIELD —</span><span id="hud-weapon">WEAPON —</span><span id="hud-ammo">AMMO —</span></div></div>
+<div class="gameplay-hud" aria-label="Gameplay HUD"><div class="health-heading"><strong>HEALTH</strong><span id="hud-health-value"></span><span id="hud-life">Awaiting server</span></div><progress id="hud-health-bar" aria-label="Health" value="0"></progress><div class="hud-slots"><span id="hud-shield">SHIELD —</span><span id="hud-weapon">WEAPON —</span><span id="hud-ammo">AMMO —</span><span id="hud-reload" role="status"></span></div></div>
 <div id="game"></div><section id="death-overlay" class="death-overlay" role="status" aria-live="polite" hidden><h2>Lost to the black hole</h2><p id="death-health"></p><p id="death-countdown"></p><p>You will return automatically. Movement and reset are blocked while dead.</p></section>
 <aside id="debug-overlay" class="debug-overlay" aria-label="Debug metrics" hidden><strong>DEBUG · F3 to hide</strong><div id="ping">Ping: —</div><div id="debug-fps">FPS: —</div><div id="debug-players">Players: —</div><div id="debug-server">Server: —</div><div class="debug-details"><div id="position">Awaiting position</div><div id="velocity">Speed —</div><div id="tick">Server tick —</div><div id="debug-prediction">Input —</div><div id="debug-correction">Correction — · remote delay 100 ms</div><div id="life-status">Awaiting life state</div><div id="debug-combat">Combat —</div><div id="debug-weapon">Blaster —</div><div id="debug-projectiles">Projectiles —</div><div id="debug-reload">Reload —</div><div id="debug-cooldown">Cooldown —</div>
-<div id="combat-controls" class="combat-controls" hidden><button data-combat-action="refill">DEV refill ammo · P2S3 temporary</button><button data-combat-action="damage">Damage 35</button><button data-combat-action="ammo">Consume 1 ammo</button><button data-combat-action="reload">Start reload</button><button data-combat-action="shield">Toggle Shield Up</button><button data-combat-action="cooldown">Start cooldown</button><div id="combat-debug-result" role="status"></div></div></div></aside>
+<div id="combat-controls" class="combat-controls" hidden><button data-combat-action="refill">DEV refill ammo</button><button data-combat-action="damage">Damage 35</button><button data-combat-action="ammo">Consume 1 ammo</button><button data-combat-action="reload">Start reload</button><button data-combat-action="cooldown">Start cooldown</button><div id="combat-debug-result" role="status"></div></div></div></aside>
 </div>
-<div class="mission-bottom"><span id="status" role="status">Connecting to flight server…</span><span>WASD / arrows · Shift boost · Mouse aim · R reset · Hold mouse/Space fire · F3 debug</span></div>
+<div class="mission-bottom"><span id="status" role="status">Connecting to flight server…</span><span>WASD / arrows · Shift boost · Mouse aim · R reload · Hold mouse/Space fire · F3 debug</span></div>
 </section>
 </main>
-<footer><span>PROJECT HORIZON</span><span>Phase 2 · Step 3: shooting</span><span id="build-stamp"></span></footer>
+<footer><span>PROJECT HORIZON</span><span>Phase 2 · Step 4: reload / ammo</span><span id="build-stamp"></span></footer>
 </div></body></html>

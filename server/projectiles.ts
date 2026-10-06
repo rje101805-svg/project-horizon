@@ -1,6 +1,6 @@
 import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type ProjectileState } from '../shared/projectiles';
 import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
-import { applyDamage, consumeAmmo, startFireCooldown, canFireFromCooldown } from './combat';
+import { applyDamage, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
 export interface ServerProjectile extends ProjectileState { remainingTicks: number }
 export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined, raw: unknown, tick: number): FireResult {
@@ -12,7 +12,9 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   const s = player.state;
   if (request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0) return reject('Inactive or stale player');
-  if (s.isReloading || s.ammo <= 0) return reject('No ammo or reloading');
+  if (s.isReloading) return reject('No ammo or reloading');
+  if (s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }
+  if (s.ammo < 0) return reject('No ammo or reloading');
   if (!canFireFromCooldown(player)) return reject('Cooldown');
   if ([...room.projectiles.values()].filter(p => p.ownerId === s.id).length >= BASIC_BLASTER.maxActive) return reject('Projectile cap');
   const dx = Math.cos(request.aim), dy = Math.sin(request.aim);
@@ -25,6 +27,7 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
     teleportSequence: s.teleportSequence, x, y, vx: s.vx + dx * BASIC_BLASTER.muzzleSpeed,
     vy: s.vy + dy * BASIC_BLASTER.muzzleSpeed, damage: BASIC_BLASTER.damage, spawnTick: tick,
     remainingMs: BASIC_BLASTER.lifetimeMs, remainingTicks: Math.ceil(BASIC_BLASTER.lifetimeMs / TICK_MS) });
+  if (s.ammo === 0) startReload(player); // The accepted final round has already spawned.
   return { ok: true, sequence: request.sequence, projectileId: id, spawnTick: tick };
 }
 function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {

@@ -36,7 +36,7 @@ test('fixed-step physics preserves speed, normalized diagonals, inertia, bounds 
   assert.equal(parseInput(null), null);
 });
 test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz and cleans up', async () => {
-  const server = createGameServer([]);
+  const server = createGameServer([], undefined, { combatDebug: true });
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); assert.ok(address && typeof address !== 'string');
   const url = `http://127.0.0.1:${address.port}`;

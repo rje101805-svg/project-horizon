@@ -1,4 +1,4 @@
-import { consumeAmmo, startReload, startFireCooldown, setShieldUp } from '../server/combat';
+import { consumeAmmo, startReload, startFireCooldown } from '../server/combat';
 import { applyDamage } from '../server/health';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
@@ -50,7 +50,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH - 25} / ${MAX_HEALTH}`);
     await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH - 25);
     for (let cycle = 0; cycle < 2; cycle++) {
-      consumeAmmo(player, 3); startReload(player); startFireCooldown(player); setShieldUp(player, true);
+      consumeAmmo(player, 3); startReload(player); startFireCooldown(player);
       // Server-side fixture avoids waiting for flight time or respawn wall time.
       Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000, vy: 0 });
       await frame();
@@ -82,7 +82,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       expect(player.state.id).toBe(id); expect(player.state.lifeGeneration).toBe(cycle + 1);
       expect(player.state.shield).toBe(player.state.maxShield); expect(player.state.ammo).toBe(player.state.maxAmmo);
       expect(player.state.isReloading).toBe(false); expect(player.state.reloadRemainingMs).toBe(0);
-      expect(player.state.fireCooldownRemainingMs).toBe(0); expect(player.state.shieldUp).toBe(false);
+      expect(player.state.fireCooldownRemainingMs).toBe(0);
       expect(player.state.status).toBe('ALIVE'); expect(player.state.controllerType).toBe('HUMAN');
       await expect(page.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
       await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');

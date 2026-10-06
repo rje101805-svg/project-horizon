@@ -3,7 +3,7 @@ import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
 import type { FlightConnection } from '../src/network';
 type DebugWindow=Window & {__HORIZON_FLIGHT__:FlightConnection};
-test('two browsers hold fire through authoritative cooldown, receive bullets/damage, empty and DEV refill', async({page,context})=>{
+test('two browsers hold fire through authoritative cooldown, receive bullets/damage, auto-reload and gated DEV refill', async({page,context})=>{
   const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false,combatDebug:true});
   await new Promise<void>(resolve=>server.http.listen(0,'127.0.0.1',resolve));
   const address=server.http.address();if(!address || typeof address==='string')throw new Error('Missing server');
@@ -31,7 +31,10 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     await page.keyboard.down('Space');for(let i=0;i<12;i++)await frame();await page.keyboard.up('Space');
     expect(a.state.ammo).toBe(0);expect(a.lastFireSequence).toBe(consumed);
     await expect(page.locator('#debug-weapon')).toContainText('ammo 0 / 12');
-    await page.keyboard.press('f');await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug: refill');await frame();
+    expect(a.state.isReloading).toBe(true);
+    for(let i=0;i<45;i++)await frame();
+    expect(a.state.isReloading).toBe(false);
+    await page.locator('[data-combat-action="refill"]').click();await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug: refill');await frame();
     await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
     expect(b.state.status).toBe('ALIVE');expect(b.state.kills).toBe(0);
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id!==(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.ammo)).toBe(12);

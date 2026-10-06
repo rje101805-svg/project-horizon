@@ -18,6 +18,7 @@ export class FlightConnection {
   private fireAim = 0;
   private nextFireAt = 0;
   private shotSequence = 0;
+  private reloadSequence = 0;
   readonly projectilePrediction = new ProjectilePrediction();
   readonly prediction = new LocalPredictor();
   private previousTime = performance.now();
@@ -187,7 +188,18 @@ export class FlightConnection {
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
     this.pendingRelease = true;
   }
-  reset() { this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight', this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1); }
+  reload() {
+    const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;
+    if (!this.socket.connected || !room || !local || local.lifeState !== 'active') return;
+    const request = { sequence: ++this.reloadSequence, lifeGeneration: local.lifeGeneration,
+      teleportSequence: local.teleportSequence, roomCode: room.code, reloadSession: local.reloadSession }, epoch = this.epoch;
+    const send = () => {
+      if (epoch === this.epoch && this.socket.connected && this.room?.code === request.roomCode)
+        this.socket.emit('reload', request, () => {});
+    };
+    if (this.lag) this.lag.schedule('input', send); else send();
+  }
+  reset() { if (!import.meta.env.DEV) return; this.release(); if (this.socket.connected && this.room) this.socket.emit('resetFlight', this.latest?.players.find(p => p.id === this.socket.id)?.lifeGeneration ?? -1); }
   close() {
     if (this.closed) return;
     this.closed = true; this.cancelWait?.(); this.invalidate(); this.room = null; clearInterval(this.timer);

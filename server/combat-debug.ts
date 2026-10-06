@@ -1,4 +1,4 @@
-import { applyDamage, consumeAmmo, startReload, startFireCooldown, setShieldUp, refillAmmo } from './combat';
+import { applyDamage, consumeAmmo, startReload, startFireCooldown, refillAmmo } from './combat';
 import type { CombatDebugRequest, CombatDebugResult } from '../shared/combat';
 import type { RoomPlayer } from './rooms';
 export function combatDebugEnabled(flag: boolean | undefined, nodeEnv = process.env.NODE_ENV): boolean {
@@ -14,7 +14,6 @@ export function runCombatDebug(player: RoomPlayer | undefined, raw: CombatDebugR
     case 'damage': ok = applyDamage(player, 35, { type: 'ENVIRONMENT', cause: 'HAZARD' }) !== null; break;
     case 'ammo': ok = consumeAmmo(player); break;
     case 'reload': ok = startReload(player); break;
-    case 'shield': ok = setShieldUp(player, !player.state.shieldUp); break;
     case 'cooldown': ok = startFireCooldown(player); break;
     default: return { ok: false, message: 'Unknown combat debug action' };
   }
