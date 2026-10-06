@@ -176,7 +176,7 @@ class Horizon extends Phaser.Scene {
     }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
-    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
+    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
     this.drawMap();
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

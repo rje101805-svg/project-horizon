@@ -99,3 +99,12 @@ Cold starts use one Socket.io manager with bounded initial waiting, automatic ba
 - DEV KeyF or the marked refill button requests centralized `refillAmmo` through the existing server-gated debug path. It does not reset cooldown or cancel reload; absent flag/production rejects it. Temporary tooling for P2S3, not P2S4 reload gameplay.
 
 - `src/projectile-prediction.ts` (Commit 2 only) creates bounded, short-lived local visuals with no damage/resource/collision fields. Snapshot owner/shot sequence/lifecycle match removes prediction before authoritative rendering, preventing duplicate bullets. Rejections remove their own visual; accepted shots missing after spawn clean up even if a hit occurred before replication. Unconfirmed visuals expire after 1000ms; connection/lifecycle invalidation and canceled lag queues clear them. Replacement may visually correct position under latency; no client-side hit claim or rewind is added.
+
+
+## P2S3 acceptance fix
+
+- Local confirmed projectiles bypass remote interpolation delay: ProjectileView samples newest local state with at most 100ms of visual extrapolation. Remote interpolation remains unchanged.
+- ProjectilePrediction keeps one confirmed visual per authoritative ID, matched by owner/sequence/lifecycle. Handoff and new snapshots preserve current visual position, then ease a visual offset toward authority over 80ms with correction limited to half projectile speed. No server state is modified. Extrapolation/correction freeze after 100ms without a snapshot; newest presence still removes hit/expired bullets immediately.
+- Releasing/canceling input clears unconfirmed predictions, preserving confirmed visual continuity. Disconnect/membership invalidation clears all visual state. Timeout and rejection cleanup remain.
+- Instrumented zero-lag ten-tap reproduction at 3350118 showed one request/prediction/acceptance per tap, but ten backward render jumps when new local shots transitioned into the delayed interpolation bracket. There was no simultaneous duplicate or double-input path. Acceptance tests now cover the actual trajectories and handoff, not pixel artifacts or fabricated FPS assertions.
+- Mouse-aim versus ship-heading preference is logged for later control work; do not change it as part of this fix.

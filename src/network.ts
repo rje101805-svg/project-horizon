@@ -183,7 +183,7 @@ export class FlightConnection {
   }
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
-    this.projectilePrediction.clear(); this.firing = false;
+    this.projectilePrediction.cancelPending(); this.firing = false;
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
     this.pendingRelease = true;
   }
