@@ -36,14 +36,14 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   await a.keyboard.down('d'); await expect.poll(() => a.locator('#position').textContent()).not.toBe(beforeA); await a.keyboard.up('d');
   expect(await b.locator('#position').textContent()).toBe(beforeB);
   await b.bringToFront();
-  await b.locator('#fake-lag').check();
+  await b.keyboard.press('F3'); await b.locator('#fake-lag').check();
   await expect(b.locator('#fake-lag')).toBeChecked();
   await b.keyboard.down('s'); await expect.poll(() => b.locator('#position').textContent()).not.toBe(beforeB); await b.keyboard.up('s');
   await a.bringToFront();
   const idB = await b.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const originalB = identities.find(p => p.id === idB)!;
   await expect.poll(async () => (await ships(a)).find(p => p.id === idB)?.y ?? 0).toBeGreaterThan(originalB.y);
-  await a.locator('#fake-lag').check(); await a.keyboard.down('d'); await a.waitForTimeout(300); await a.keyboard.up('d');
+  await a.keyboard.press('F3'); await a.locator('#fake-lag').check(); await a.keyboard.down('d'); await a.waitForTimeout(300); await a.keyboard.up('d');
   await a.locator('#fake-lag').uncheck(); await b.bringToFront(); await b.locator('#fake-lag').uncheck();
   await b.close(); await a.bringToFront();
   await expect(a.locator('#player-count')).toHaveText('1 / 8 players'); await expect.poll(() => ships(a)).toHaveLength(1);

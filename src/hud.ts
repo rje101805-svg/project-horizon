@@ -1,3 +1,4 @@
+import { combatPresentation } from './combat-presentation';
 import { MAX_SHIELD, MAX_AMMO, clampCombatValue, type CombatState } from '../shared/combat';
 import { TICK_RATE } from '../shared/flight';
 import { clampHealth, MAX_HEALTH } from '../shared/lifecycle';
@@ -47,7 +48,7 @@ export class GameplayHud {
   private clearHealth() {
     this.bar.value = 0; write(this.node('hud-health-value'), `— / ${MAX_HEALTH}`);
     write(this.node('hud-life'), 'Awaiting server');
-    write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —'); write(this.node('hud-reload'), '');
+    write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —'); this.node('ammo-hud').classList.remove('low-ammo', 'reloading'); this.node('ammo-hud').dataset.state = 'awaiting'; write(this.node('hud-reload'), '');
   }
   health(player: Pick<PlayerState, 'health' | 'lifeState'>) {
     const shown = healthPresentation(player.health);
@@ -56,6 +57,10 @@ export class GameplayHud {
     write(this.node('hud-life'), player.lifeState === 'dead' ? 'Dead · respawning' : 'Alive');
   }
   combat(s: CombatState) {
+    const shown = combatPresentation(s), ammoHud = this.node('ammo-hud');
+    ammoHud.classList.toggle('low-ammo', shown.lowAmmo);
+    ammoHud.classList.toggle('reloading', shown.reloading);
+    ammoHud.dataset.state = shown.reloading ? 'reloading' : shown.lowAmmo ? 'low' : 'ready';
     write(this.node('hud-shield'), `SHIELD ${clampCombatValue(s.shield, MAX_SHIELD)} / ${s.maxShield}`);
     write(this.node('hud-ammo'), `AMMO ${clampCombatValue(s.ammo, MAX_AMMO)} / ${s.maxAmmo}`);
     write(this.node('hud-reload'), s.isReloading ? 'RELOADING' : '');

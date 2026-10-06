@@ -1,3 +1,7 @@
+import { ShipCombatHud } from './ship-combat-hud';
+import { HitFeedback } from './hit-feedback';
+import { DamageNumbers } from './damage-numbers';
+import type { ProjectileHit } from '../shared/hit-feedback';
 import { ProjectileView } from './projectile-view';
 import { BASIC_BLASTER } from '../shared/projectiles';
 import { GameplayHud } from './hud';
@@ -21,6 +25,9 @@ let busy = false;
 let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
 class Horizon extends Phaser.Scene {
+  private hitFeedback = new HitFeedback();
+  private damageNumbers!: DamageNumbers;
+  private localHud!: ShipCombatHud;
   private projectileView = new ProjectileView();
   private projectileGraphics!: Phaser.GameObjects.Graphics;
   private fireAim = 0;
@@ -55,6 +62,7 @@ class Horizon extends Phaser.Scene {
       g.fillStyle(0x080e1e, .25).fillCircle(p.x + p.r * .35, p.y - p.r * .15, p.r * .8);
       this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
     }
+    this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.projectileGraphics = this.add.graphics().setDepth(6);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(connection.room.blackHole);
@@ -78,11 +86,12 @@ class Horizon extends Phaser.Scene {
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', visibility);
     const cleanup = () => {
+      if (!this.ready) return;
       window.removeEventListener('keydown', reload);
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.ready = false;
-      this.interpolator.clear(); this.projectileView.clear();
+      this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
@@ -122,6 +131,8 @@ class Horizon extends Phaser.Scene {
     this.removeShips(snapshot.players.map(p => p.id));
     this.drawBlackHole(snapshot.blackHole);
     this.placeShip(this.connection.renderedLocal(0) ?? local);
+    this.localHud.accept(local, performance.now());
+    this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
     hud.combat(local);
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
@@ -129,6 +140,7 @@ class Horizon extends Phaser.Scene {
     const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
     if (lifeKey !== this.lastLocalLife) {
       this.input.keyboard!.resetKeys(); this.aim = 0; this.connection.release();
+      this.hitFeedback.clear(); this.damageNumbers.clear();
       this.lastLocalLife = lifeKey;
     }
     const dead = local.lifeState === 'dead';
@@ -159,6 +171,7 @@ class Horizon extends Phaser.Scene {
   }
   removeShips(ids: string[]) {
     if (!this.ready) return;
+    this.hitFeedback.removeMissing(ids);
     this.interpolator.removeMissing(ids); this.projectileView.removeOwners(ids);
     for (const [id, ship] of this.ships) if (!ids.includes(id)) {
       // Keep the camera-follow container on reconnect, but clear its old hull.
@@ -166,7 +179,8 @@ class Horizon extends Phaser.Scene {
       ship.label.destroy(); this.ships.delete(id);
     }
   }
-  freezeRemoteShips() { this.interpolator.clear(); this.projectileView.clear(); }
+  freezeRemoteShips() { this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
+  acceptHit(hit: ProjectileHit) { if (this.ready) this.hitFeedback.add(hit, this.connection.latest, this.connection.socket.id ?? '', performance.now()); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
   update() {
     hud.frame();
@@ -183,6 +197,8 @@ class Horizon extends Phaser.Scene {
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
     for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
+    this.localHud.render(this.rocket.x, this.rocket.y, now);
+    this.damageNumbers.render(this.hitFeedback.sample(now));
     this.drawMap();
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
@@ -260,6 +276,7 @@ async function enterRoom(mode: 'create' | 'join') {
   const current = new FlightConnection(field.value, {
     snapshot: snapshot => { if (connection === current) scene()?.acceptSnapshot(snapshot); },
     room: room => { if (connection === current) updateRoom(room); },
+    hit: hit => { if (connection === current) scene()?.acceptHit(hit); },
     snapshotReceived: () => { if (connection === current) hud.snapshotReceived(); },
     ping: milliseconds => { if (connection === current) hud.setPing(milliseconds); },
     status: message => {

@@ -8,6 +8,7 @@ import { performance } from 'node:perf_hooks';
 import { Server } from 'socket.io';
 import { TICK_MS, TICK_RATE } from '../shared/flight';
 import type { ClientEvents, ServerEvents } from '../shared/protocol';
+import type { ProjectileHit } from '../shared/hit-feedback';
 
 import { RoomStore, roomChannel } from './rooms';
 
@@ -72,12 +73,16 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       for (const player of room.players.values()) {
         simulatePlayer(player, room, now, tick * TICK_MS);
       }
-      advanceProjectiles(room);
+      const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
+      advanceProjectiles(room, hit => hits.push(hit), tick);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
         projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
+      // Preserve volatile snapshot delivery: reliable receipts come afterward.
+      // Direct socket delivery only; targets and room spectators get no receipt.
+      for (const hit of hits) io.to(hit.ownerId).emit('projectileHit', hit);
     }
   }
   // Monotonic accumulator avoids the 33ms interval rounding into 30.3 ticks/s.

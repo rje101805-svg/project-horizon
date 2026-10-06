@@ -17,7 +17,7 @@ test('local predicted bullet precedes delayed acceptance, replaces without dupli
   await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
   const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
   const room=store.roomFor(id!)!,p=room.players.get(id!)!;
-  await page.locator('#fake-jitter').uncheck();await page.locator('#fake-lag').check();await frame();
+  await page.keyboard.press('F3'); await page.locator('#fake-jitter').uncheck();await page.locator('#fake-lag').check();await frame();
   await page.keyboard.down('Space');await expect.poll(pending,{intervals:[5,10,20]}).toBe(1);
   // The visual exists before the delayed request reaches the server, and resources are unchanged.
   expect(room.projectiles.size).toBe(0);expect(p.state.ammo).toBe(12);expect(p.state.health).toBe(100);

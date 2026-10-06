@@ -16,7 +16,7 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
   const room=store.roomFor(id!)!,p=room.players.get(id!)!;
   Object.assign(p.state,{x:200,y:1800});p.state.teleportSequence++;
   await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players[0].teleportSequence)).toBe(1);
-  if(lag)await page.locator('#fake-lag').check();
+  if(lag){await page.keyboard.press('F3');await page.locator('#fake-lag').check();await page.keyboard.press('F3');}
   await page.evaluate(()=>{
    const w=window as unknown as DebugWindow,c=w.__HORIZON_FLIGHT__,prediction=c.projectilePrediction;
    const trace:Trace=w.__handoffTrace={requests:[],adds:[],results:[],frames:[]};

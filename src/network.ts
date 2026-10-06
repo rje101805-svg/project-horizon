@@ -5,6 +5,7 @@ import { idleInput, TICK_MS, type PlayerInput } from '../shared/flight';
 import type { ClientEvents, RoomInfo, RoomResult, ServerEvents, Snapshot } from '../shared/protocol';
 import { LocalPredictor } from './prediction';
 import { DebugLag } from './debug-lag';
+import { parseProjectileHit, type ProjectileHit } from '../shared/hit-feedback';
 export interface ConnectionCallbacks {
   snapshot: (snapshot: Snapshot) => void;
   room: (room: RoomInfo) => void;
@@ -12,6 +13,7 @@ export interface ConnectionCallbacks {
   roomLost: (message: string) => void;
   snapshotReceived?: () => void; // valid raw arrival, before DEV visual delay
   ping?: (milliseconds: number | null) => void;
+  hit?: (hit: ProjectileHit) => void;
 }
 export class FlightConnection {
   private firing = false;
@@ -57,6 +59,18 @@ export class FlightConnection {
       if (!this.room || room.code !== this.room.code) return;
       // Membership/removal is reliable and intentionally bypasses fake lag.
       this.room = room; callbacks.room(room);
+    });
+    this.socket.on('projectileHit', raw => {
+      const epoch = this.epoch, hit = parseProjectileHit(raw);
+      if (!hit) return;
+      const accept = () => {
+        const owner = this.latest?.players.find(p => p.id === this.socket.id);
+        if (epoch !== this.epoch || !this.socket.connected || hit.roomCode !== this.room?.code || !this.room.playerIds.includes(hit.targetId) || !owner ||
+          hit.ownerId !== owner.id || hit.ownerSession !== owner.reloadSession || owner.lifeState !== 'active' ||
+          hit.lifeGeneration !== owner.lifeGeneration || hit.teleportSequence !== owner.teleportSequence) return;
+        callbacks.hit?.(hit);
+      };
+      if (this.lag) this.lag.schedule('snapshot', accept); else accept();
     });
     this.socket.on('snapshot', snapshot => {
       // Observe existing packets only. No extra traffic, and not a count of

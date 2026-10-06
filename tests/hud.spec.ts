@@ -3,14 +3,15 @@ import { TICK_RATE } from '../shared/flight';
 import { MAX_HEALTH } from '../shared/lifecycle';
 import type { FlightConnection } from '../src/network';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection };
-test('HUD placeholders, F3 controls, actual RTT/metrics and room-scoped roster updates work', async ({ page, context }) => {
+test('compact HUD, F3 controls, actual RTT/metrics and room-scoped roster updates work', async ({ page, context }) => {
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/'); await page.locator('#server-url').fill('http://127.0.0.1:3002');
   await page.locator('#create').click();
   await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
   await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH);
   await expect(page.locator('#hud-health-bar')).toHaveJSProperty('max', MAX_HEALTH);
-  for (const [id, text] of [['shield', 'SHIELD 50 / 50'], ['weapon', 'WEAPON —'], ['ammo', 'AMMO 12 / 12']]) await expect(page.locator(`#hud-${id}`)).toHaveText(text);
+  for (const [id, text] of [['shield', 'SHIELD 50 / 50'], ['ammo', 'AMMO 12 / 12']]) await expect(page.locator(`#hud-${id}`)).toHaveText(text);
+  await expect(page.locator('#hud-weapon')).toHaveCount(0);
   await expect(page.locator('#debug-overlay')).toBeHidden();
   await page.keyboard.press('F3'); await expect(page.locator('#debug-overlay')).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'F3', repeat: true })));
@@ -50,7 +51,9 @@ test('HUD placeholders, F3 controls, actual RTT/metrics and room-scoped roster u
   const debugBox = await page.locator('#debug-overlay').boundingBox();
   const gameBox = await page.locator('#game').boundingBox();
   expect(hudBox && debugBox && gameBox).toBeTruthy();
-  expect(hudBox!.y + hudBox!.height).toBeLessThanOrEqual(gameBox!.y);
+  expect(hudBox!.y).toBeGreaterThan(gameBox!.y + 90);
+  expect(hudBox!.x + hudBox!.width).toBeLessThanOrEqual(gameBox!.x + gameBox!.width);
+  expect(hudBox!.y + hudBox!.height).toBeLessThanOrEqual(gameBox!.y + gameBox!.height);
   expect(debugBox!.y).toBeGreaterThanOrEqual(gameBox!.y + gameBox!.height);
   await peer.close(); await expect(page.locator('#debug-players')).toHaveText('Players: 1');
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.disconnect());

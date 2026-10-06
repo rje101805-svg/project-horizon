@@ -1,4 +1,5 @@
 import type { FireRequest, FireResult, ProjectileState } from './projectiles';
+import type { ProjectileHit } from './hit-feedback';
 import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult } from './combat';
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
@@ -10,6 +11,7 @@ export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: fa
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }
 export interface ServerEvents {
+  projectileHit: (hit: ProjectileHit) => void;
   snapshot: (snapshot: Snapshot) => void;
   roomState: (room: RoomInfo) => void;
 }

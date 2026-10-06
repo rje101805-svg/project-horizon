@@ -28,7 +28,7 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const room = store.roomFor(id)!, p = room.players.get(id)!, b = [...room.players.values()].find(p => p.state.id !== id)!;
     Object.assign(p.state, { x: 200, y: 1800 }); Object.assign(b.state, { x: 130, y: 1800 }); await frame();
-    await page.bringToFront(); if (lag) await page.locator('#fake-lag').check();
+    await page.bringToFront(); if (lag) { await page.keyboard.press('F3'); await page.locator('#fake-lag').check(); await page.keyboard.press('F3'); }
     await page.evaluate(() => {
       const w = window as unknown as DebugWindow, c = w.__HORIZON_FLIGHT__;
       w.__reloadTrace = { reload: 0, fire: 0, adds: 0 };
@@ -93,7 +93,7 @@ test('stale predicted shot rejected during reload clears, and known reload suppr
     server.step(); await page.waitForFunction(() => !!(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest);
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const p = store.roomFor(id)!.players.get(id)!;
-    await page.locator('#fake-lag').check();
+    await page.keyboard.press('F3'); await page.locator('#fake-lag').check(); await page.keyboard.press('F3');
     await page.keyboard.down('Space');
     await expect.poll(() => page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now())), { intervals: [5, 10] }).toBe(1);
     await page.keyboard.up('Space');

@@ -2,25 +2,21 @@
 .endpoint{display:block;max-width:470px}.endpoint input{display:block;width:100%;background:#131d32;border:1px solid #34435e;color:#e9eefb;border-radius:7px;padding:12px;margin-top:10px}.endpoint input:focus-visible{outline:3px solid #fff;outline-offset:4px}
 .selection input,.room-entry input{display:block;background:#131d32;border:1px solid #34435e;color:#e9eefb;border-radius:7px;padding:12px;margin-top:10px}.room-entry{display:flex;align-items:end;gap:16px;margin:24px 0}.room-entry input{width:105px;letter-spacing:3px}.room-bar{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:18px 0}.debug{display:block;color:#ffd178;letter-spacing:0}button:disabled{opacity:.5;cursor:wait}#home-status{color:#ffd178;letter-spacing:0;line-height:1.6}#share-status{font-size:12px;word-break:break-all}@media(max-width:700px){.room-entry{flex-wrap:wrap}.mission-top{flex-wrap:wrap}}
 
-.game-stage { position: relative; }
+.game-stage,.game-viewport { position: relative; }
 .death-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; background: rgba(8, 14, 30, .82); pointer-events: none; border: 1px solid #9b65ff; border-radius: 12px; }
 .death-overlay[hidden] { display: none; }
 .death-overlay h2 { color: #d6abff; }
 #death-countdown { font-size: 24px; color: #ffca85; }
 
-.gameplay-hud,.debug-overlay { position: absolute; z-index: 30; background: rgba(8, 14, 30, .94); border: 1px solid #34435e; border-radius: 8px; padding: 12px; pointer-events: none; }
-.gameplay-hud { top: 14px; left: 50%; transform: translateX(-50%); width: min(430px, calc(100% - 28px)); }
-.health-heading { display: flex; align-items: center; gap: 12px; font-size: 12px; }
-#hud-life { margin-left: auto; color: #aab6ce; font-size: 11px; }
-#hud-health-bar { display: block; width: 100%; height: 10px; border: 0; border-radius: 5px; overflow: hidden; margin: 9px 0 12px; accent-color: #72eee0; background: #26314a; }
-#hud-health-bar::-webkit-progress-bar { background: #26314a; }
-#hud-health-bar::-webkit-progress-value { background: #72eee0; }
-#hud-health-bar::-moz-progress-bar { background: #72eee0; }
-.hud-slots { display: flex; justify-content: space-between; gap: 12px; color: #aab6ce; font-size: 11px; letter-spacing: 1px; }
-.debug-overlay { top: 14px; left: 14px; max-width: calc(100% - 28px); font: 12px/1.7 monospace; }
+.gameplay-hud { position: absolute; z-index: 20; top: clamp(108px, 17vw, 178px); right: 14px; padding: 8px 12px; max-width: calc(100% - 28px); background: rgba(8, 14, 30, .92); border: 1px solid #34435e; border-radius: 6px; pointer-events: none; font: 16px/1.3 monospace; }
+.gameplay-hud.low-ammo { color: #ffce73; border-color: #ffce73; }
+.gameplay-hud.reloading { border-style: dashed; }
+.debug-overlay { position: relative; margin-top: 12px; padding: 12px; background: #0e1729; border: 1px solid #34435e; border-radius: 8px; font: 12px/1.7 monospace; }
 .debug-overlay strong { color: #72eee0; }
 .debug-details { border-top: 1px solid #34435e; margin-top: 8px; padding-top: 8px; color: #aab6ce; }
-@media(max-width:1000px) { .gameplay-hud,.debug-overlay { position: relative; top: auto; bottom: auto; left: auto; width: 100%; max-width: none; margin: 8px 0; transform: none; } }
+.debug-health { color: #aab6ce; }
+#hud-health-bar { display: block; width: 160px; height: 6px; accent-color: #72eee0; }
+#debug-network { padding: 8px 0; }
 
 .combat-controls { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 4px; max-width: 300px; }
 .combat-controls button { font-size: 11px; padding: 5px 8px; }

@@ -2,6 +2,7 @@ import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type Projectile
 import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
 import { applyDamage, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
+import type { ProjectileHit } from '../shared/hit-feedback';
 export interface ServerProjectile extends ProjectileState { remainingTicks: number }
 export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined, raw: unknown, tick: number): FireResult {
   const request = parseFire(raw);
@@ -38,7 +39,7 @@ function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {
   if (b.y > WORLD) t = Math.min(t, (WORLD - a.y) / (b.y - a.y));
   return t;
 }
-export function advanceProjectiles(room: GameRoom) {
+export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) => void, tick = 0) {
   for (const [id, p] of room.projectiles) {
     const owner = room.players.get(p.ownerId)?.state;
     if (!owner || owner.lifeState !== 'active' || owner.lifeGeneration !== p.lifeGeneration || owner.teleportSequence !== p.teleportSequence) { room.projectiles.delete(id); continue; }
@@ -52,7 +53,16 @@ export function advanceProjectiles(room: GameRoom) {
       if (t !== null && t < contact) { contact = t; target = player; }
     }
     if (contact !== Infinity) {
-      if (target) applyDamage(target, p.damage, { type: 'PLAYER', playerId: p.ownerId });
+      if (target) {
+        const damage = applyDamage(target, p.damage, { type: 'PLAYER', playerId: p.ownerId });
+        if (damage && damage.shieldAbsorbed + damage.healthDamage > 0) onHit?.({
+          projectileId: p.id, shotSequence: p.shotSequence, hitTick: tick, roomCode: room.code,
+          ownerId: p.ownerId, ownerSession: owner.reloadSession, lifeGeneration: p.lifeGeneration, teleportSequence: p.teleportSequence,
+          targetId: target.state.id, targetSession: target.state.reloadSession, targetLifeGeneration: target.state.lifeGeneration,
+          targetTeleportSequence: target.state.teleportSequence, x: p.x + (next.x - p.x) * contact,
+          y: p.y + (next.y - p.y) * contact, shieldDamage: damage.shieldAbsorbed, healthDamage: damage.healthDamage,
+        });
+      }
       room.projectiles.delete(id); continue;
     }
     Object.assign(p, next); p.remainingTicks--; p.remainingMs = p.remainingTicks * TICK_MS;
