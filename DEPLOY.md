@@ -1,12 +1,14 @@
-# Project Horizon — Step 4 deployment
+# Project Horizon — production deployment
 
-Status: the owner created the Render service and confirmed its health endpoint. The production client is configured for **https://project-horizon-server.onrender.com** and the Step 4 release includes a rebuilt `docs/`. Public acceptance is still pending. Step 5 is out of scope.
+Status: accepted Phase 1 Steps 5–7 are integrated into `work` and the production `/docs` client is rebuilt for the existing Render service. The owner authorized pushing `work` to trigger deployment, with no Pages/Render configuration changes. Local acceptance passed; deployed acceptance and Step 8 two-network testing are still pending. Phase 1 is not yet declared complete.
 
 Server: https://project-horizon-server.onrender.com
 Health: https://project-horizon-server.onrender.com/health
 Client: https://rje101805-svg.github.io/project-horizon/
 
-This coding workspace's outbound proxy returns 403 for the Render host, so live Render health/polling/WSS could not be independently verified here. Local HTTPS/WSS, origin enforcement, RTT, retry/cancellation and production-client checks passed. Wait for Render to deploy the Step 4 commit (the previously deployed Step 3 server has no RTT probe) and GitHub Pages to publish its updated artifacts before manual acceptance.
+The owner confirmed the previous Step 4 Pages build `client-aae0fb5389ef` deployed successfully in deployment #5 after resetting the source. Leave old queued deployment #4 untouched. After this integration push, wait for both deployments, verify the new Build ID against `docs/build.json`, then stop before starting the separately coordinated Step 8 cross-network acceptance. This workspace cannot establish live deployment success from local verification.
+
+The settings below remain unchanged. Render uses work-only Auto-Deploy On Commit with PR Previews Off; Pages uses work → /docs. No manual deployment, configuration change or new service is needed.
 
 ## Render service
 
@@ -27,7 +29,7 @@ Create a **Web Service**, not a Static Site, from `rje101805-svg/project-horizon
 | Environment: `CLIENT_ORIGINS` | `https://rje101805-svg.github.io` |
 | Environment: `PORT` | **Do not set manually**; use Render's provided value |
 
-These exact build/start commands work on the already-pushed Step 3 branch as well as the prepared Step 4 code. This lets the owner create the service and obtain its real URL **before** the requested final Step 4 commit. Once that URL is provided, configure/rebuild the Pages client, verify and commit/push everything together. Render can then redeploy the new server from `work`. Wait for that deployment to be Live before public testing; the old Step 3 server does not have the new RTT probe.
+These exact build/start commands work on the already-pushed Step 3 branch as well as the prepared Step 4 code. This lets the owner create the service and obtain its real URL **before** the requested final Step 4 commit. Once that URL is provided, configure/rebuild the Pages client, verify and commit/push everything together. Render can then redeploy the new server from `work`. Wait for the integration deployment to be Live before public testing; client and server must both contain the accepted lifecycle protocol.
 
 The build context must include `package.json`, `server/`, `shared/`, and the TypeScript config. Existing server imports require `shared/`; deploying `server/` alone will fail. `tsx` is now a runtime dependency. `npm start` is also available after the Step 4 commit; the existing `npm run server` command remains valid and avoids a bootstrap mismatch. `npm run build:server` optionally checks only server/shared types locally; Render's configured command checks the whole repository.
 
@@ -79,6 +81,6 @@ To simulate local conditions, check **DEV ONLY: fake network** after joining. Un
 
 Before the final push: run `npm test`, `npm run build:server`, `npm run build`, and the configured `npm run build:pages`. Verify Pages-path assets, build stamp/metadata, no production debug functionality, exact HTTPS server configuration, `/health`, Socket.io polling/WSS, permitted/rejected origins, RTT and initial retry/cancellation. Smoke-test the real Render server if the environment network policy permits; report an access restriction rather than bypassing it.
 
-The owner then tests two computers on different networks: both open Pages, confirm the expected build ID, create/join the same room/link, see both names/ships, move independently, assess smoothness and plausible ping, close/rejoin a client, and confirm removal/room recovery. Do not call Step 4 complete before this manual confirmation, and do not begin Step 5 afterward.
+The owner then tests two computers on different networks: both open Pages, confirm the expected build ID, create/join the same room/link, see both names/ships, move independently, assess smoothness and plausible ping, close/rejoin a client, and confirm removal/room recovery. Do not claim Step 8 passed or Phase 1 complete before the separately coordinated cross-network manual confirmation. No Phase 2 work is authorized.
 
 Troubleshooting: `/health` unavailable → Render logs/start/wake; health works but Socket.io fails → URL/origin/TLS/proxy; connected but old UI/stamp → stale Pages deployment/cache; no ping → old server or failed probe; long latency → regional distance/cold start/network, not simulated production lag. Free-service sleeps/restarts can delete all in-memory rooms.

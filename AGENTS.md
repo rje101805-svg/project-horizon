@@ -1,8 +1,8 @@
 # Project Horizon architecture
 
-Current scope: Phase 1, Step 7 — HUD and toggleable debug on `step-7-hud-debug`, directly based on accepted Step 6 `f7890cfb23c88c7f70673043103e83456df30fb5`. Steps 5/6 are locally accepted; Step 7 manual acceptance is pending. Step 4 public acceptance remains separately pending. Do not begin Step 8, combat, weapons/shields/ammo systems, loot, black-hole growth, planetary physics, accounts, matchmaking or match lifecycle.
+Current scope: Phase 1 integration on `work`. Accepted Steps 5–7 form a clean history-preserving fast-forward from Step 4. Step 7 local manual acceptance passed, as did Steps 5/6. Production artifacts are being rebuilt for Pages/Render deployment; deployed acceptance and Step 8 cross-network testing remain pending. Do not begin Step 8 implementation or Phase 2 gameplay.
 
-Protect production and baselines: leave `work` at `9f0c821`, `step-5-black-hole` at `6db0ae7`, and `step-6-health-respawn` at `f7890cf`. Do not merge, deploy, rebuild or commit `docs/`, reconfigure Render/Pages, or cancel/retrigger the queued Step 4 Pages job. Normal `npm run build` writes `dist/`; Pages-path checks must write `/tmp`. Commit/push only `step-7-hud-debug`. The owner confirmed Render work-only Auto-Deploy On Commit, PR Previews Off; Pages work → /docs only. This confirmation permits the isolated branch push, not deployment.
+The owner explicitly authorized integrating the accepted chain into `work`, rebuilding `/docs`, committing integration metadata and pushing only `work`. This supersedes the earlier isolated-branch deployment restrictions for this integration. Preserve accepted heads: Step 5 `6db0ae704680afa46d029b9691e5a12ba97c3560`, Step 6 `f7890cfb23c88c7f70673043103e83456df30fb5`, Step 7 `735d6b303441dce058b53c347f92ec4238dcfc8f`. Do not change Pages/Render settings or interact with the old queued Pages job. Pages remains work → /docs; Render remains work-only Auto-Deploy On Commit, PR Previews Off. Pushing work intentionally triggers both services. Stop after push for owner deployment verification; do not claim Phase 1 completion or Step 8 acceptance.
 
 ## Step 7 presentation and metrics
 
@@ -59,7 +59,7 @@ Protect production and baselines: leave `work` at `9f0c821`, `step-5-black-hole`
 
 `npm test` runs Node logic/real-socket integration tests and Playwright browser tests on dedicated ports 3002/5175. `npm run build` checks client/server/shared/tests and builds `dist/`. System Chromium is used when installed; otherwise install Playwright Chromium.
 
-Step 4 deployment documentation is retained for the production baseline; it does not authorize deploying Steps 5–7. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
+The current integration request authorizes deploying accepted Steps 5–7 by pushing `work`; deployment configuration remains unchanged. Render account/repository/service/billing actions require the owner; pause at those external actions. Do not invent a URL or claim public acceptance from local tests.
 
 Render deploys from the repository ROOT (`server/` imports `shared/`). `PORT` and `0.0.0.0` binding are already supported. `tsx` is a runtime dependency; `npm run server`/`npm start` run the same authoritative process. See `DEPLOY.md` for commands that also work on the existing pushed Step 3 code while obtaining the real service URL before the final Step 4 commit.
 

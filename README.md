@@ -1,11 +1,11 @@
-> **Branch status: Step 7 implemented; local manual acceptance pending.** Based on accepted Step 6 `f7890cf`. Production `work` remains at Step 4 `9f0c821`; `/docs`, accepted Step 5 and accepted Step 6 are untouched. This branch is not deployed. The reported queued Pages job/public old Step 2 build is a separate issue. See [STEP7_TEST.md](STEP7_TEST.md) for focused local testing.
+> **Integration status: Steps 5–7 accepted locally and integrated into `work`.** Production `/docs` is rebuilt for the Render server. After the push, wait for both deployments and verify the new footer Build ID. Deployed acceptance and Step 8 two-computer testing remain pending; Phase 1 is not yet complete.
 
 
 # Project: Horizon
 
 A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **launch → explore → loot → fight → survive** in a collapsing solar system.
 
-**Current implementation: Phase 1, Step 7 — gameplay HUD and debug overlay.** Live authoritative health bar/value, shield/weapon/ammo placeholders and F3-toggleable real metrics extend the accepted Step 6 sandbox. Death, three-second safe respawn, flight, gravity, rooms and interpolation remain unchanged. Steps 5/6 are accepted locally; Step 7 needs manual acceptance. No weapons, shields/ammo gameplay, loot, growth, landing, matchmaking, accounts or match lifecycle was added.
+**Current implementation: Phase 1, Step 7 — gameplay HUD and debug overlay.** Live authoritative health bar/value, shield/weapon/ammo placeholders and F3-toggleable real metrics extend the accepted Step 6 sandbox. Death, three-second safe respawn, flight, gravity, rooms and interpolation remain unchanged. Steps 5/6/7 have passed local manual acceptance. No weapons, shields/ammo gameplay, loot, growth, landing, matchmaking, accounts or match lifecycle was added.
 
 
 ## Run locally
@@ -13,7 +13,7 @@ A multiplayer space battle royale concept for the Handshake/OpenAI challenge: **
 Use Node.js 22.12+ (Node 24 LTS recommended). From your project folder:
 
 ```sh
-git switch step-7-hud-debug
+git switch work
 npm ci
 npm run server
 ```
@@ -88,7 +88,7 @@ npm run server:dev   # Optional server restart-on-edit mode
 
 If needed, run `npx playwright install chromium` before tests. They use system Chromium when available. Browser tests manage client/server on dedicated ports 5175/3002; integration tests use ephemeral ports. Tests cover code format/collisions, sanitation, capacities, spawns/colors, room isolation, independent movement, forged state rejection, tick cadence, stale inputs, resets, cleanup, join links, interpolation, fake lag and browser behavior. Automated success does not replace the manual feel/acceptance test.
 
-Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, but **the committed `docs/` is now the Step 4 production client**, configured for `https://project-horizon-server.onrender.com` by `.env.production`. `npm run build:pages` now requires the actual HTTPS server URL; do not rebuild or commit `docs/` on this branch. Confirm the footer build ID matches `docs/build.json`. Pages hosts only static files, not the Node server.
+Phaser still gives a bundle-size warning; builds succeed. Production type-checking includes shared/server/tests. The Pages base-path build is compatible with `/project-horizon/` and query parameters, and **the committed `docs/` contains the integrated Steps 5–7 production client**, configured for `https://project-horizon-server.onrender.com` by `.env.production`. `npm run build:pages` now requires the actual HTTPS server URL; rebuild and commit `docs/` on `work` only when a production release is authorized. Confirm the footer build ID matches `docs/build.json`. Pages hosts only static files, not the Node server.
 
 ## Files and configuration
 
@@ -121,10 +121,10 @@ Phaser still gives a bundle-size warning; builds succeed. Production type-checki
 
 Step 4 deployment preparation is documented in DEPLOY.md; Step 5 manual acceptance is documented in STEP5_TEST.md; Step 6 manual instructions are in STEP6_TEST.md; Step 7 manual instructions are in STEP7_TEST.md; Step 8 and later systems remain unimplemented.
 
-## Public Step 4 client
+## Public integrated client
 
 Client: https://rje101805-svg.github.io/project-horizon/
 Server: https://project-horizon-server.onrender.com
 Health: https://project-horizon-server.onrender.com/health
 
-Wait for GitHub Pages and Render to deploy the Step 4 commit before testing. The footer shows the client build ID and the HUD shows actual Socket.io RTT. Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. The owner confirmed Render health; this workspace's proxy blocks that host, so it could not verify the live server independently. See DEPLOY.md for the remaining two-network acceptance test. Do not deploy this Step 7 branch or begin Step 8.
+Wait for GitHub Pages and Render to deploy the integration commit before testing. The footer shows the client Build ID (also in `/project-horizon/build.json`). Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. See DEPLOY.md for deployment details. The owner reports the previous Step 4 Pages build `client-aae0fb5389ef` successfully deployed after resetting the source; the old queued job is left untouched. First verify the new deployment and Build ID, then perform Step 8 manually with two computers on different networks. No Step 8 or Phase 2 implementation is included.

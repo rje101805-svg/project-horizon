@@ -1,8 +1,10 @@
 # Step 7 — gameplay HUD and debug overlay
 
-Status: implementation complete; **local manual acceptance pending**. Branch `step-7-hud-debug` is based directly on accepted Step 6 `f7890cfb23c88c7f70673043103e83456df30fb5`. Step 5 and Step 6 acceptance records remain historical records for their respective branches.
+Status: implementation complete; **local manual acceptance passed (owner-confirmed)**. Branch `step-7-hud-debug` is based directly on accepted Step 6 `f7890cfb23c88c7f70673043103e83456df30fb5`. Step 5 and Step 6 acceptance records remain historical records for their respective branches.
 
-This branch is not deployed. Production `work` remains at `9f0c821`, `/docs` is untouched, and accepted Steps 5/6 remain unchanged. The owner reports that the Step 4 Pages job is still queued and the public site serves Step 2. That deployment issue and Step 4 public acceptance remain separate; no Pages/Render settings or queue actions belong to this task.
+The accepted branch remains at `735d6b303441dce058b53c347f92ec4238dcfc8f`. The subsequent Phase 1 integration request authorizes fast-forwarding `work`, rebuilding `/docs` and pushing `work`; the branch-isolation instructions below document the original Step 7 task, not the integration authorization. The previous Step 4 Pages deployment now succeeded; do not interact with the old queued job.
+
+Owner-confirmed manual results: authoritative 100/100 health, em-dash placeholders, F3 toggling, real RTT/FPS, player count 1 → 2 → 1, 30 Hz target and approximately 30/s receive rate, smooth two-client flight, black-hole death/0 health/death presentation, approximately three-second safe full-health respawn, correct remote lifecycle, continued telemetry after respawn and disconnect cleanup. No obvious runtime regressions were observed. Steps 5–7 are locally accepted; public deployment and cross-network acceptance remain pending.
 
 ## Start locally — one action at a time
 
@@ -50,7 +52,7 @@ The existing controlled-time Step 6 browser test gained HUD/debug assertions and
 
 Verification commands: `npm test`, `npm run build:server`, `npm run build` (outputs `dist/`), and `npx vite build --base=/project-horizon/ --outDir=/tmp/horizon-step7-pages` for Pages-path compatibility. **Do not run `npm run build:pages` or modify `/docs`.** The existing Phaser bundle-size warning remains.
 
-Final result: **59 tests passed** (49 Node logic/real-socket tests and 10 Playwright browser tests). Full/server TypeScript checks, client build to `dist/`, and Pages-path compatibility build to `/tmp/horizon-step7-pages` passed. Referenced production assets were checked for correct base paths and absence of DEV inspection handles/fake-lag implementation. Server/shared gameplay and dependency files have no changes from accepted Step 6. `/docs` and all protected local/remote branch heads remain unchanged. No deployment/configuration/queued-job action was performed. Manual acceptance is still pending.
+Final result: **59 tests passed** (49 Node logic/real-socket tests and 10 Playwright browser tests). Full/server TypeScript checks, client build to `dist/`, and Pages-path compatibility build to `/tmp/horizon-step7-pages` passed. Referenced production assets were checked for correct base paths and absence of DEV inspection handles/fake-lag implementation. Server/shared gameplay and dependency files have no changes from accepted Step 6. `/docs` and all protected local/remote branch heads remain unchanged. No deployment/configuration/queued-job action was performed. Manual acceptance subsequently passed as recorded above.
 
 ## Branch and deployment guard
 
