@@ -1,4 +1,4 @@
-import { applyDamage, consumeAmmo, startReload, startFireCooldown, setShieldUp } from './combat';
+import { applyDamage, consumeAmmo, startReload, startFireCooldown, setShieldUp, refillAmmo } from './combat';
 import type { CombatDebugRequest, CombatDebugResult } from '../shared/combat';
 import type { RoomPlayer } from './rooms';
 export function combatDebugEnabled(flag: boolean | undefined, nodeEnv = process.env.NODE_ENV): boolean {
@@ -10,6 +10,7 @@ export function runCombatDebug(player: RoomPlayer | undefined, raw: CombatDebugR
       raw.teleportSequence !== player.state.teleportSequence) return { ok: false, message: 'No current active player' };
   let ok = false;
   switch (raw.action) {
+    case 'refill': ok = refillAmmo(player); break;
     case 'damage': ok = applyDamage(player, 35, { type: 'ENVIRONMENT', cause: 'HAZARD' }) !== null; break;
     case 'ammo': ok = consumeAmmo(player); break;
     case 'reload': ok = startReload(player); break;

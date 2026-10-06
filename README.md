@@ -1,3 +1,9 @@
+# Phase 2 Step 3 — shooting/projectiles
+
+Work is based on accepted P2S2 `1df8f3607da5d4b060a049b2fbe854267c40a2f4`. The authoritative projectile checkpoint precedes a separate visual prediction checkpoint. Manual acceptance is pending. See [PHASE2_STEP3_TEST.md](PHASE2_STEP3_TEST.md) for two-client tests and temporary DEV refill/security instructions.
+
+Hold left mouse or Space to fire toward the mouse. F3 shows weapon state; DEV F refills ammo only when the server explicitly permits combat debug. Movement-facing aim, P2S1 prediction and P2S2 shield-first damage remain intact. No P2S4+ gameplay or unrelated ghosting/FPS changes are included. Historical milestone notes below are superseded where appropriate.
+
 # Phase 2 Step 2 feature branch
 
 `phase2/step2-combat-state` adds server-owned shield/ammo/reload/cooldown/status state, shield-first typed damage and centralized reset/API infrastructure. Step 1 prediction/reconciliation remains intact. Manual acceptance is pending; this branch is not deployed.

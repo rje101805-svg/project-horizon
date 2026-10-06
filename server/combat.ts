@@ -62,3 +62,9 @@ export function advanceCombatTick(player: RoomPlayer) {
   if (player.combatTimers.cooldown > 0) player.combatTimers.cooldown--;
   syncTimers(player);
 }
+
+// Temporary debug refill API, never a gameplay reload or fire-validation bypass.
+export function refillAmmo(player: RoomPlayer): boolean {
+  if (player.state.lifeState !== 'active' || player.state.isReloading) return false;
+  player.state.ammo = MAX_AMMO; return true;
+}

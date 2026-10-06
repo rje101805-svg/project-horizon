@@ -58,6 +58,7 @@ export class GameplayHud {
   combat(s: CombatState) {
     write(this.node('hud-shield'), `SHIELD ${clampCombatValue(s.shield, MAX_SHIELD)} / ${s.maxShield}`);
     write(this.node('hud-ammo'), `AMMO ${clampCombatValue(s.ammo, MAX_AMMO)} / ${s.maxAmmo}`);
+    write(this.node('debug-weapon'), `Blaster · ammo ${s.ammo} / ${s.maxAmmo} · ${s.fireCooldownRemainingMs === 0 ? 'cooldown ready' : 'cooling down'}`);
     write(this.node('debug-combat'), `${s.status} · ${s.controllerType} · kills ${s.kills} · Shield Up ${s.shieldUp ? 'ON' : 'OFF'}`);
     write(this.node('debug-reload'), s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
     write(this.node('debug-cooldown'), `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);

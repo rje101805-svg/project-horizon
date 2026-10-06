@@ -1,3 +1,5 @@
+import { ProjectileView } from './projectile-view';
+import { BASIC_BLASTER } from '../shared/projectiles';
 import { GameplayHud } from './hud';
 import { MAX_HEALTH } from '../shared/lifecycle';
 import type { BlackHoleState } from '../shared/black-hole';
@@ -19,6 +21,9 @@ let busy = false;
 let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
 class Horizon extends Phaser.Scene {
+  private projectileView = new ProjectileView();
+  private projectileGraphics!: Phaser.GameObjects.Graphics;
+  private fireAim = 0;
   private rocket!: Phaser.GameObjects.Container;
   private holeVisual!: Phaser.GameObjects.Graphics;
   private holeKey = '';
@@ -50,12 +55,13 @@ class Horizon extends Phaser.Scene {
       g.fillStyle(0x080e1e, .25).fillCircle(p.x + p.r * .35, p.y - p.r * .15, p.r * .8);
       this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
     }
+    this.projectileGraphics = this.add.graphics().setDepth(6);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(connection.room.blackHole);
     const spawn = spawnFlight();
     this.rocket = this.add.container(spawn.x, spawn.y).setDepth(4);
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.map = this.add.graphics().setScrollFactor(0).setDepth(10);
     this.connection = connection!;
@@ -70,13 +76,13 @@ class Horizon extends Phaser.Scene {
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.ready = false;
-      this.interpolator.clear();
+      this.interpolator.clear(); this.projectileView.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
       pointer.updateWorldPoint(this.cameras.main);
-      this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
+      this.fireAim = this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
     });
     this.ready = true;
     if (this.connection.latest) this.acceptSnapshot(this.connection.latest);
@@ -130,6 +136,8 @@ class Horizon extends Phaser.Scene {
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
     el('tick').textContent = `Server tick ${snapshot.tick}`;
     this.interpolator.push(snapshot, performance.now());
+    this.projectileView.push(snapshot, performance.now());
+    el('debug-projectiles').textContent = `Authoritative projectiles: ${snapshot.projectiles.length} · predicted: 0`;
   }
   private drawBlackHole(hole: BlackHoleState) {
     const key = JSON.stringify(hole);
@@ -145,14 +153,14 @@ class Horizon extends Phaser.Scene {
   }
   removeShips(ids: string[]) {
     if (!this.ready) return;
-    this.interpolator.removeMissing(ids);
+    this.interpolator.removeMissing(ids); this.projectileView.removeOwners(ids);
     for (const [id, ship] of this.ships) if (!ids.includes(id)) {
       // Keep the camera-follow container on reconnect, but clear its old hull.
       if (ship.body === this.rocket) ship.body.removeAll(true); else ship.body.destroy();
       ship.label.destroy(); this.ships.delete(id);
     }
   }
-  freezeRemoteShips() { this.interpolator.clear(); }
+  freezeRemoteShips() { this.interpolator.clear(); this.projectileView.clear(); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
   update() {
     hud.frame();
@@ -166,7 +174,10 @@ class Horizon extends Phaser.Scene {
       el('debug-correction').textContent = `Correction ${p.correction.toFixed(2)} · remote delay 100 ms`;
     }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
+    this.projectileGraphics.clear().fillStyle(0xffe08a);
+    for (const p of this.projectileView.sample(now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
     this.drawMap();
+    this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;
     const up = this.keys.W.isDown || this.keys.UP.isDown;

@@ -7,7 +7,7 @@ import { roomFromSearch, roomLink } from '../src/room-links';
 import { spawnFlight } from '../shared/flight';
 import type { Snapshot } from '../shared/protocol';
 function frame(tick: number, timeMs: number, x: number, rotation = 0): Snapshot {
-  return { tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, x, rotation }] };
+  return { projectiles: [], tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, x, rotation }] };
 }
 test('remote rendering blends buffered positions and excludes local player', () => {
   const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0); buffer.push(frame(2, 100, 100), 100);

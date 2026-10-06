@@ -1,3 +1,4 @@
+import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
 import { combatDebugEnabled, runCombatDebug } from './combat-debug';
 import { acceptMovementInput } from './inputs';
 import { simulatePlayer } from './simulation';
@@ -23,6 +24,11 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   const debugAuthorized = combatDebugEnabled(options.combatDebug);
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('fire', (request, reply) => {
+      if (typeof reply !== 'function') return;
+      const room = store.roomFor(socket.id);
+      reply(fire(room, room?.players.get(socket.id), request, tick));
+    });
     socket.on('combatDebug', (request, reply) => {
       if (typeof reply !== 'function') return;
       reply(runCombatDebug(store.roomFor(socket.id)?.players.get(socket.id), request, debugAuthorized));
@@ -60,9 +66,10 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       for (const player of room.players.values()) {
         simulatePlayer(player, room, now, tick * TICK_MS);
       }
+      advanceProjectiles(room);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
     }

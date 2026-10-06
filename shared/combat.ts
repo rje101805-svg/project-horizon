@@ -25,6 +25,6 @@ export const initialCombatState = (): CombatState => ({
   controllerType: 'HUMAN', kills: 0, lastDamageSource: null,
 });
 export const clampCombatValue = (value: number, max: number) => Number.isFinite(value) ? Math.max(0, Math.min(max, value)) : 0;
-export type CombatDebugAction = 'damage' | 'ammo' | 'reload' | 'shield' | 'cooldown';
+export type CombatDebugAction = 'damage' | 'ammo' | 'reload' | 'shield' | 'cooldown' | 'refill';
 export interface CombatDebugRequest { action: CombatDebugAction; lifeGeneration: number; teleportSequence: number }
 export interface CombatDebugResult { ok: boolean; message: string }

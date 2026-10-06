@@ -1,3 +1,4 @@
+import { BASIC_BLASTER, type FireRequest, type FireResult } from '../shared/projectiles';
 import { io, type Socket } from 'socket.io-client';
 import { idleInput, TICK_MS, type PlayerInput } from '../shared/flight';
 import type { ClientEvents, RoomInfo, RoomResult, ServerEvents, Snapshot } from '../shared/protocol';
@@ -12,6 +13,10 @@ export interface ConnectionCallbacks {
   ping?: (milliseconds: number | null) => void;
 }
 export class FlightConnection {
+  private firing = false;
+  private fireAim = 0;
+  private nextFireAt = 0;
+  private shotSequence = 0;
   readonly prediction = new LocalPredictor();
   private previousTime = performance.now();
   private accumulator = 0;
@@ -86,6 +91,7 @@ export class FlightConnection {
         if (this.socket.connected && this.room && this.latest && Date.now() - this.lastSnapshot > 1000) callbacks.status('Server snapshots stopped · flight frozen');
         return;
       }
+      this.attemptFire(now);
       this.accumulator += Math.max(0, elapsed);
       while (this.accumulator >= TICK_MS) {
         this.accumulator -= TICK_MS;
@@ -142,7 +148,7 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  private invalidate() { this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
   setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
   scheduleDevelopmentAction(action: () => void) {
@@ -151,8 +157,28 @@ export class FlightConnection {
     const guarded = () => { if (epoch === this.epoch && this.socket.connected && this.room) action(); };
     if (this.lag) this.lag.schedule('input', guarded); else guarded();
   }
+  setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
+  private attemptFire(now: number) {
+    const local = this.latest?.players.find(p => p.id === this.socket.id);
+    if (!this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status !== 'ALIVE' || local.health <= 0 || local.ammo <= 0 || local.isReloading) return;
+    this.nextFireAt = now + BASIC_BLASTER.fireIntervalMs;
+    const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
+    const epoch = this.epoch;
+    const send = () => {
+      if (epoch !== this.epoch || !this.socket.connected || !this.room) return;
+      this.socket.timeout(3000).emit('fire', request, (error, result: FireResult) => {
+        const accept = () => {
+          if (epoch !== this.epoch || error || !result) return;
+          if (!result.ok && result.reason === 'Cooldown') this.nextFireAt = Math.min(this.nextFireAt, performance.now() + TICK_MS);
+        };
+        if (this.lag) this.lag.schedule('snapshot', accept); else accept();
+      });
+    };
+    if (this.lag) this.lag.schedule('input', send); else send();
+  }
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
+    this.firing = false;
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
     this.pendingRelease = true;
   }

@@ -29,7 +29,7 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
       const request = (action: CombatDebugAction, markers = { lifeGeneration: 0, teleportSequence: 0 }) =>
         new Promise<CombatDebugResult>(resolve => a.emit('combatDebug', { action, ...markers, targetId: b.id, health: 9999 } as Parameters<ClientEvents['combatDebug']>[0], resolve));
       if (mode !== 'enabled') {
-        for (const action of ['damage', 'ammo', 'reload', 'shield', 'cooldown'] as const) {
+        for (const action of ['damage', 'ammo', 'reload', 'shield', 'cooldown', 'refill'] as const) {
           assert.deepEqual(await request(action), { ok: false, message: 'Combat debug disabled by server' });
         }
         assert.deepEqual(p.state, initial); assert.deepEqual(peer.state, peerInitial);
