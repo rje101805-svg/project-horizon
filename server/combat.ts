@@ -12,7 +12,7 @@ function syncTimers(player: RoomPlayer) {
   s.reloadRemainingMs = t.reload * TICK_MS;
   s.reloadProgress = t.reload > 0 ? 1 - t.reload / RELOAD_TICKS : t.reloadCompleted ? 1 : 0;
   s.fireCooldownRemainingMs = t.cooldown * TICK_MS;
-  s.fireCooldownProgress = 1 - t.cooldown / Math.ceil((s.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : FIRE_COOLDOWN) / TICK_MS);
+  s.fireCooldownProgress = 1 - t.cooldown / Math.max(1, Math.ceil((s.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : FIRE_COOLDOWN) / TICK_MS));
 }
 export function resetCombatState(player: RoomPlayer) {
   const { controllerType, kills, reloadSession, status } = player.state;

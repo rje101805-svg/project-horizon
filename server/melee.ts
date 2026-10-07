@@ -1,13 +1,11 @@
 import { ALIEN_MELEE_DAMAGE, ALIEN_MELEE_RANGE } from '../shared/alien';
-import { applyDamage, canFireFromCooldown, startFireCooldown } from './combat';
+import { applyDamage } from './combat';
 import type { FireResult } from '../shared/projectiles';
 import type { GameRoom, RoomPlayer } from './rooms';
 // Called only after the common socket/lifecycle/sequence validation in fire().
 export function melee(room: GameRoom, player: RoomPlayer, sequence: number): FireResult {
-  if (!canFireFromCooldown(player)) return {ok:false,sequence,reason:'Cooldown'};
   // An accepted attack attempt (including a miss) forfeits protection first.
   player.invulnerableUntilMs = 0; player.state.spawnInvulnerabilityRemainingMs = 0;
-  startFireCooldown(player);
   let nearest: RoomPlayer | null = null, distance = ALIEN_MELEE_RANGE;
   for (const target of room.players.values()) {
     if (target === player || target.state.status !== 'ALIVE' || target.state.lifeState !== 'active' || target.state.health <= 0) continue;

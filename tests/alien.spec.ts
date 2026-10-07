@@ -60,10 +60,13 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   Object.assign(b.state,{x:220,y:1800,vx:0,vy:0});b.state.teleportSequence++;retireInputs(b);Object.assign(a.state,{x:270,y:1800,vx:0,vy:0});await frame();
   // Earlier deliberately forged sequence was retired; next legitimate sequence is advanced only in this test fixture.
   await peer.evaluate(()=>{Object.assign((window as unknown as DebugWindow).__HORIZON_FLIGHT__,{shotSequence:100});});
-  await peer.keyboard.down('Space');await expect.poll(()=>b.lastFireSequence).toBe(101);await peer.keyboard.up('Space');expect(b.state.lastMeleeDamage).toBe(5);
-  expect(b.state.spawnInvulnerabilityRemainingMs).toBe(0);expect(a.state.shield).toBe(45);expect(room.projectiles.size).toBe(0);await frame();
+  // Exercise the existing fire-intent pipeline twice at the same client time,
+  // avoiding a wall-time hold that could legitimately eliminate the target.
+  await peer.evaluate(()=>{const c=(window as unknown as DebugWindow).__HORIZON_FLIGHT__,fire=c as unknown as {attemptFire(now:number):void},now=performance.now();c.setFireIntent(true,0);fire.attemptFire(now);fire.attemptFire(now);c.setFireIntent(false,0);});
+  await expect.poll(()=>b.lastFireSequence).toBe(102);expect(b.state.lastMeleeDamage).toBe(5);
+  expect(b.state.spawnInvulnerabilityRemainingMs).toBe(0);expect(a.state.shield).toBe(40);expect(room.projectiles.size).toBe(0);await frame();
   expect(await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
-  await peer.keyboard.press('F3');await expect(peer.locator('#debug-weapon')).toContainText('damage 5 · last applied 5');await peer.keyboard.press('F3');
+  await peer.keyboard.press('F3');await expect(peer.locator('#debug-weapon')).toContainText('damage 5 · last applied 5');await expect(peer.locator('#debug-cooldown')).toHaveText('Alien melee · no cooldown');await peer.keyboard.press('F3');
   expect(applyDamage(b,25,{type:'PLAYER',playerId:aid},tick*TICK_MS)!.healthDamage).toBe(25);await frame();await expect(peer.locator('#hud-alien')).toHaveText('ALIEN · HP 15 / 40');
   applyDamage(b,25,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();expect(b.state.status).toBe('ALIEN');await advance(88);await frame();
   expect(b.state.lifeGeneration).toBe(2);expect(b.state.health).toBe(40);expect(b.state.spawnInvulnerabilityRemainingMs).toBeGreaterThanOrEqual(1900);

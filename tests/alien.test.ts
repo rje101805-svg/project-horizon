@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ALIEN_HEALTH, ALIEN_MELEE_DAMAGE, ALIEN_MELEE_RANGE, ALIEN_SPAWN_PROTECTION_MS, ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { BASIC_BLASTER } from '../shared/projectiles';
-import { TICK_MS, EDGE_MARGIN, WORLD, idleInput } from '../shared/flight';
+import { EDGE_MARGIN, WORLD, idleInput } from '../shared/flight';
 import { RESPAWN_DELAY_MS } from '../shared/lifecycle';
 import { RoomStore, chooseAlienSpawn, survivingHumans } from '../server/rooms';
 import { applyDamage, startReload, resetCombatState, setStatus, advanceCombatTick, refillAmmo } from '../server/combat';
@@ -67,19 +67,22 @@ test('spawn protection is server-timed, blocks human bullets and ends before any
   kill(c,10000); respawn(c,13000); Object.assign(c.state,{x:1000,y:1800});
   const miss=fire(room,c,intent(c,1),390); assert.ok(miss.ok && miss.kind==='melee'); assert.equal(miss.damageApplied,0); assert.equal(c.invulnerableUntilMs,0);
 });
-test('same fire input does nearest-human melee only, fixed damage/range/cooldown, never gun/ammo or alien damage', () => {
+test('same fire input does nearest-human melee only, fixed damage/range with no cooldown, never gun/ammo or alien damage', () => {
   const {room,a,b,c,kill,respawn,intent} = fixture(); kill(b); respawn(b); kill(c); respawn(c);
   Object.assign(b.state,{x:200,y:1800}); Object.assign(a.state,{x:200+ALIEN_MELEE_RANGE,y:1800}); Object.assign(c.state,{x:205,y:1800});
   assert.equal(ALIEN_MELEE_DAMAGE,BASIC_BLASTER.damage*.2);
   const attack=fire(room,b,intent(b,1),120); assert.ok(attack.ok && attack.kind==='melee'); assert.equal(attack.damageApplied,5);
   assert.equal(a.state.shield,45); assert.equal(c.state.health,40); assert.equal(room.projectiles.size,0); assert.equal(b.state.ammo,0);
-  const ticks=Math.ceil(ALIEN_MELEE_COOLDOWN_MS/TICK_MS); assert.equal(ticks,23);
-  for(let n=1;n<ticks;n++){ advanceCombatTick(b); assert.equal(fire(room,b,intent(b,n+1),120).ok,false); }
-  advanceCombatTick(b); a.state.x+=.01;
-  const miss=fire(room,b,intent(b,100),120); assert.ok(miss.ok && miss.kind==='melee'); assert.equal(miss.damageApplied,0); assert.equal(a.state.shield,45);
+  assert.equal(ALIEN_MELEE_COOLDOWN_MS,0);
+  // Distinct requests resolve at the same tick without advancing any timer.
+  for(let sequence=2;sequence<=8;sequence++){const hit=fire(room,b,intent(b,sequence),120);assert.ok(hit.ok && hit.kind==='melee');assert.equal(hit.damageApplied,5);}
+  assert.equal(a.state.shield,10);assert.equal(c.state.health,40);
+  assert.equal(b.combatTimers.cooldown,0);assert.equal(b.state.fireCooldownRemainingMs,0);assert.equal(b.state.fireCooldownProgress,1);
+  a.state.x+=.01;
+  const miss=fire(room,b,intent(b,100),120); assert.ok(miss.ok && miss.kind==='melee'); assert.equal(miss.damageApplied,0); assert.equal(a.state.shield,10);
   assert.equal(fire(room,b,intent(b,100),120).ok,false);
   const before=structuredClone(b.state); assert.equal(fire(room,b,{...intent(b,101),teleportSequence:0},120).ok,false); assert.deepEqual(b.state,before);
-  for(let n=0;n<ticks;n++)advanceCombatTick(b); a.state.x=250; a.state.shield=0; a.state.health=3;
+  a.state.x=250; a.state.shield=0; a.state.health=3;
   const lethal=fire(room,b,intent(b,102),120); assert.ok(lethal.ok && lethal.kind==='melee'); assert.equal(lethal.damageApplied,3);
   assert.equal(a.state.status,'ALIEN'); assert.equal(survivingHumans(room),0); assert.equal(room.players.size,3);
 });

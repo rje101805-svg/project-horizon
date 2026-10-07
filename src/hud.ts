@@ -80,7 +80,7 @@ export class GameplayHud {
     write(this.node('debug-weapon'), alien ? `Alien melee · range ${ALIEN_MELEE_RANGE} · damage ${ALIEN_MELEE_DAMAGE} · last applied ${s.lastMeleeDamage} · protection ${s.spawnInvulnerabilityRemainingMs.toFixed(0)}ms` : `Blaster · ammo ${s.ammo} / ${s.maxAmmo} · ${s.fireCooldownRemainingMs === 0 ? 'cooldown ready' : 'cooling down'}`);
     write(this.node('debug-combat'), `${s.status} · ${s.controllerType} · kills ${s.kills}`);
     write(this.node('debug-reload'), alien ? 'Human reload unavailable · ALIEN' : s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
-    write(this.node('debug-cooldown'), `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);
+    write(this.node('debug-cooldown'), alien ? 'Alien melee · no cooldown' : `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);
   }
   humans(count: number) { write(this.node('humans-remaining'), `Humans alive: ${count}`); }
   setRoom(players: number, connected: boolean, now = performance.now()) {
