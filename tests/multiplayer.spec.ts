@@ -28,6 +28,7 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   for (const page of [a, b]) await expect(page.locator('#player-count')).toHaveText('2 / 8 players');
   await expect.poll(() => ships(b)).toHaveLength(2);
   await a.bringToFront(); await expect.poll(() => ships(a)).toHaveLength(2);
+  await a.locator('#start-match').click();await expect.poll(()=>a.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('active');
   const identities = await a.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest!.players);
   expect(new Set(identities.map(p => p.id)).size).toBe(2); expect(new Set(identities.map(p => p.color)).size).toBe(2);
   expect((await ships(a)).map(p => p.name)).toContain('<b>A</b> (you)');
@@ -50,7 +51,7 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   // Disconnect now awards the remaining human a locked victory/freeze.
   await expect(a.locator('#match-result')).toHaveText('VICTORY');
   await expect(a.locator('#match-overlay')).toBeVisible();
-  await expect(a.locator('#match-status')).toHaveText('Waiting for at least 2 humans', {timeout:10000});
+  await expect(a.locator('#match-status')).toHaveText('Waiting for host start', {timeout:10000});
   await expect(a.locator('#match-overlay')).toBeHidden();
   const after = await a.locator('#position').textContent(); await a.keyboard.down('w');
   await expect.poll(() => a.locator('#position').textContent()).not.toBe(after); await a.keyboard.up('w');

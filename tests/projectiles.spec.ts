@@ -24,7 +24,7 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
     const room=store.rooms.get(code)!,a=room.players.get(id!)!,b=[...room.players.values()].find(p=>p!==a)!;
     Object.assign([...room.players.values()].find(p=>p!==a && p!==b)!.state,{x:200,y:1800});
-    Object.assign(b.state,{x:1600,y:1200});await frame();await page.bringToFront();await page.keyboard.press('F3');
+    Object.assign(b.state,{x:1600,y:1200});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();await page.bringToFront();await page.keyboard.press('F3');
     await page.keyboard.down('Space');await expect.poll(()=>a.state.ammo).toBe(11);await frame();
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.projectiles.length)).toBe(1);
     for(let i=0;i<12;i++)await frame();

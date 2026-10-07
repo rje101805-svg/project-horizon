@@ -37,10 +37,10 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
     const targetId=await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const room=store.roomFor(id)!,a=room.players.get(id)!,b=room.players.get(targetId)!;
     Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});
-    Object.assign([...room.players.values()].find(p=>p!==a&&p!==b)!.state,{x:500,y:200});await frame();
+    Object.assign([...room.players.values()].find(p=>p!==a&&p!==b)!.state,{x:500,y:200});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();
     await page.bringToFront();
     if(lag){await page.keyboard.press('F3');await page.locator('#fake-lag').check();await page.keyboard.press('F3');}
-    await expect(page.locator('#debug-overlay')).toBeHidden();await expect(page.locator('#debug-network')).toBeHidden();
+    await expect(page.locator('#debug-overlay')).toBeHidden();await expect(page.locator('#debug-network')).toBeVisible();
     await expect(page.locator('#hud-weapon')).toHaveCount(0);await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
     await expect.poll(()=>visual(page).then(v=>v.visible)).toBe(true);
     for(const p of pages){const v=await visual(p);expect(v.bars).toBe(1);expect(v.remoteBars).toBe(0);expect(v.presentation!.shield).toBe(1);expect(v.presentation!.health).toBe(1);}

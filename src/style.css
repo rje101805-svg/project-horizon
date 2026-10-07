@@ -28,3 +28,7 @@
 
 .match-overlay { z-index: 3; }
 #match-status { display:block; font:12px/1.5 monospace; color:#d6abff; }
+
+.lobby-controls { display:flex; align-items:center; gap:12px; margin:12px 0; flex-wrap:wrap; }
+#debug-network { border:1px solid #34435e; border-radius:6px; padding:8px; margin-bottom:12px; }
+#fake-network-status { display:block; font:12px/1.5 monospace; }

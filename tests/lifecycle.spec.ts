@@ -44,7 +44,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await expect(peer.locator('canvas')).toBeVisible();
     // A third living human keeps the round active for both alien respawn cycles.
     await keeper.goto('/');await keeper.locator('#server-url').fill(url);await keeper.locator('#room-code').fill(code);await keeper.locator('#join').click();await expect(keeper.locator('canvas')).toBeVisible();
-    await frame();
+    await frame();await page.locator('#start-match').click();await expect.poll(()=>store.rooms.get(code)!.match.state).toBe('active');await frame();
     await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     await expect(peer.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     const id = (await localState(page))!.id, room = store.rooms.get(code)!, player = room.players.get(id)!;

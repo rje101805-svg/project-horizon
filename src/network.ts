@@ -17,6 +17,7 @@ export interface ConnectionCallbacks {
   hit?: (hit: ProjectileHit) => void;
 }
 export class FlightConnection {
+  starting = false;
   private firing = false;
   private fireAim = 0;
   private nextFireAt = 0;
@@ -87,7 +88,7 @@ export class FlightConnection {
         const ids = new Set(this.room.playerIds);
         snapshot = { ...snapshot, players: snapshot.players.filter(p => ids.has(p.id)) };
         const matchChanged = this.latest && (snapshot.match.round !== this.latest.match.round || snapshot.match.state !== this.latest.match.state);
-        if (matchChanged) { this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
+        if (matchChanged) { this.starting = false; this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
         const previous = this.latest?.players.find(p => p.id === this.socket.id);
         const local = snapshot.players.find(p => p.id === this.socket.id)!;
         if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
@@ -170,7 +171,20 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.projectilePrediction.clear(); this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  private invalidate() { this.starting = false; this.projectilePrediction.clear(); this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  startMatch() {
+    const match = this.latest?.match;
+    if (this.starting || !this.socket.connected || !match || match.state !== 'waiting' || this.room?.match.hostId !== this.socket.id) return;
+    this.starting = true;
+    const epoch=this.epoch, request={round:match.round};
+    const send=()=>{if(epoch!==this.epoch || !this.socket.connected || !this.room)return;
+      this.socket.timeout(3000).emit('startMatch',request,(error,result)=>{
+        const accept=()=>{if(epoch!==this.epoch)return;this.starting=false;this.callbacks.status(error?'Start request timed out':result.message);};
+        if(this.lag)this.lag.schedule('snapshot',accept);else accept();
+      });
+    };
+    if(this.lag)this.lag.schedule('input',send);else send();
+  }
   canPlay() { return !!this.latest && this.latest.match.state !== 'ended' && (this.latest.match.state === 'waiting' || this.latest.match.roster.includes(this.socket.id ?? '')); }
   setInput(input: PlayerInput) { this.input = this.canPlay() && this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
@@ -203,6 +217,7 @@ export class FlightConnection {
   }
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
+    this.starting = false;
     this.projectilePrediction.cancelPending(); this.firing = false;
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
     this.pendingRelease = true;

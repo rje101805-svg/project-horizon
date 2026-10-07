@@ -1,5 +1,5 @@
 import { initialMatchState, type MatchState } from '../shared/match';
-import { matchSnapshot, roundHumans, evaluateResult } from './match';
+import { matchSnapshot, roundHumans, evaluateResult, assignHost } from './match';
 import type { ServerProjectile } from './projectiles';
 import { initialLifeState } from '../shared/lifecycle';
 import { createBlackHole, SPAWN_CLEARANCE, type BlackHoleState } from '../shared/black-hole';
@@ -75,13 +75,14 @@ export class RoomStore {
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
     room.players.set(id, { gameplayEnabled: room.match.state === 'waiting', humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
     if (room.match.state !== 'waiting') room.players.get(id)!.state.status = 'OUT';
+    assignHost(room);
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
   }
   leave(id: string): GameRoom | undefined {
     const room = this.roomFor(id);
     this.membership.delete(id);
-    if (room) { room.players.delete(id); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (!room.players.size) this.rooms.delete(room.code); }
+    if (room) { room.players.delete(id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (!room.players.size) this.rooms.delete(room.code); }
     return room;
   }
 }

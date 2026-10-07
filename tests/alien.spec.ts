@@ -27,7 +27,7 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   const aid=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const bid=await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const room=store.roomFor(aid)!,a=room.players.get(aid)!,b=room.players.get(bid)!,c=[...room.players.values()].find(p=>p!==a&&p!==b)!;
-  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});b.state.ammo=11;await frame();
+  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});b.state.ammo=11;await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();
   if(lag)for(const p of pages){await p.bringToFront();await p.keyboard.press('F3');await p.locator('#fake-lag').check();await p.keyboard.press('F3');}
   await peer.bringToFront();await peer.keyboard.press('r');await expect.poll(()=>b.state.isReloading).toBe(true);await frame();
   for(let seq=1;seq<=6;seq++){

@@ -11,6 +11,7 @@ test('two browsers see gravity/death and reconnect recovers safely', async ({ pa
   await peer.goto('/'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');
   await peer.locator('#room-code').fill(code); await peer.locator('#join').click();
   await expect(peer.locator('#black-hole-status')).toHaveText('Safe space');
+  await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('active');
   const hole = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.blackHole);
   expect(await peer.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.blackHole)).toEqual(hole);
   // Use ordinary movement inputs, never a server-position fixture in this test.

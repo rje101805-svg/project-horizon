@@ -1,4 +1,4 @@
-import { advanceMatch, evaluateResult, matchSnapshot } from './match';
+import { advanceMatch, evaluateResult, matchSnapshot, startMatch } from './match';
 import { reload } from './reload';
 import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
 import { combatDebugEnabled, runCombatDebug } from './combat-debug';
@@ -43,6 +43,12 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
+    socket.on('startMatch', (request, reply) => {
+      if (typeof reply !== 'function') return;
+      const room = store.roomFor(socket.id), result = startMatch(room, socket.id, request);
+      if (result.ok && room) notify(room.code);
+      reply(result);
+    });
     socket.on('createRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
       const result = store.create(socket.id, request?.name, performance.now());

@@ -1,4 +1,4 @@
-import type { MatchState } from './match';
+import type { MatchState, StartMatchRequest, StartMatchResult } from './match';
 import type { FireRequest, FireResult, ProjectileState } from './projectiles';
 import type { ProjectileHit } from './hit-feedback';
 import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult } from './combat';
@@ -18,6 +18,7 @@ export interface ServerEvents {
 }
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface ClientEvents {
+  startMatch: (request: StartMatchRequest, reply: (result: StartMatchResult) => void) => void;
   reload: (request: ReloadRequest, reply: (result: ReloadResult) => void) => void;
   fire: (request: FireRequest, reply: (result: FireResult) => void) => void;
   combatDebug: (request: CombatDebugRequest, reply: (result: CombatDebugResult) => void) => void;

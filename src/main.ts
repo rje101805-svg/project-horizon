@@ -40,6 +40,7 @@ class Horizon extends Phaser.Scene {
   private connection!: FlightConnection;
   private aim = 0;
   private ready = false;
+  private spectatedId: string | null = null;
   private lastLocalLife: string | null = null;
   private lastLocalGeneration = -1;
   private lastTeleport = -1;
@@ -158,10 +159,11 @@ class Horizon extends Phaser.Scene {
     hud.health(local);
     hud.combat(local); hud.humans(snapshot.survivingHumans);
     const match = snapshot.match, spectator = local.status === 'OUT';
-    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for at least 2 humans' : spectator ? 'Waiting for next round' : `Round ${match.round} · ${match.state}`;
+    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}`;
+    updateLobby();
     el('match-overlay').hidden = match.state !== 'ended';
     el('match-result').textContent = match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
-    el('match-reset').textContent = `Next round in ${(match.resetRemainingMs / 1000).toFixed(1)}s`;
+    el('match-reset').textContent = `Return to lobby in ${(match.resetRemainingMs / 1000).toFixed(1)}s`;
     if (match.state === 'ended' || spectator) { this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
@@ -211,6 +213,18 @@ class Horizon extends Phaser.Scene {
   freezeRemoteShips() { this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
   acceptHit(hit: ProjectileHit) { if (this.ready) this.hitFeedback.add(hit, this.connection.latest, this.connection.socket.id ?? '', performance.now()); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
+  private updateSpectatorCamera() {
+    const latest=this.connection.latest, ids=this.connection.room?.playerIds ?? [];
+    const local=latest?.players.find(p=>p.id===this.connection.socket.id);
+    if (local?.status!=='OUT' || latest?.match.state!=='active') { this.spectatedId=null; return; }
+    const valid=latest.players.filter(p=>latest.match.roster.includes(p.id) && ids.includes(p.id) && p.lifeState==='active' && p.health>0 && p.status!=='OUT');
+    const target=valid.find(p=>p.id===this.spectatedId) ?? valid.find(p=>p.status==='ALIVE') ?? valid[0];
+    this.spectatedId=target?.id ?? null;
+    const body=target && this.ships.get(target.id)?.body;
+    // The existing camera follows this persistent empty spectator anchor, using
+    // rendered participant positions. No new camera/input/network loop.
+    if(body)this.rocket.setPosition(body.x,body.y);
+  }
   update() {
     hud.frame();
     const now = performance.now(), elapsed = now - this.lastRender; this.lastRender = now;
@@ -224,6 +238,7 @@ class Horizon extends Phaser.Scene {
       el('debug-correction').textContent = `Correction ${p.correction.toFixed(2)} · remote delay 100 ms`;
     }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
+    this.updateSpectatorCamera();
     this.projectileGraphics.clear().fillStyle(0xffe08a);
     for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
     this.localHud.render(this.rocket.x, this.rocket.y, now);
@@ -271,7 +286,14 @@ function launch() {
   if (import.meta.env.DEV) Object.assign(window, { __HORIZON_GAME__: game });
 }
 function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
+function updateLobby() {
+  const c=connection,match=c?.latest?.match,button=el<HTMLButtonElement>('start-match');
+  const waiting=match?.state==='waiting',host=c?.room?.match.hostId===c?.socket.id;
+  button.hidden=!waiting || !host;button.disabled=!!c?.starting || (c?.latest?.survivingHumans ?? 0)<2;
+  el('lobby-status').textContent=waiting ? host ? button.disabled ? 'Waiting for at least 2 humans' : 'Ready to start' : 'WAITING FOR HOST' : '';
+}
 function updateRoom(room: RoomInfo) {
+  updateLobby();
   el('room-code-display').textContent = room.code;
   hud.setRoom(room.playerIds.length, connection?.socket.connected ?? false);
   el('player-count').textContent = `${room.playerIds.length} / ${room.maxPlayers} players`;
@@ -327,6 +349,7 @@ async function enterRoom(mode: 'create' | 'join') {
     if (attempt === attemptId) { busy = false; el('cancel-connect').hidden = true; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
   }
 }
+el('start-match').onclick=()=>{connection?.startMatch();updateLobby();};
 el('create').onclick = () => { void enterRoom('create'); };
 el('join').onclick = () => { void enterRoom('join'); };
 el<HTMLInputElement>('server-url').oninput = () => el<HTMLInputElement>('server-url').setCustomValidity('');
@@ -346,7 +369,11 @@ el('copy-link').onclick = () => { if (connection?.room) void copy(roomLink(locat
 if (import.meta.env.DEV) {
   void import('./combat-debug').then(({ installCombatDebug }) => installCombatDebug(() => connection, () => scene()?.resetFlight()));
   el('debug-network').hidden = false;
-  const updateLag = () => connection?.setFakeLag(el<HTMLInputElement>('fake-lag').checked, 150, el<HTMLInputElement>('fake-jitter').checked ? 30 : 0);
+  const updateLag = () => {
+    const enabled=el<HTMLInputElement>('fake-lag').checked,jitter=el<HTMLInputElement>('fake-jitter').checked;
+    connection?.setFakeLag(enabled,150,jitter?30:0);
+    el('fake-network-status').textContent=enabled ? `Fake network ON · 150ms each way${jitter?' ±30ms jitter':''}` : 'Fake network OFF';
+  };
   el<HTMLInputElement>('fake-lag').onchange = updateLag;
   el<HTMLInputElement>('fake-jitter').onchange = updateLag;
 }

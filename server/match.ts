@@ -1,4 +1,4 @@
-import { MATCH_RESET_DELAY_MS, type MatchState } from '../shared/match';
+import { MATCH_RESET_DELAY_MS, type MatchState, type StartMatchResult } from '../shared/match';
 import { initialLifeState } from '../shared/lifecycle';
 import { idleInput } from '../shared/flight';
 import { retireInputs } from './inputs';
@@ -53,16 +53,27 @@ export function advanceMatch(room: GameRoom, timeMs: number): boolean {
   if (room.match.state==='ended') {
     room.match.resetRemainingMs=Math.max(0, MATCH_RESET_DELAY_MS-(timeMs-room.match.endedAtMs!));
     if (room.match.resetRemainingMs>0 || !resetRound(room)) return false;
-    startRound(room); return true; // reset is a teleport-only tick
+    return true; // reset is a teleport-only tick
   }
-  startRound(room); return false;
+  return false;
 }
-function startRound(room: GameRoom) {
-  if (room.match.state!=='waiting') return;
+export function startMatch(room: GameRoom | undefined, senderId: string, raw: unknown): StartMatchResult {
+  const reject = (message: string): StartMatchResult => ({ok:false,message});
+  if (!room || !room.players.has(senderId) || room.match.hostId !== senderId) return reject('Only the room host can start');
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || Object.keys(raw).some(k=>k!=='round') ||
+      !Number.isSafeInteger((raw as {round?:unknown}).round) || (raw as {round:number}).round !== room.match.round) return reject('Invalid or stale start request');
+  if (room.match.state!=='waiting') return reject('Match is not waiting');
   const humans=roundHumans(room);
-  if (humans.length<2) return;
+  if (humans.length<2) return reject('At least 2 eligible humans are required');
   room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
   }
+  return {ok:true,message:'Match started'};
+}
+// Keep the current connected host; otherwise prefer surviving humans, then a
+// connected future-round member. Map insertion order makes reassignment stable.
+export function assignHost(room: GameRoom) {
+  if (room.match.hostId && room.players.has(room.match.hostId)) return;
+  room.match.hostId = roundHumans(room)[0]?.state.id ?? room.players.keys().next().value ?? null;
 }
