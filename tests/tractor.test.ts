@@ -7,7 +7,7 @@ import { applyDamage, startReload } from '../server/combat';
 import { fire } from '../server/projectiles';
 import { simulatePlayer } from '../server/simulation';
 import { idleInput, TICK_MS } from '../shared/flight';
-import { TRACTOR_RANGE, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, TRACTOR_CAPTURE_DISTANCE, TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER, inTractorCone } from '../shared/tractor';
+import { TRACTOR_RANGE, TRACTOR_PULL_STRENGTH, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, TRACTOR_KILL_LOCK_MS, TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER, inTractorCone } from '../shared/tractor';
 import { stepMovement } from '../shared/movement';
 import { LocalPredictor } from '../src/prediction';
 function fixture(count=3,start=true){
@@ -82,17 +82,17 @@ test('five-second maximum expires victim alive, cooldown lasts fifteen seconds a
  advanceTractors(f.room,TRACTOR_MAX_DURATION_MS);assert.equal(f.a.state.tractor.targetId,null);assert.equal(f.b.state.health,100);assert.equal(f.b.state.status,'ALIVE');assert.equal(f.a.state.tractor.cooldownRemainingMs,10000);
  f.room.simulationTimeMs=14999;assert.equal(f.activate().ok,false);advanceTractors(f.room,15000);f.room.simulationTimeMs=15000;assert.equal(f.a.state.tractor.targetId,null);assert.equal(f.activate().ok,true);
 });
-test('idle victim reaches explicit capture ignoring full shield/health/protection and triggers normal winner/reset',()=>{
+test('idle victim earns continuous-lock finisher ignoring full shield/health/protection and triggers normal winner/reset',()=>{
  const f=fixture(2);f.b.invulnerableUntilMs=100000;assert.equal(f.activate().ok,true);
  let time=0;while(f.room.match.state==='active' && time<5000){time+=TICK_MS;f.tick(time);}
  assert.equal(f.b.state.status,'ALIEN');assert.equal(f.b.state.deathSource?.type,'TRACTOR');assert.equal(f.b.state.health,0);assert.equal(f.room.match.result?.kind,'winner');assert.equal(f.a.state.tractor.targetId,null);assert.equal(f.b.state.tractor.attackerId,null);assert.ok(f.a.state.tractor.cooldownRemainingMs>0);
  advanceMatch(f.room,time+6000);assert.equal(f.room.match.state,'waiting');for(const p of [f.a,f.b]){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.tractor.cooldownRemainingMs,0);assert.equal(p.state.tractor.attackerId,null);}
- assert.equal(startMatch(f.room,'a',{round:1}).ok,true);Object.assign(f.a.state,{x:200,y:1800});Object.assign(f.b.state,{x:200+TRACTOR_CAPTURE_DISTANCE,y:1800});assert.equal(f.activate().ok,true);f.tick(time+6000+TICK_MS);assert.equal(f.b.state.deathSource?.type,'TRACTOR');
+ assert.equal(startMatch(f.room,'a',{round:1}).ok,true);Object.assign(f.a.state,{x:200,y:1800});Object.assign(f.b.state,{x:300,y:1800});assert.equal(f.activate().ok,true);for(let i=1;i<=91;i++)f.tick(time+6000+i*TICK_MS);assert.equal(f.b.state.deathSource?.type,'TRACTOR');
 });
 for(const id of ['a','b'])test(`disconnect ${id} immediately clears tractor and preserves lifecycle`,()=>{const f=fixture();f.activate();f.store.leave(id);assert.equal(f.room.tractorBeams!.size,0);for(const p of f.room.players.values()){assert.equal(p.state.tractor.targetId,null);assert.equal(p.state.tractor.attackerId,null);}});
 test('match end cancels unrelated active beam, retains cooldown until reset',()=>{const f=fixture();f.activate();applyDamage(f.c,150,{type:'ENVIRONMENT',cause:'HAZARD'});applyDamage(f.b,150,{type:'ENVIRONMENT',cause:'HAZARD'});evaluateResult(f.room,100);assert.equal(f.room.match.state,'ended');assert.equal(f.room.tractorBeams!.size,0);assert.equal(f.a.state.tractor.cooldownRemainingMs,15000);});
 
-test('capture in a three-human round retains ordinary alien respawn and committed cooldown',()=>{
+test('continuous-lock finisher in a three-human round retains ordinary alien respawn and committed cooldown',()=>{
  const f=fixture();f.activate();let time=0;while(f.b.state.status==='ALIVE' && time<5000){time+=TICK_MS;f.tick(time);}
  assert.equal(f.b.state.deathSource?.type,'TRACTOR');assert.equal(f.room.match.state,'active');assert.equal(f.b.state.status,'ALIEN');
  const deadline=f.b.respawnAtMs!;f.tick(deadline);assert.equal(f.b.state.lifeState,'active');assert.equal(f.b.state.health,40);assert.equal(f.b.state.shield,0);assert.equal(f.b.state.ammo,0);assert.equal(f.b.state.tractor.attackerId,null);assert.equal(f.b.state.tractor.targetId,null);
@@ -102,4 +102,31 @@ test('alien melee damage cannot release a tractored victim unless attacker is el
  const f=fixture();f.c.state.status='ALIEN';f.c.humanEliminated=true;f.c.state.x=220;f.c.state.health=40;f.c.state.shield=0;assert.equal(f.activate().ok,true);
  const intent={sequence:1,aim:0,lifeGeneration:f.c.state.lifeGeneration,teleportSequence:f.c.state.teleportSequence};
  assert.equal(fire(f.room,f.c,intent,0).ok,true);assert.equal(f.a.state.shield,45);assert.equal(f.a.state.tractor.targetId,'b');
+});
+
+for(const distance of [0,1,27,150])test(`continuous lock never kills at distance ${distance} before three seconds, then ignores full resources`,()=>{
+ const f=fixture(2);f.b.state.x=f.a.state.x+distance;f.b.invulnerableUntilMs=99999;assert.equal(f.activate().ok,true);
+ for(const ms of [0,100,1000,2900,2999]){advanceTractors(f.room,ms,true);assert.equal(f.b.state.status,'ALIVE');assert.equal(f.b.state.health,100);assert.equal(f.b.state.shield,50);assert.equal(f.b.state.tractor.incomingLockElapsedMs,ms);}
+ advanceTractors(f.room,TRACTOR_KILL_LOCK_MS,true);evaluateResult(f.room,TRACTOR_KILL_LOCK_MS);assert.equal(f.b.state.deathSource?.type,'TRACTOR');assert.equal(f.b.state.status,'ALIEN');assert.equal(f.room.match.result?.kind,'winner');assert.equal(f.a.state.tractor.lockElapsedMs,0);assert.equal(f.b.state.tractor.incomingLockElapsedMs,0);
+});
+for(const reason of ['turn','range','cone','LOS'] as const)test(`breaking a 2.9-second lock by ${reason} discards all progress on later activation`,()=>{
+ const f=fixture(2);f.activate();advanceTractors(f.room,2900,true);assert.equal(f.a.state.tractor.lockElapsedMs,2900);
+ if(reason==='turn')f.a.state.rotation=Math.PI;if(reason==='range')f.b.state.x=500;if(reason==='cone')f.b.state.y=2000;if(reason==='LOS')f.room.tractorLOS=()=>false;
+ advanceTractors(f.room,2950,true);assert.equal(f.b.state.status,'ALIVE');assert.equal(f.a.state.tractor.targetId,null);assert.equal(f.a.state.tractor.lockElapsedMs,0);assert.equal(f.b.state.tractor.incomingLockElapsedMs,0);assert.equal(f.a.state.tractor.cooldownRemainingMs,12050);
+ Object.assign(f.a.state,{rotation:0});Object.assign(f.b.state,{x:300,y:1800});f.room.tractorLOS=()=>true;
+ f.room.simulationTimeMs=15000;assert.equal(f.activate().ok,true);assert.equal(f.a.state.tractor.lockElapsedMs,0);assert.equal(f.b.state.tractor.incomingLockElapsedMs,0);
+ advanceTractors(f.room,15001,true);assert.equal(f.b.state.status,'ALIVE');assert.equal(f.a.state.tractor.lockElapsedMs,1);
+ advanceTractors(f.room,17999,true);assert.equal(f.b.state.status,'ALIVE');advanceTractors(f.room,18000,true);assert.equal(f.b.state.status,'ALIEN');
+});
+test('shared movement uses exactly 200 units/s² and preserves substantial normal escape thrust',()=>{
+ const f=fixture(2);f.activate();assert.equal(TRACTOR_PULL_STRENGTH,200);
+ stepMovement(f.b.state,idleInput(),f.room.blackHole);assert.equal(f.b.state.vx,-200*TICK_MS/1000);
+ for(let i=0;i<90;i++)stepMovement(f.b.state,{...idleInput(),right:true},f.room.blackHole);
+ assert.ok(f.b.state.vx>250 && f.b.state.vx<290);
+});
+
+test('incoming and outgoing lock progress remain independent when the victim also maintains a beam',()=>{
+ const f=fixture();f.activate();advanceTractors(f.room,1000,true);f.room.simulationTimeMs=1000;assert.equal(activateTractor(f.room,f.b,f.request(f.b)).ok,true);
+ advanceTractors(f.room,2000,true);assert.equal(f.b.state.tractor.incomingLockElapsedMs,2000);assert.equal(f.b.state.tractor.lockElapsedMs,1000);
+ f.a.state.rotation=Math.PI;advanceTractors(f.room,2100,true);assert.equal(f.b.state.tractor.incomingLockElapsedMs,0);assert.equal(f.b.state.tractor.lockElapsedMs,1100);assert.equal(f.b.state.tractor.targetId,'c');assert.equal(f.b.state.status,'ALIVE');
 });

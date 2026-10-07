@@ -1,4 +1,4 @@
-import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_CAPTURE_DISTANCE, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
+import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_KILL_LOCK_MS, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
 import { ALIEN_COLOR, ALIEN_OPACITY } from '../shared/alien';
 import { ShipCombatHud } from './ship-combat-hud';
 import { HitFeedback } from './hit-feedback';
@@ -182,7 +182,7 @@ class Horizon extends Phaser.Scene {
     el('death-overlay').hidden = !dead || match.state === 'ended' || spectator;
     el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
     el('death-title').textContent = 'Eliminated · alien respawn pending';
-    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor capture' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
+    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor lock finisher' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
     el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
     el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead' || !this.connection.canPlay();
@@ -236,10 +236,11 @@ class Horizon extends Phaser.Scene {
     const local=snapshot?.players.find(p=>p.id===this.connection.socket.id);
     const active=snapshot?.match.state==='active',usable=active && local?.status==='ALIVE' && local.lifeState==='active';
     const t=local?.tractor;
-    const label=usable && t ? t.targetId ? 'TRACTOR ACTIVE' : t.cooldownRemainingMs>0 ? `TRACTOR ${(t.cooldownRemainingMs/1000).toFixed(1)}s` : 'TRACTOR READY · E' : '';
+    const label=usable && t ? t.targetId ? `TRACTOR ACTIVE ${(t.lockElapsedMs/1000).toFixed(1)} / ${(TRACTOR_KILL_LOCK_MS/1000).toFixed(1)}s` : t.cooldownRemainingMs>0 ? `TRACTOR ${(t.cooldownRemainingMs/1000).toFixed(1)}s` : 'TRACTOR READY · E' : '';
     if(el('hud-tractor').textContent!==label)el('hud-tractor').textContent=label;
     const locked=!!active && !!t?.attackerId && local?.lifeState==='active';
     const showTractor=!!usable || locked;if(el('tractor-hud').hidden===showTractor)el('tractor-hud').hidden=!showTractor;
+    const lockLabel=locked && t ? `TRACTOR LOCK ${(t.incomingLockElapsedMs/1000).toFixed(1)} / ${(TRACTOR_KILL_LOCK_MS/1000).toFixed(1)}s` : '';if(el('tractor-lock').textContent!==lockLabel)el('tractor-lock').textContent=lockLabel;
     if(el('tractor-lock').hidden===locked)el('tractor-lock').hidden=!locked;
     if(locked && now-this.lastTractorShake>=180){this.cameras.main.shake(160,.0015);this.lastTractorShake=now;}
     if(!locked && this.cameras.main.shakeEffect.isRunning)this.cameras.main.shakeEffect.reset();
@@ -254,7 +255,7 @@ class Horizon extends Phaser.Scene {
       this.tractorGraphics.closePath().fillPath().strokePath();
     }
     if(now-this.lastDebug<20 && local){const attacker=local.tractor.attackerId ? snapshot.players.find(p=>p.id===local.tractor.attackerId) : local,target=attacker?.tractor.targetId ? snapshot.players.find(p=>p.id===attacker.tractor.targetId) : null;
-      el('debug-tractor').textContent=`Tractor ${label || 'unavailable'} · attacker ${attacker?.tractor.targetId?attacker.id:'—'} · target ${target?.id??'—'} · range ${TRACTOR_RANGE} · cone ${attacker&&target?inTractorCone(attacker,target):'—'} · LOS ${target?'clear (server validated)':'—'} · pull ${TRACTOR_PULL_STRENGTH} · elapsed ${attacker?.tractor.targetId?((TRACTOR_MAX_DURATION_MS-attacker.tractor.remainingMs)/1000).toFixed(2):'—'}/5s · capture ${TRACTOR_CAPTURE_DISTANCE} · predicted pull ${!!this.connection.prediction.state?.tractor.attackerId}`;
+      el('debug-tractor').textContent=`Tractor ${label || 'unavailable'} · attacker ${attacker?.tractor.targetId?attacker.id:'—'} · target ${target?.id??'—'} · range ${TRACTOR_RANGE} · cone ${attacker&&target?inTractorCone(attacker,target):'—'} · LOS ${target?'clear (server validated)':'—'} · pull ${TRACTOR_PULL_STRENGTH} · elapsed ${attacker?.tractor.targetId?((TRACTOR_MAX_DURATION_MS-attacker.tractor.remainingMs)/1000).toFixed(2):'—'}/5s · lock ${attacker?.tractor.lockElapsedMs??0}/${TRACTOR_KILL_LOCK_MS}ms · predicted pull ${!!this.connection.prediction.state?.tractor.attackerId}`;
     }
   }
   update() {

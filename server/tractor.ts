@@ -1,4 +1,4 @@
-import { initialTractorState, inTractorCone, parseTractor, TRACTOR_CAPTURE_DISTANCE, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, type TractorResult } from '../shared/tractor';
+import { initialTractorState, inTractorCone, parseTractor, TRACTOR_KILL_LOCK_MS, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, type TractorResult } from '../shared/tractor';
 import { eliminate } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
 export interface TractorBeam { attackerId:string; targetId:string; round:number; startedAtMs:number; attackerLife:number; attackerTeleport:number; targetLife:number; targetTeleport:number }
@@ -11,8 +11,8 @@ function human(room:GameRoom,p:RoomPlayer|undefined):p is RoomPlayer {
 export function clearBeam(room:GameRoom,id:string) {
  const beam=room.tractorBeams?.get(id);if(!beam)return;
  const a=room.players.get(id),b=room.players.get(beam.targetId);
- if(a)a.state.tractor={...a.state.tractor,targetId:null,remainingMs:0};
- if(b?.state.tractor.attackerId===id)b.state.tractor={...b.state.tractor,attackerId:null,anchorX:0,anchorY:0};
+ if(a)a.state.tractor={...a.state.tractor,targetId:null,remainingMs:0,lockElapsedMs:0};
+ if(b?.state.tractor.attackerId===id)b.state.tractor={...b.state.tractor,attackerId:null,incomingLockElapsedMs:0,anchorX:0,anchorY:0};
  room.tractorBeams!.delete(id);
 }
 export function clearTractorsFor(room:GameRoom,id:string) {
@@ -34,19 +34,19 @@ export function activateTractor(room:GameRoom|undefined,p:RoomPlayer|undefined,r
  const target=targets[0];if(!target)return reject('No human in tractor cone');
  const beam:TractorBeam={attackerId:p.state.id,targetId:target.state.id,round:room.match.round,startedAtMs:room.simulationTimeMs,attackerLife:p.state.lifeGeneration,attackerTeleport:p.state.teleportSequence,targetLife:target.state.lifeGeneration,targetTeleport:target.state.teleportSequence};
  (room.tractorBeams??=new Map()).set(p.state.id,beam);(room.tractorCooldowns??=new Map()).set(p.state.id,room.simulationTimeMs+TRACTOR_COOLDOWN_MS);
- p.state.tractor={...p.state.tractor,targetId:target.state.id,cooldownRemainingMs:TRACTOR_COOLDOWN_MS,remainingMs:TRACTOR_MAX_DURATION_MS};
- target.state.tractor={...target.state.tractor,attackerId:p.state.id,anchorX:p.state.x,anchorY:p.state.y};
+ p.state.tractor={...p.state.tractor,targetId:target.state.id,cooldownRemainingMs:TRACTOR_COOLDOWN_MS,remainingMs:TRACTOR_MAX_DURATION_MS,lockElapsedMs:0};
+ target.state.tractor={...target.state.tractor,attackerId:p.state.id,incomingLockElapsedMs:0,anchorX:p.state.x,anchorY:p.state.y};
  return {ok:true,message:'Tractor active'};
 }
 // Run before movement to provide a coherent force snapshot and after the damage
-// batch to validate escape/capture before the existing winner/draw evaluator.
-export function advanceTractors(room:GameRoom,timeMs:number,capture=false) {
+// batch to validate escape/continuous lock before the existing winner/draw evaluator.
+export function advanceTractors(room:GameRoom,timeMs:number,resolveKill=false) {
  for(const p of room.players.values())p.state.tractor={...p.state.tractor,cooldownRemainingMs:Math.max(0,(room.tractorCooldowns?.get(p.state.id)??0)-timeMs)};
  for(const [id,beam] of room.tractorBeams??[]) {
   const a=room.players.get(id),b=room.players.get(beam.targetId);
   if(!human(room,a)||!human(room,b)||beam.round!==room.match.round||a.state.lifeGeneration!==beam.attackerLife||a.state.teleportSequence!==beam.attackerTeleport||b.state.lifeGeneration!==beam.targetLife||b.state.teleportSequence!==beam.targetTeleport||timeMs-beam.startedAtMs>=TRACTOR_MAX_DURATION_MS||!inTractorCone(a.state,b.state)||!(room.tractorLOS??clearTractorLOS)(a.state,b.state)){clearBeam(room,id);continue;}
-  a.state.tractor={...a.state.tractor,remainingMs:Math.max(0,TRACTOR_MAX_DURATION_MS-(timeMs-beam.startedAtMs))};
-  b.state.tractor={...b.state.tractor,anchorX:a.state.x,anchorY:a.state.y};
-  if(capture && Math.hypot(a.state.x-b.state.x,a.state.y-b.state.y)<=TRACTOR_CAPTURE_DISTANCE){eliminate(b,{type:'TRACTOR',playerId:id},timeMs);clearBeam(room,id);}
+  a.state.tractor={...a.state.tractor,remainingMs:Math.max(0,TRACTOR_MAX_DURATION_MS-(timeMs-beam.startedAtMs)),lockElapsedMs:Math.max(0,timeMs-beam.startedAtMs)};
+  b.state.tractor={...b.state.tractor,incomingLockElapsedMs:Math.max(0,timeMs-beam.startedAtMs),anchorX:a.state.x,anchorY:a.state.y};
+  if(resolveKill && timeMs-beam.startedAtMs>=TRACTOR_KILL_LOCK_MS){eliminate(b,{type:'TRACTOR',playerId:id},timeMs);clearBeam(room,id);}
  }
 }

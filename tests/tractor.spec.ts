@@ -1,4 +1,4 @@
-import { TRACTOR_RANGE } from '../shared/tractor';
+import { TRACTOR_RANGE, TRACTOR_KILL_LOCK_MS } from '../shared/tractor';
 import { test,expect,type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
@@ -7,7 +7,7 @@ import { retireInputs } from '../server/inputs';
 import type { FlightConnection } from '../src/network';
 import type Phaser from 'phaser';
 type DebugWindow=Window&{__HORIZON_FLIGHT__:FlightConnection;__HORIZON_GAME__:{scene:{scenes:(Phaser.Scene&{tractorGraphics:Phaser.GameObjects.Graphics;ships:Map<string,{body:Phaser.GameObjects.Container}>})[]}}};
-for(const lag of [false,true])test(`E tractor replicates cone/lock, predicts drag and escape, then captures through winner/reset (${lag?'150ms+jitter':'normal'})`,async({page,context})=>{
+for(const lag of [false,true])test(`E tractor replicates cone/lock, predicts drag and escape, then earns a three-second lock finisher through winner/reset (${lag?'150ms+jitter':'normal'})`,async({page,context})=>{
  test.setTimeout(90000);const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});
  await new Promise<void>(resolve=>server.http.listen(0,'127.0.0.1',resolve));const address=server.http.address();if(!address||typeof address==='string')throw Error('No address');
  const peer=await context.newPage(),third=await context.newPage(),spectator=await context.newPage(),pages=[page,peer,third,spectator];let clients=pages.slice(0,3),tick=0;const errors:string[]=[];
@@ -25,7 +25,7 @@ for(const lag of [false,true])test(`E tractor replicates cone/lock, predicts dra
   if(lag)for(const p of pages)await p.locator('#fake-lag').check();
   await expect(page.locator('#hud-tractor')).toHaveText('TRACTOR READY · E');await expect(spectator.locator('#hud-tractor')).toHaveText('');
   await page.bringToFront();await page.keyboard.press('e');await expect.poll(()=>a.state.tractor.targetId).toBe(b.state.id);await frame();
-  await expect(page.locator('#hud-tractor')).toHaveText('TRACTOR ACTIVE');await expect(peer.locator('#tractor-lock')).toBeVisible();
+  await expect(page.locator('#hud-tractor')).toContainText('TRACTOR ACTIVE');await expect(peer.locator('#tractor-lock')).toBeVisible();
   for(const p of pages)await expect.poll(()=>p.evaluate(()=>{const s=(window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0];return s.tractorGraphics.commandBuffer.length;})).toBeGreaterThan(0);
   await expect.poll(()=>peer.evaluate(()=>{const w=window as unknown as DebugWindow;return !!w.__HORIZON_FLIGHT__.prediction.state?.tractor.attackerId&&w.__HORIZON_GAME__.scene.scenes[0].cameras.main.shakeEffect.isRunning;})).toBe(true);
   const startX=b.state.x;await advance(9);await frame();expect(b.state.x).toBeLessThan(startX);
@@ -40,7 +40,10 @@ for(const lag of [false,true])test(`E tractor replicates cone/lock, predicts dra
   await page.bringToFront();await page.keyboard.press('e');await expect.poll(()=>a.state.tractor.targetId).toBe(b.state.id);applyDamage(a,35,{type:'PLAYER',playerId:c.state.id});await frame();expect(a.state.shield).toBe(15);expect(a.state.tractor.targetId).toBe(b.state.id);
   const ammo=a.state.ammo;const rejected=await page.evaluate(()=>{const n=(window as unknown as DebugWindow).__HORIZON_FLIGHT__,p=n.latest!.players.find(p=>p.id===n.socket.id)!;return new Promise<{ok:boolean}>(resolve=>n.socket.emit('fire',{sequence:999,aim:0,lifeGeneration:p.lifeGeneration,teleportSequence:p.teleportSequence},resolve));});expect(rejected.ok).toBe(false);expect(a.state.ammo).toBe(ammo);
   applyDamage(c,150,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();
-  for(let i=0;i<150 && room.match.state==='active';i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}await Promise.all(pages.map(p=>expect.poll(()=>p.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('ended')));await frame();
+  const lockStarted=room.tractorBeams!.get(a.state.id)!.startedAtMs;
+  while((tick+1)*1000/30-lockStarted<2900){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}await frame();
+  expect(b.state.status).toBe('ALIVE');expect(b.state.health).toBe(100);expect(b.state.shield).toBe(50);await expect(peer.locator('#tractor-lock')).toContainText('/ 3.0s');await expect(page.locator('#hud-tractor')).toContainText('/ 3.0s');
+  for(let i=0;i<10 && room.match.state==='active';i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}expect(room.simulationTimeMs-lockStarted).toBeGreaterThanOrEqual(TRACTOR_KILL_LOCK_MS);await Promise.all(pages.map(p=>expect.poll(()=>p.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('ended')));await frame();
   expect(b.state.deathSource?.type).toBe('TRACTOR');expect(room.match.result?.kind).toBe('winner');expect(a.state.tractor.targetId).toBe(null);for(const p of pages)await expect(p.locator('#tractor-lock')).toBeHidden();await expect(page.locator('#match-result')).toHaveText('VICTORY');
   await advance(180);await Promise.all(pages.map(p=>expect.poll(()=>p.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('waiting')));await frame();expect(room.match.state).toBe('waiting');for(const p of room.players.values()){expect(p.state.status).toBe('ALIVE');expect(p.state.tractor.targetId).toBe(null);expect(p.state.tractor.attackerId).toBe(null);expect(p.state.tractor.cooldownRemainingMs).toBe(0);}
   for(const p of pages){await expect(p.locator('#hud-tractor')).toHaveText('');await expect(p.locator('#tractor-lock')).toBeHidden();}

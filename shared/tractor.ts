@@ -1,13 +1,13 @@
 import type { FlightState } from './flight';
 export const TRACTOR_RANGE = 220;
 export const TRACTOR_CONE_ANGLE = Math.PI / 3;
-export const TRACTOR_PULL_STRENGTH = 800; // acceleration; terminal drag ~128 < normal thrust 290
-export const TRACTOR_CAPTURE_DISTANCE = 28;
+export const TRACTOR_PULL_STRENGTH = 200; // acceleration; terminal drag ~32 < normal thrust 290
+export const TRACTOR_KILL_LOCK_MS = 3000;
 export const TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER = 0.55;
 export const TRACTOR_COOLDOWN_MS = 15000;
 export const TRACTOR_MAX_DURATION_MS = 5000;
-export interface TractorState { targetId:string|null; attackerId:string|null; cooldownRemainingMs:number; remainingMs:number; anchorX:number; anchorY:number }
-export const initialTractorState = ():TractorState => ({targetId:null,attackerId:null,cooldownRemainingMs:0,remainingMs:0,anchorX:0,anchorY:0});
+export interface TractorState { targetId:string|null; attackerId:string|null; cooldownRemainingMs:number; remainingMs:number; lockElapsedMs:number; incomingLockElapsedMs:number; anchorX:number; anchorY:number }
+export const initialTractorState = ():TractorState => ({targetId:null,attackerId:null,cooldownRemainingMs:0,remainingMs:0,lockElapsedMs:0,incomingLockElapsedMs:0,anchorX:0,anchorY:0});
 export interface TractorRequest { sequence:number; round:number; lifeGeneration:number; teleportSequence:number; reloadSession:string }
 export interface TractorResult { ok:boolean; message:string }
 export function parseTractor(raw:unknown):TractorRequest|null {
