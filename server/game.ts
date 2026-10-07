@@ -1,3 +1,4 @@
+import { activateTractor, advanceTractors } from './tractor';
 import { advanceMatch, evaluateResult, matchSnapshot, startMatch } from './match';
 import { reload } from './reload';
 import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
@@ -27,6 +28,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   const debugAuthorized = combatDebugEnabled(options.combatDebug);
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('tractor',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id);reply(activateTractor(room,room?.players.get(socket.id),request));});
     socket.on('fire', (request, reply) => {
       if (typeof reply !== 'function') return;
       const room = store.roomFor(socket.id);
@@ -52,13 +54,13 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     socket.on('createRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
       const result = store.create(socket.id, request?.name, performance.now());
-      if (result.ok) { store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
+      if (result.ok) { store.roomFor(socket.id)!.simulationTimeMs = tick * TICK_MS; store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });
     socket.on('joinRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
       const result = store.join(socket.id, request?.code, request?.name, performance.now());
-      if (result.ok) { store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
+      if (result.ok) { store.roomFor(socket.id)!.simulationTimeMs = tick * TICK_MS; store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });
     const leave = () => {
@@ -78,11 +80,13 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     tick++;
     for (const room of store.rooms.values()) {
       const reset = advanceMatch(room, tick * TICK_MS);
+      advanceTractors(room,tick*TICK_MS);
       for (const player of room.players.values()) {
         if (!reset) simulatePlayer(player, room, now, tick * TICK_MS);
       }
       const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
       if (!reset) advanceProjectiles(room, hit => hits.push(hit), tick);
+      advanceTractors(room,tick*TICK_MS,true);
       evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {

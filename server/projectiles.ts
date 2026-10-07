@@ -14,6 +14,7 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   const s = player.state;
   if (!player.gameplayEnabled || room.match.state === 'ended' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
+  if (s.tractor.targetId) return reject('Tractor active');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
   if (s.isReloading) return reject('No ammo or reloading');
   if (s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }

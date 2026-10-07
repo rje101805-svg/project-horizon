@@ -1,3 +1,4 @@
+import { clearTractorsFor, type TractorBeam, type TractorLOS } from './tractor';
 import { initialMatchState, type MatchState } from '../shared/match';
 import { matchSnapshot, roundHumans, evaluateResult, assignHost } from './match';
 import type { ServerProjectile } from './projectiles';
@@ -7,8 +8,8 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
-export interface GameRoom { match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
+export interface RoomPlayer { cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface GameRoom { tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const roomChannel = (code: string) => `flight:${code}`;
 export function generateRoomCode(): string {
   return Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)]).join('');
@@ -75,6 +76,7 @@ export class RoomStore {
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
     room.players.set(id, { gameplayEnabled: room.match.state === 'waiting', humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
     if (room.match.state !== 'waiting') room.players.get(id)!.state.status = 'OUT';
+    room.players.get(id)!.cancelTractor=()=>clearTractorsFor(room,id);
     assignHost(room);
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
@@ -82,7 +84,7 @@ export class RoomStore {
   leave(id: string): GameRoom | undefined {
     const room = this.roomFor(id);
     this.membership.delete(id);
-    if (room) { room.players.delete(id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (!room.players.size) this.rooms.delete(room.code); }
+    if (room) { clearTractorsFor(room,id); room.tractorCooldowns?.delete(id); room.players.delete(id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (!room.players.size) this.rooms.delete(room.code); }
     return room;
   }
 }

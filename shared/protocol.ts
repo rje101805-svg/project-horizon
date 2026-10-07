@@ -1,3 +1,4 @@
+import type { TractorRequest, TractorResult } from './tractor';
 import type { MatchState, StartMatchRequest, StartMatchResult } from './match';
 import type { FireRequest, FireResult, ProjectileState } from './projectiles';
 import type { ProjectileHit } from './hit-feedback';
@@ -18,6 +19,7 @@ export interface ServerEvents {
 }
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface ClientEvents {
+  tractor:(request:TractorRequest,reply:(result:TractorResult)=>void)=>void;
   startMatch: (request: StartMatchRequest, reply: (result: StartMatchResult) => void) => void;
   reload: (request: ReloadRequest, reply: (result: ReloadResult) => void) => void;
   fire: (request: FireRequest, reply: (result: FireResult) => void) => void;

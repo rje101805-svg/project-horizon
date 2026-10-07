@@ -32,17 +32,24 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
   const shieldAbsorbed = Math.min(s.shield, amount), healthDamage = Math.min(s.health, amount - shieldAbsorbed);
   s.shield -= shieldAbsorbed; s.health -= healthDamage;
   s.lastDamageSource = source.type === 'PLAYER' ? { type: 'PLAYER', playerId: source.playerId } : { type: 'ENVIRONMENT', cause: source.cause };
-  if (s.health === 0) {
-    player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
-    s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
-    player.respawnAtMs = simulationTimeMs + RESPAWN_DELAY_MS;
-    s.vx = s.vy = 0; retireInputs(player); player.input = idleInput(); player.lastInput = -Infinity; player.reset = false;
-    player.invulnerableUntilMs = 0; s.spawnInvulnerabilityRemainingMs = 0;
-    player.combatTimers = {reload:0,cooldown:0,reloadCompleted:false}; syncTimers(player);
-    // Clear human resources immediately, including during the respawn delay.
-    s.maxHealth = ALIEN_HEALTH; s.shield = s.maxShield = s.ammo = s.maxAmmo = 0;
-  }
+  if (s.health === 0) eliminate(player, s.lastDamageSource, simulationTimeMs);
   return { shieldAbsorbed, healthDamage, depleted: s.health === 0 };
+}
+// Explicit lethal transition shared by ordinary depletion and tractor capture.
+export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs): boolean {
+  const s=player.state;
+  if(!player.gameplayEnabled || s.lifeState!=='active' || s.status==='OUT')return false;
+  s.health=0; s.lastDamageSource={...source};
+  player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
+  s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
+  player.respawnAtMs = simulationTimeMs + RESPAWN_DELAY_MS;
+  s.vx = s.vy = 0; retireInputs(player); player.input = idleInput(); player.lastInput = -Infinity; player.reset = false;
+  player.invulnerableUntilMs = 0; s.spawnInvulnerabilityRemainingMs = 0;
+  player.combatTimers = {reload:0,cooldown:0,reloadCompleted:false}; syncTimers(player);
+  // Clear human resources immediately, including during the respawn delay.
+  s.maxHealth = ALIEN_HEALTH; s.shield = s.maxShield = s.ammo = s.maxAmmo = 0;
+  player.cancelTractor?.();
+  return true;
 }
 export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {
   const s = player.state;
@@ -67,7 +74,7 @@ export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   if (!['ALIVE', 'ALIEN', 'OUT'].includes(status)) return false;
   if ((player.humanEliminated || player.state.status === 'ALIEN') && status === 'ALIVE') return false;
   if (status === 'ALIEN') player.humanEliminated = true;
-  player.state.status = status; return true;
+  player.state.status = status; if(status!=='ALIVE')player.cancelTractor?.(); return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {
   if (!player.gameplayEnabled || player.state.lifeState !== 'active') return;

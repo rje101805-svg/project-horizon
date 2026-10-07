@@ -1,3 +1,4 @@
+import { clearAllTractors } from './tractor';
 import { MATCH_RESET_DELAY_MS, type MatchState, type StartMatchResult } from '../shared/match';
 import { initialLifeState } from '../shared/lifecycle';
 import { idleInput } from '../shared/flight';
@@ -20,6 +21,7 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
   if (room.match.state !== 'active') return;
   const humans = roundHumans(room);
   if (humans.length > 1) return;
+  clearAllTractors(room);
   room.match.state = 'ended'; room.match.endedAtMs = timeMs; room.match.resetRemainingMs = MATCH_RESET_DELAY_MS;
   room.match.result = humans.length ? {kind:'winner', winnerId:humans[0].state.id, winnerName:humans[0].state.name} : {kind:'draw'};
   room.projectiles.clear();
@@ -31,6 +33,7 @@ function resetRound(room: GameRoom): boolean {
   for (const _player of room.players.values()) {
     const spawn = chooseSpawn(spawns, room.blackHole); if (!spawn) return false; spawns.push(spawn);
   }
+  clearAllTractors(room,true);
   let i=0;
   for (const player of room.players.values()) {
     const s=player.state, lifeGeneration=s.lifeGeneration+1, teleportSequence=s.teleportSequence+1, deathSequence=s.deathSequence, reloadSession=s.reloadSession;

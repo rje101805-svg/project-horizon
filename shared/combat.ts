@@ -7,7 +7,7 @@ export const RELOAD_DURATION = 1500;
 export const FIRE_COOLDOWN = 200;
 export type PlayerStatus = 'ALIVE' | 'ALIEN' | 'OUT';
 export type ControllerType = 'HUMAN' | 'BOT';
-export type DamageSource = { type: 'PLAYER'; playerId: string } |
+export type DamageSource = { type: 'PLAYER'; playerId: string } | { type: 'TRACTOR'; playerId: string } |
   { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
 export interface CombatState {
   spawnInvulnerabilityRemainingMs: number; lastMeleeDamage: number;

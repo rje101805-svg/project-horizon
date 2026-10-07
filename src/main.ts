@@ -1,3 +1,4 @@
+import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_CAPTURE_DISTANCE, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
 import { ALIEN_COLOR, ALIEN_OPACITY } from '../shared/alien';
 import { ShipCombatHud } from './ship-combat-hud';
 import { HitFeedback } from './hit-feedback';
@@ -30,6 +31,8 @@ class Horizon extends Phaser.Scene {
   private damageNumbers!: DamageNumbers;
   private localHud!: ShipCombatHud;
   private projectileView = new ProjectileView();
+  private tractorGraphics!: Phaser.GameObjects.Graphics;
+  private lastTractorShake=0;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
   private fireAim = 0;
   private rocket!: Phaser.GameObjects.Container;
@@ -65,6 +68,7 @@ class Horizon extends Phaser.Scene {
       this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
     }
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
+    this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(connection.room.blackHole);
@@ -80,6 +84,7 @@ class Horizon extends Phaser.Scene {
     const reload = (event: KeyboardEvent) => {
       const target = event.target as HTMLInputElement;
       const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
+      if (event.code === 'KeyE' && !event.repeat && !typing) this.connection.tractor();
       if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
     };
     window.addEventListener('keydown', reload);
@@ -177,7 +182,7 @@ class Horizon extends Phaser.Scene {
     el('death-overlay').hidden = !dead || match.state === 'ended' || spectator;
     el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
     el('death-title').textContent = 'Eliminated · alien respawn pending';
-    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
+    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor capture' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
     el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
     el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead' || !this.connection.canPlay();
@@ -225,6 +230,33 @@ class Horizon extends Phaser.Scene {
     // rendered participant positions. No new camera/input/network loop.
     if(body)this.rocket.setPosition(body.x,body.y);
   }
+  private drawTractors(now:number) {
+    this.tractorGraphics.clear();
+    const snapshot=this.connection.socket.connected ? this.connection.latest : null;
+    const local=snapshot?.players.find(p=>p.id===this.connection.socket.id);
+    const active=snapshot?.match.state==='active',usable=active && local?.status==='ALIVE' && local.lifeState==='active';
+    const t=local?.tractor;
+    const label=usable && t ? t.targetId ? 'TRACTOR ACTIVE' : t.cooldownRemainingMs>0 ? `TRACTOR ${(t.cooldownRemainingMs/1000).toFixed(1)}s` : 'TRACTOR READY · E' : '';
+    if(el('hud-tractor').textContent!==label)el('hud-tractor').textContent=label;
+    const locked=!!active && !!t?.attackerId && local?.lifeState==='active';
+    const showTractor=!!usable || locked;if(el('tractor-hud').hidden===showTractor)el('tractor-hud').hidden=!showTractor;
+    if(el('tractor-lock').hidden===locked)el('tractor-lock').hidden=!locked;
+    if(locked && now-this.lastTractorShake>=180){this.cameras.main.shake(160,.0015);this.lastTractorShake=now;}
+    if(!locked && this.cameras.main.shakeEffect.isRunning)this.cameras.main.shakeEffect.reset();
+    if(!active){if(el('debug-tractor').textContent!=='Tractor unavailable')el('debug-tractor').textContent='Tractor unavailable';return;}
+    for(const player of snapshot.players){
+      if(!player.tractor.targetId)continue;
+      const body=this.ships.get(player.id)?.body;if(!body)continue;
+      const angle=body.rotation,half=TRACTOR_CONE_ANGLE/2,nose=18;
+      const x=body.x+Math.cos(angle)*nose,y=body.y+Math.sin(angle)*nose;
+      this.tractorGraphics.fillStyle(0x70ffdc,.18).lineStyle(1,0x9cffe9,.65).beginPath().moveTo(x,y);
+      for(let i=0;i<=8;i++){const a=angle-half+TRACTOR_CONE_ANGLE*i/8;this.tractorGraphics.lineTo(body.x+Math.cos(a)*TRACTOR_RANGE,body.y+Math.sin(a)*TRACTOR_RANGE);}
+      this.tractorGraphics.closePath().fillPath().strokePath();
+    }
+    if(now-this.lastDebug<20 && local){const attacker=local.tractor.attackerId ? snapshot.players.find(p=>p.id===local.tractor.attackerId) : local,target=attacker?.tractor.targetId ? snapshot.players.find(p=>p.id===attacker.tractor.targetId) : null;
+      el('debug-tractor').textContent=`Tractor ${label || 'unavailable'} · attacker ${attacker?.tractor.targetId?attacker.id:'—'} · target ${target?.id??'—'} · range ${TRACTOR_RANGE} · cone ${attacker&&target?inTractorCone(attacker,target):'—'} · LOS ${target?'clear (server validated)':'—'} · pull ${TRACTOR_PULL_STRENGTH} · elapsed ${attacker?.tractor.targetId?((TRACTOR_MAX_DURATION_MS-attacker.tractor.remainingMs)/1000).toFixed(2):'—'}/5s · capture ${TRACTOR_CAPTURE_DISTANCE} · predicted pull ${!!this.connection.prediction.state?.tractor.attackerId}`;
+    }
+  }
   update() {
     hud.frame();
     const now = performance.now(), elapsed = now - this.lastRender; this.lastRender = now;
@@ -239,6 +271,7 @@ class Horizon extends Phaser.Scene {
     }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.updateSpectatorCamera();
+    this.drawTractors(now);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
     for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
     this.localHud.render(this.rocket.x, this.rocket.y, now);

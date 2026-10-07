@@ -27,11 +27,11 @@ export function parseInput(value: unknown): PlayerInput | null {
     boost: v.boost as boolean, aim: Math.atan2(Math.sin(v.aim), Math.cos(v.aim)) };
 }
 // One fixed simulation tick, independent of rendering and packet arrival.
-export function stepFlight(state: FlightState, input: PlayerInput, acceleration = { x: 0, y: 0 }): void {
+export function stepFlight(state: FlightState, input: PlayerInput, acceleration = { x: 0, y: 0 }, thrustMultiplier = 1): void {
   const dx = Number(input.right) - Number(input.left);
   const dy = Number(input.down) - Number(input.up);
   const length = Math.hypot(dx, dy) || 1;
-  const speed = input.boost ? BOOST_SPEED : NORMAL_SPEED;
+  const speed = (input.boost ? BOOST_SPEED : NORMAL_SPEED) * thrustMultiplier;
   const blend = 1 - Math.exp(-RESPONSE * TICK_SECONDS);
   state.vx += (dx / length * speed - state.vx) * blend;
   state.vy += (dy / length * speed - state.vy) * blend;

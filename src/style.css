@@ -32,3 +32,8 @@
 .lobby-controls { display:flex; align-items:center; gap:12px; margin:12px 0; flex-wrap:wrap; }
 #debug-network { border:1px solid #34435e; border-radius:6px; padding:8px; margin-bottom:12px; }
 #fake-network-status { display:block; font:12px/1.5 monospace; }
+
+#tractor-lock { display:block; font: bold 12px/1.5 monospace; color:#8dffe2; }
+#hud-tractor { display:block; font:12px/1.5 monospace; color:#8dffe2; }
+
+.tractor-hud { position:absolute; z-index:20; top:14px; left:14px; max-width:calc(100% - 190px); padding:4px 6px; border:1px solid #397467; border-radius:6px; background:rgba(8,14,30,.92); pointer-events:none; }

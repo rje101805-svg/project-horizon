@@ -172,6 +172,14 @@ export class FlightConnection {
     });
   }
   private invalidate() { this.starting = false; this.projectilePrediction.clear(); this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  private tractorSequence=0;
+  tractor() {
+    const match=this.latest?.match,local=this.latest?.players.find(p=>p.id===this.socket.id);
+    if(!this.socket.connected || match?.state!=='active' || !local || local.status!=='ALIVE' || local.lifeState!=='active' || local.tractor.targetId || local.tractor.cooldownRemainingMs>0)return;
+    const request={sequence:++this.tractorSequence,round:match.round,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence,reloadSession:local.reloadSession},epoch=this.epoch;
+    const send=()=>{if(epoch!==this.epoch || !this.socket.connected)return;this.socket.timeout(3000).emit('tractor',request,(error,result)=>{const accept=()=>{if(epoch===this.epoch)this.callbacks.status(error?'Tractor request timed out':result.message);};if(this.lag)this.lag.schedule('snapshot',accept);else accept();});};
+    if(this.lag)this.lag.schedule('input',send);else send();
+  }
   startMatch() {
     const match = this.latest?.match;
     if (this.starting || !this.socket.connected || !match || match.state !== 'waiting' || this.room?.match.hostId !== this.socket.id) return;
@@ -197,7 +205,7 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
+    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
     this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : BASIC_BLASTER.fireIntervalMs);
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
     if (local.status === 'ALIVE') this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
