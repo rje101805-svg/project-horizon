@@ -63,6 +63,7 @@ export class GameplayHud {
   }
   combat(s: CombatState) {
     const alien = s.status === 'ALIEN';
+    if (!alien) { this.alienMessageUntil = 0; this.node('alien-message').hidden = true; }
     if (alien && this.lastStatus === 'ALIVE') { this.alienMessageUntil = performance.now() + 6000; this.node('alien-message').hidden = false; }
     this.lastStatus = s.status;
     const alienHud = this.node('hud-alien'), humanAmmo = this.node('hud-ammo');

@@ -1,3 +1,5 @@
+import { initialMatchState, type MatchState } from '../shared/match';
+import { matchSnapshot, roundHumans, evaluateResult } from './match';
 import type { ServerProjectile } from './projectiles';
 import { initialLifeState } from '../shared/lifecycle';
 import { createBlackHole, SPAWN_CLEARANCE, type BlackHoleState } from '../shared/black-hole';
@@ -5,8 +7,8 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
-export interface GameRoom { projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
+export interface RoomPlayer { gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface GameRoom { match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const roomChannel = (code: string) => `flight:${code}`;
 export function generateRoomCode(): string {
   return Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)]).join('');
@@ -39,19 +41,19 @@ export function chooseAlienSpawn(existing: Iterable<Pick<PlayerState, 'x' | 'y'>
     players.every(other => Math.hypot(p.x-other.x,p.y-other.y) >= SPAWN_MIN_DISTANCE));
   return point ? {...spawnFlight(), ...point} : null;
 }
-export const survivingHumans = (room: GameRoom) => [...room.players.values()].filter(p => p.state.status === 'ALIVE' && p.state.lifeState === 'active' && p.state.health > 0).length;
+export const survivingHumans = (room: GameRoom) => roundHumans(room).length;
 export class RoomStore {
   readonly rooms = new Map<string, GameRoom>();
   private membership = new Map<string, string>();
   constructor(private nextCode: () => string = generateRoomCode) {}
-  info(room: GameRoom): RoomInfo { return { code: room.code, playerIds: [...room.players.keys()], maxPlayers: MAX_ROOM_PLAYERS, blackHole: { ...room.blackHole } }; }
+  info(room: GameRoom): RoomInfo { return { match: matchSnapshot(room), code: room.code, playerIds: [...room.players.keys()], maxPlayers: MAX_ROOM_PLAYERS, blackHole: { ...room.blackHole } }; }
   roomFor(id: string): GameRoom | undefined { const code = this.membership.get(id); return code ? this.rooms.get(code) : undefined; }
   create(id: string, name: unknown, now: number): RoomResult {
     if (this.roomFor(id)) return { ok: false, error: 'Leave your current room before creating another.' };
     for (let attempt = 0; attempt < 64; attempt++) {
       const code = normalizeRoomCode(this.nextCode());
       if (!code || this.rooms.has(code)) continue;
-      const room: GameRoom = { code, players: new Map(), blackHole: createBlackHole(), projectiles: new Map(), projectileSequence: 0 };
+      const room: GameRoom = { match: initialMatchState(), simulationTimeMs: 0, code, players: new Map(), blackHole: createBlackHole(), projectiles: new Map(), projectileSequence: 0 };
       const result = this.add(room, id, name, now);
       if (result.ok) this.rooms.set(code, room);
       return result;
@@ -71,14 +73,15 @@ export class RoomStore {
     const color = SHIP_COLORS.find(c => [...room.players.values()].every(p => p.state.color !== c));
     const spawn = chooseSpawn([...room.players.values()].map(p => p.state), room.blackHole);
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
-    room.players.set(id, { humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
+    room.players.set(id, { gameplayEnabled: room.match.state === 'waiting', humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
+    if (room.match.state !== 'waiting') room.players.get(id)!.state.status = 'OUT';
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
   }
   leave(id: string): GameRoom | undefined {
     const room = this.roomFor(id);
     this.membership.delete(id);
-    if (room) { room.players.delete(id); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); if (!room.players.size) this.rooms.delete(room.code); }
+    if (room) { room.players.delete(id); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (!room.players.size) this.rooms.delete(room.code); }
     return room;
   }
 }

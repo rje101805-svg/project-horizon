@@ -19,7 +19,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); if (!address || typeof address === 'string') throw new Error('Missing test server');
   const url = `http://127.0.0.1:${address.port}`, errors: string[] = [];
-  const peer = await context.newPage();
+  const peer = await context.newPage(), keeper = await context.newPage();
   let tick = 0;
   const flush = async (pages: Page[]) => Promise.all(pages.map(p => p.evaluate(() => new Promise<void>((resolve, reject) => {
     (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.timeout(1000).emit('latencyProbe', error => error ? reject(error) : resolve());
@@ -41,7 +41,10 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await expect(page.locator('canvas')).toBeVisible();
     const code = (await page.locator('#room-code-display').textContent())!;
     await peer.locator('#display-name').fill('Watching'); await peer.locator('#room-code').fill(code); await peer.locator('#join').click();
-    await expect(peer.locator('canvas')).toBeVisible(); await frame();
+    await expect(peer.locator('canvas')).toBeVisible();
+    // A third living human keeps the round active for both alien respawn cycles.
+    await keeper.goto('/');await keeper.locator('#server-url').fill(url);await keeper.locator('#room-code').fill(code);await keeper.locator('#join').click();await expect(keeper.locator('canvas')).toBeVisible();
+    await frame();
     await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     await expect(peer.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     const id = (await localState(page))!.id, room = store.rooms.get(code)!, player = room.players.get(id)!;
@@ -103,5 +106,5 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       expect(Math.abs(player.state.x-spawnX)).toBeGreaterThan(0); await page.keyboard.up(key);
     }
     expect(errors).toEqual([]);
-  } finally { await peer.close(); await page.close(); await server.close(); }
+  } finally { await keeper.close(); await peer.close(); await page.close(); await server.close(); }
 });

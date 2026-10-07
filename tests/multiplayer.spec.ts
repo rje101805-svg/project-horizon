@@ -47,6 +47,11 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   await a.locator('#fake-lag').uncheck(); await b.bringToFront(); await b.locator('#fake-lag').uncheck();
   await b.close(); await a.bringToFront();
   await expect(a.locator('#player-count')).toHaveText('1 / 8 players'); await expect.poll(() => ships(a)).toHaveLength(1);
+  // Disconnect now awards the remaining human a locked victory/freeze.
+  await expect(a.locator('#match-result')).toHaveText('VICTORY');
+  await expect(a.locator('#match-overlay')).toBeVisible();
+  await expect(a.locator('#match-status')).toHaveText('Waiting for at least 2 humans', {timeout:10000});
+  await expect(a.locator('#match-overlay')).toBeHidden();
   const after = await a.locator('#position').textContent(); await a.keyboard.down('w');
   await expect.poll(() => a.locator('#position').textContent()).not.toBe(after); await a.keyboard.up('w');
   expect(errors).toEqual([]);

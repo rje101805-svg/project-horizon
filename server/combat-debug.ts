@@ -6,7 +6,7 @@ export function combatDebugEnabled(flag: boolean | undefined, nodeEnv = process.
 }
 export function runCombatDebug(player: RoomPlayer | undefined, raw: CombatDebugRequest, authorized: boolean): CombatDebugResult {
   if (!authorized) return { ok: false, message: 'Combat debug disabled by server' };
-  if (!player || player.state.lifeState !== 'active' || !raw || raw.lifeGeneration !== player.state.lifeGeneration ||
+  if (!player || !player.gameplayEnabled || player.state.lifeState !== 'active' || !raw || raw.lifeGeneration !== player.state.lifeGeneration ||
       raw.teleportSequence !== player.state.teleportSequence) return { ok: false, message: 'No current active player' };
   let ok = false;
   switch (raw.action) {

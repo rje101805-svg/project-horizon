@@ -9,7 +9,7 @@ import { chooseAlienSpawn, chooseSpawn, type GameRoom, type RoomPlayer } from '.
 // Called exactly once by the existing 30Hz loop. No additional clock/physics loop.
 export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, simulationTimeMs = now) {
   // No stale reference can respawn a player after leave/disconnect.
-  if (room.players.get(player.state.id) !== player) return;
+  if (room.players.get(player.state.id) !== player || !player.gameplayEnabled) return;
   player.simulationTimeMs = simulationTimeMs;
   player.state.spawnInvulnerabilityRemainingMs = Math.max(0, player.invulnerableUntilMs - simulationTimeMs);
   if (player.state.lifeState === 'dead') {

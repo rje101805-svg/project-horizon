@@ -173,6 +173,12 @@ test('room snapshots agree on black hole/death; late join and reconnect get comp
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
     assert.deepEqual(result.room.blackHole, createBlackHole());
     await t.join(b, result.room.code);
+    const keeper=await t.connect();await t.join(keeper,result.room.code);
+    // First join may have started the round already; include all three via an
+    // authoritative reset before exercising active-round alien respawn.
+    const activeRoom=store.roomFor(a.id!)!;
+    activeRoom.match.state='ended';activeRoom.match.endedAtMs=-6000;
+    await nextSnapshot(a, s=>s.match.state==='active' && s.match.roster.length===3);
     const room = store.rooms.get(result.room.code)!;
     // A server-side fixture, never a network position command. Customize state
     // to prove late joins receive current room state rather than client defaults.

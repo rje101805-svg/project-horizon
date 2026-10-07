@@ -24,7 +24,7 @@ export function resetCombatState(player: RoomPlayer) {
 export function applyDamage(player: RoomPlayer, amount: number, source: DamageSource, simulationTimeMs = player.simulationTimeMs) {
   const validSource = source && ((source.type === 'PLAYER' && typeof source.playerId === 'string' && source.playerId.length > 0) ||
     (source.type === 'ENVIRONMENT' && ['BLACK_HOLE', 'HAZARD'].includes(source.cause)));
-  if (!validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
+  if (!player.gameplayEnabled || !validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
   // All damage shares the server-owned protection deadline.
   if (simulationTimeMs < player.invulnerableUntilMs) return null;
   const s = player.state;
@@ -46,12 +46,12 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 }
 export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {
   const s = player.state;
-  if (!Number.isSafeInteger(amount) || amount <= 0 || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < amount) return false;
+  if (!player.gameplayEnabled || !Number.isSafeInteger(amount) || amount <= 0 || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < amount) return false;
   s.ammo = Math.max(0, Math.floor(clampCombatValue(s.ammo, MAX_AMMO)) - amount); return true;
 }
 export function startReload(player: RoomPlayer): boolean {
   const s = player.state;
-  if (s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= MAX_AMMO) return false;
+  if (!player.gameplayEnabled || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= MAX_AMMO) return false;
   player.combatTimers.reload = RELOAD_TICKS; player.combatTimers.reloadCompleted = false; syncTimers(player); return true;
 }
 export function completeReload(player: RoomPlayer): boolean {
@@ -60,7 +60,7 @@ export function completeReload(player: RoomPlayer): boolean {
 }
 export function canFireFromCooldown(player: RoomPlayer): boolean { return player.combatTimers.cooldown === 0; }
 export function startFireCooldown(player: RoomPlayer): boolean {
-  if (player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
+  if (!player.gameplayEnabled || player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
   player.combatTimers.cooldown = Math.ceil((player.state.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : FIRE_COOLDOWN) / TICK_MS); syncTimers(player); return true;
 }
 export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
@@ -70,7 +70,7 @@ export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   player.state.status = status; return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {
-  if (player.state.lifeState !== 'active') return;
+  if (!player.gameplayEnabled || player.state.lifeState !== 'active') return;
   if (player.combatTimers.reload > 0 && --player.combatTimers.reload === 0) completeReload(player);
   if (player.combatTimers.cooldown > 0) player.combatTimers.cooldown--;
   syncTimers(player);
@@ -78,6 +78,6 @@ export function advanceCombatTick(player: RoomPlayer) {
 
 // Temporary debug refill API, never a gameplay reload or fire-validation bypass.
 export function refillAmmo(player: RoomPlayer): boolean {
-  if (player.state.lifeState !== 'active' || player.state.status !== 'ALIVE' || player.state.isReloading) return false;
+  if (!player.gameplayEnabled || player.state.lifeState !== 'active' || player.state.status !== 'ALIVE' || player.state.isReloading) return false;
   player.state.ammo = MAX_AMMO; return true;
 }

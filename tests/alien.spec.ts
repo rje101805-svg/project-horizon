@@ -71,10 +71,13 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   applyDamage(b,25,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();expect(b.state.status).toBe('ALIEN');await advance(88);await frame();
   expect(b.state.lifeGeneration).toBe(2);expect(b.state.health).toBe(40);expect(b.state.spawnInvulnerabilityRemainingMs).toBeGreaterThanOrEqual(1900);
   await expect(peer.locator('#hud-alien')).toHaveText('ALIEN · HP 40 / 40');await expect(peer.locator('#hud-ammo')).toBeHidden();
-  // A final remaining human keeps flying; P2S7 winner/ending behavior is absent.
+  // Final elimination now ends the P2S7 round while retaining P2S6 alien status.
   applyDamage(c,150,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();
   for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 1');
+  expect(room.match.state).toBe('ended');expect(room.match.result).toEqual({kind:'winner',winnerId:aid,winnerName:a.state.name});
+  await expect(page.locator('#match-result')).toHaveText('VICTORY');
   expect(a.state.status).toBe('ALIVE');expect(room.players.size).toBe(3);await expect(page.locator('canvas')).toBeVisible();
+  await expect(peer.locator('#match-overlay')).toBeVisible();
   await expect(peer.locator('#alien-message')).toBeHidden({timeout:7000});
   await peer.screenshot({path:`test-results/p2s6-alien-${lag?'lag':'normal'}.png`,fullPage:true});expect(errors).toEqual([]);
  }finally{for(const p of pages)await p.close();await server.close();}

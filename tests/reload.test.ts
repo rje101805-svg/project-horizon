@@ -1,3 +1,4 @@
+import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
@@ -107,7 +108,7 @@ test('final-round prediction hands off while reloading; stale rejection clears w
   assert.equal(prediction.add(shot(1), p.state, 0), true);
   const result = fire(room, p, shot(1), 0); assert.ok(result.ok); assert.equal(p.state.isReloading, true);
   const snapshot = { tick: 1, timeMs: TICK_MS, roomCode: room.code, players: [{ ...p.state }],
-    blackHole: { ...room.blackHole }, survivingHumans: 1, projectiles: projectileSnapshot(room) }, before = structuredClone(snapshot);
+    blackHole: { ...room.blackHole }, match: initialMatchState(), survivingHumans: 1, projectiles: projectileSnapshot(room) }, before = structuredClone(snapshot);
   prediction.result(result, snapshot); prediction.reconcile(snapshot, p.state.id, 10);
   assert.equal(prediction.count(10), 0); assert.equal(prediction.render(snapshot.projectiles, 10).length, 1);
   assert.deepEqual(snapshot, before);

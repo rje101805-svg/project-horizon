@@ -1,3 +1,4 @@
+import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
@@ -92,7 +93,7 @@ test('active cap is per owner; cleanup removes old-life and disconnected-owner p
 });
 test('authoritative snapshot interpolation is bounded, removes hits immediately and never mutates authority', () => {
   const {room,p}=fixture(); fire(room,p,request(),0); const view=new ProjectileView();
-  const frame=(tick:number,timeMs:number)=>({tick,timeMs,roomCode:room.code,blackHole:room.blackHole,players:[p.state],survivingHumans: 1, projectiles:projectileSnapshot(room)});
+  const frame=(tick:number,timeMs:number)=>({tick,timeMs,roomCode:room.code,blackHole:room.blackHole,players:[p.state],match: initialMatchState(), survivingHumans: 1, projectiles:projectileSnapshot(room)});
   const first=frame(1,0); view.push(first,0); advanceProjectiles(room); const second=frame(2,100); view.push(second,100);
   const midpoint=view.sample(150)[0]; assert.equal(midpoint.x,(first.projectiles[0].x+second.projectiles[0].x)/2);
   assert.equal(first.projectiles[0].x,p.state.x+BASIC_BLASTER.muzzleOffset);

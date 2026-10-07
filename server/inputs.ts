@@ -9,7 +9,7 @@ export function retireInputs(player: RoomPlayer) {
 }
 export function acceptMovementInput(player: RoomPlayer, raw: InputMessage, now: number): boolean {
   const input = parseInput(raw);
-  if (!input || player.state.lifeState !== 'active' || raw.lifeGeneration !== player.state.lifeGeneration ||
+  if (!input || !player.gameplayEnabled || player.state.lifeState !== 'active' || raw.lifeGeneration !== player.state.lifeGeneration ||
       raw.teleportSequence !== player.state.teleportSequence || !Number.isSafeInteger(raw.sequence) ||
       raw.sequence <= player.lastReceivedSequence || raw.sequence <= 0) return false;
   // Neutral release supersedes buffered thrust on blur/lag toggles. It cannot

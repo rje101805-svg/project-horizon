@@ -43,7 +43,8 @@ test('two browsers see gravity/death and reconnect recovers safely', async ({ pa
   await expect(page.locator('#status')).toContainText('Disconnected');
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connect());
   await expect(page.locator('#black-hole-status')).toHaveText('Safe space');
-  await expect(page.locator('#restart')).toBeEnabled();
+  // Reconnect during ended is waiting; the authoritative reset restores access.
+  await expect(page.locator('#restart')).toBeEnabled({timeout:10000});
   expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)).not.toBe(oldId);
   expect(errors).toEqual([]);
 });

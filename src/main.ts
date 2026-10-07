@@ -118,6 +118,7 @@ class Horizon extends Phaser.Scene {
     const ship = { body, label, hull, alien:false }; this.ships.set(player.id, ship); return ship;
   }
   private placeShip(player: PlayerState) {
+    if (player.status === 'OUT') return;
     const ship = this.ships.get(player.id) ?? this.addShip(player);
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
     const alien = player.status === 'ALIEN';
@@ -141,29 +142,35 @@ class Horizon extends Phaser.Scene {
     const local = snapshot.players.find(p => p.id === this.connection.socket.id);
     if (!local) return;
     // Lifecycle/HUD stay authoritative; only local movement is predicted.
-    this.removeShips(snapshot.players.map(p => p.id));
+    this.removeShips(snapshot.players.filter(p => p.status !== 'OUT').map(p => p.id));
     this.drawBlackHole(snapshot.blackHole);
-    this.placeShip(this.connection.renderedLocal(0) ?? local);
+    if (local.status !== 'OUT') this.placeShip(this.connection.renderedLocal(0) ?? local);
     this.localHud.accept(local, performance.now());
     this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
     hud.combat(local); hud.humans(snapshot.survivingHumans);
+    const match = snapshot.match, spectator = local.status === 'OUT';
+    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for at least 2 humans' : spectator ? 'Waiting for next round' : `Round ${match.round} · ${match.state}`;
+    el('match-overlay').hidden = match.state !== 'ended';
+    el('match-result').textContent = match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
+    el('match-reset').textContent = `Next round in ${(match.resetRemainingMs / 1000).toFixed(1)}s`;
+    if (match.state === 'ended' || spectator) { this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
-    const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
+    const lifeKey = `${match.round}:${match.state}:${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
     if (lifeKey !== this.lastLocalLife) {
       this.input.keyboard!.resetKeys(); this.aim = 0; this.connection.release();
       this.hitFeedback.clear(); this.damageNumbers.clear();
       this.lastLocalLife = lifeKey;
     }
     const dead = local.lifeState === 'dead';
-    el('death-overlay').hidden = !dead;
+    el('death-overlay').hidden = !dead || match.state === 'ended' || spectator;
     el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
     el('death-title').textContent = 'Eliminated · alien respawn pending';
     el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
     el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
     el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
-    el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead';
+    el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead' || !this.connection.canPlay();
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
     el('tick').textContent = `Server tick ${snapshot.tick}`;
@@ -242,7 +249,7 @@ class Horizon extends Phaser.Scene {
 }
 function launch() {
   hud.begin();
-  el('death-overlay').hidden = true;
+  el('death-overlay').hidden = true; el('match-overlay').hidden = true;
   el('life-status').textContent = 'Awaiting life state';
   el<HTMLButtonElement>('restart').disabled = false;
   el('black-hole-status').textContent = 'Awaiting authoritative region';

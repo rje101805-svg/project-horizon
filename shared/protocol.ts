@@ -1,3 +1,4 @@
+import type { MatchState } from './match';
 import type { FireRequest, FireResult, ProjectileState } from './projectiles';
 import type { ProjectileHit } from './hit-feedback';
 import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult } from './combat';
@@ -5,8 +6,8 @@ import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
 export interface PlayerState extends FlightState, LifeState { id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
-export interface RoomInfo { code: string; playerIds: string[]; maxPlayers: number; blackHole: BlackHoleState }
-export interface Snapshot { survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
+export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; maxPlayers: number; blackHole: BlackHoleState }
+export interface Snapshot { match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }

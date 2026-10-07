@@ -1,3 +1,4 @@
+import { initialMatchState } from '../shared/match';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ProjectileView,LOCAL_PROJECTILE_EXTRAPOLATION_MS} from '../src/projectile-view';
@@ -9,7 +10,7 @@ function fixture(){
  const store=new RoomStore();store.create('a','A',0);const room=store.roomFor('a')!,p=room.players.get('a')!;
  const request={sequence:1,aim:0,lifeGeneration:0,teleportSequence:0};fire(room,p,request,0);
  const bullet=projectileSnapshot(room)[0];
- const frame=(tick:number,x:number):Snapshot=>({tick,timeMs:tick*1000/30,roomCode:room.code,blackHole:room.blackHole,players:[p.state],survivingHumans: 1, projectiles:[{...bullet,x}]});
+ const frame=(tick:number,x:number):Snapshot=>({tick,timeMs:tick*1000/30,roomCode:room.code,blackHole:room.blackHole,players:[p.state],match: initialMatchState(), survivingHumans: 1, projectiles:[{...bullet,x}]});
  return {p,request,bullet,frame};
 }
 test('local confirmations bypass remote delay and new-shot bracket transition cannot rewind them',()=>{
@@ -53,6 +54,6 @@ test('ten independent single shots hand over once and unrelated lifecycle/owner 
   const confirmed=frame(seq,bullet.x);confirmed.projectiles=[{...bullet,id:`confirmed-${seq}`,shotSequence:seq}];
   const x=prediction.render([],now+20)[0].x;prediction.reconcile(confirmed,'a',now+20);
   const visuals=prediction.render(confirmed.projectiles,now+20);assert.equal(visuals.length,1);assert.equal(visuals[0].x,x);assert.equal(prediction.count(now+20),0);
-  const gone={...confirmed,tick:seq+1,survivingHumans: 1, projectiles:[]};prediction.reconcile(gone,'a',now+25);assert.deepEqual(prediction.render([],now+25),[]);
+  const gone={...confirmed,tick:seq+1,match: initialMatchState(), survivingHumans: 1, projectiles:[]};prediction.reconcile(gone,'a',now+25);assert.deepEqual(prediction.render([],now+25),[]);
  }
 });

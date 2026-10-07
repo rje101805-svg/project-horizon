@@ -1,3 +1,4 @@
+import { advanceMatch, evaluateResult, matchSnapshot } from './match';
 import { reload } from './reload';
 import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
 import { combatDebugEnabled, runCombatDebug } from './combat-debug';
@@ -64,20 +65,22 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       if (player) acceptMovementInput(player, raw, performance.now());
     });
     // Preserve Step 2's explicit debug reset; safe positions still server-owned.
-    socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (debugAuthorized && player?.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });
+    socket.on('resetFlight', generation => { const player = store.roomFor(socket.id)?.players.get(socket.id); if (debugAuthorized && player?.gameplayEnabled && player.state.lifeState === 'active' && generation === player.state.lifeGeneration) player.reset = true; });
     socket.on('disconnect', leave);
   });
   function simulate(now: number) {
     tick++;
     for (const room of store.rooms.values()) {
+      const reset = advanceMatch(room, tick * TICK_MS);
       for (const player of room.players.values()) {
-        simulatePlayer(player, room, now, tick * TICK_MS);
+        if (!reset) simulatePlayer(player, room, now, tick * TICK_MS);
       }
       const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
-      advanceProjectiles(room, hit => hits.push(hit), tick);
+      if (!reset) advanceProjectiles(room, hit => hits.push(hit), tick);
+      evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
       // Preserve volatile snapshot delivery: reliable receipts come afterward.

@@ -69,7 +69,7 @@ export class FlightConnection {
         if (epoch !== this.epoch || !this.socket.connected || hit.roomCode !== this.room?.code || !this.room.playerIds.includes(hit.targetId) || !owner ||
           hit.ownerId !== owner.id || hit.ownerSession !== owner.reloadSession || owner.lifeState !== 'active' ||
           hit.lifeGeneration !== owner.lifeGeneration || hit.teleportSequence !== owner.teleportSequence) return;
-        callbacks.hit?.(hit);
+        if (this.canPlay()) callbacks.hit?.(hit);
       };
       if (this.lag) this.lag.schedule('snapshot', accept); else accept();
     });
@@ -86,6 +86,8 @@ export class FlightConnection {
         // Reliable departures may precede an older delayed snapshot. Do not resurrect ships.
         const ids = new Set(this.room.playerIds);
         snapshot = { ...snapshot, players: snapshot.players.filter(p => ids.has(p.id)) };
+        const matchChanged = this.latest && (snapshot.match.round !== this.latest.match.round || snapshot.match.state !== this.latest.match.state);
+        if (matchChanged) { this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
         const previous = this.latest?.players.find(p => p.id === this.socket.id);
         const local = snapshot.players.find(p => p.id === this.socket.id)!;
         if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
@@ -110,6 +112,7 @@ export class FlightConnection {
         if (this.socket.connected && this.room && this.latest && Date.now() - this.lastSnapshot > 1000) callbacks.status('Server snapshots stopped · flight frozen');
         return;
       }
+      if (!this.canPlay()) { this.accumulator = 0; return; }
       this.attemptFire(now);
       this.accumulator += Math.max(0, elapsed);
       while (this.accumulator >= TICK_MS) {
@@ -168,7 +171,8 @@ export class FlightConnection {
     });
   }
   private invalidate() { this.projectilePrediction.clear(); this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
-  setInput(input: PlayerInput) { this.input = this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
+  canPlay() { return !!this.latest && this.latest.match.state !== 'ended' && (this.latest.match.state === 'waiting' || this.latest.match.roster.includes(this.socket.id ?? '')); }
+  setInput(input: PlayerInput) { this.input = this.canPlay() && this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
   scheduleDevelopmentAction(action: () => void) {
     if (!import.meta.env.DEV) return;
@@ -179,7 +183,7 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
+    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
     this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : BASIC_BLASTER.fireIntervalMs);
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
     if (local.status === 'ALIVE') this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
@@ -205,7 +209,7 @@ export class FlightConnection {
   }
   reload() {
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;
-    if (!this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
+    if (!this.canPlay() || !this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
     const request = { sequence: ++this.reloadSequence, lifeGeneration: local.lifeGeneration,
       teleportSequence: local.teleportSequence, roomCode: room.code, reloadSession: local.reloadSession }, epoch = this.epoch;
     const send = () => {

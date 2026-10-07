@@ -12,7 +12,7 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   if (request.sequence <= player.lastFireSequence) return reject('Duplicate or stale shot');
   player.lastFireSequence = request.sequence; // Rejections cannot be replayed later.
   const s = player.state;
-  if (request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
+  if (!player.gameplayEnabled || room.match.state === 'ended' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
   if (s.isReloading) return reject('No ammo or reloading');
@@ -42,6 +42,7 @@ function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {
   return t;
 }
 export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) => void, tick = 0) {
+  if (room.match.state === 'ended') { room.projectiles.clear(); return; }
   for (const [id, p] of room.projectiles) {
     const owner = room.players.get(p.ownerId)?.state;
     if (!owner || owner.lifeGeneration !== p.lifeGeneration || !(owner.teleportSequence === p.teleportSequence && owner.lifeState === 'active' || owner.status === 'ALIEN' && owner.lifeState === 'dead' && owner.teleportSequence === p.teleportSequence + 1)) { room.projectiles.delete(id); continue; }
@@ -50,7 +51,7 @@ export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) 
     let target: RoomPlayer | null = null;
     for (const player of room.players.values()) {
       const s = player.state;
-      if (s.id === p.ownerId || s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) continue;
+      if (!player.gameplayEnabled || s.id === p.ownerId || s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) continue;
       const t = circleEntry(p, next, s, BASIC_BLASTER.shipRadius + BASIC_BLASTER.projectileRadius);
       if (t !== null && t < contact) { contact = t; target = player; }
     }

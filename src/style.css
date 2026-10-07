@@ -25,3 +25,6 @@
 #hud-alien { color:#cf9dff; }
 .alien-message { position:absolute; top:18px; left:50%; transform:translateX(-50%); color:#e3c5ff; background:rgba(8,14,30,.9); padding:12px; border:1px solid #cf9dff; font-weight:bold; text-align:center; pointer-events:none; z-index:21; }
 .alien-message[hidden] { display:none; }
+
+.match-overlay { z-index: 3; }
+#match-status { display:block; font:12px/1.5 monospace; color:#d6abff; }

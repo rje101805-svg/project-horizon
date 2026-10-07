@@ -1,3 +1,4 @@
+import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type Phaser from 'phaser';
@@ -17,7 +18,7 @@ function fixture() {
   fire(room, a, { sequence: 1, aim: 0, lifeGeneration: 0, teleportSequence: 0 }, 0);
   let hit!: ProjectileHit; advanceProjectiles(room, h => hit = h, 1);
   return { a, b, hit, snapshot: { tick: 1, timeMs: 1000 / 30, roomCode: room.code, blackHole: { ...room.blackHole },
-    players: [{ ...a.state }, { ...b.state }], survivingHumans: 1, projectiles: [] } };
+    players: [{ ...a.state }, { ...b.state }], match: initialMatchState(), survivingHumans: 1, projectiles: [] } };
 }
 test('combat HUD uses independent authoritative ratios and inclusive centralized warning thresholds', () => {
   const s = initialCombatState(), before = structuredClone(s); assert.equal(combatPresentation(s).shield, 1);

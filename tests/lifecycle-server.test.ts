@@ -43,7 +43,7 @@ test('real sockets receive same-identity death/respawn and late-join health; cli
   const t = await setup();
   try {
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
-    await t.join(b, result.room.code); const id = a.id!;
+    await t.join(b, result.room.code); const keeper=await t.connect(); await t.join(keeper,result.room.code,'Third human'); const id = a.id!;
     const room = t.store.roomFor(id)!, player = room.players.get(id)!;
     a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, health: 0, lifeState: 'dead', respawnRemainingMs: 0 } as InputMessage);
     const [initial] = await t.frame([a, b]); assert.equal(initial.players.find(p => p.id === id)!.health, MAX_HEALTH);
