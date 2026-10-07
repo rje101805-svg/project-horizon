@@ -1,3 +1,5 @@
+import { DeepSpace } from './visual/space';
+import { cameraTarget, easeZoom } from './visual/config';
 import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_KILL_LOCK_MS, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
 import { ALIEN_COLOR, ALIEN_OPACITY } from '../shared/alien';
 import { ShipCombatHud } from './ship-combat-hud';
@@ -27,6 +29,7 @@ let busy = false;
 let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
 class Horizon extends Phaser.Scene {
+  private deepSpace!: DeepSpace;
   private hitFeedback = new HitFeedback();
   private damageNumbers!: DamageNumbers;
   private localHud!: ShipCombatHud;
@@ -53,12 +56,8 @@ class Horizon extends Phaser.Scene {
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
   create() {
-    const stars = this.add.graphics();
-    const random = new Phaser.Math.RandomDataGenerator(['horizon']);
-    for (let i = 0; i < 650; i++) stars.fillStyle(0x9fb6dd, random.frac() * .6 + .15).fillCircle(random.between(0, WORLD), random.between(0, WORLD), random.frac() * 1.5 + .5);
-    stars.lineStyle(1, 0x1a2a43, .45);
-    for (let n = 0; n <= WORLD; n += 200) { stars.lineBetween(n, 0, n, WORLD); stars.lineBetween(0, n, WORLD, n); }
-    stars.lineStyle(5, 0x405977).strokeRect(0, 0, WORLD, WORLD);
+    this.deepSpace = new DeepSpace(this);
+    const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     for (const p of planets) {
       const g = this.add.graphics();
       g.lineStyle(1, p.color, .2).strokeCircle(p.x, p.y, p.r + 22);
@@ -98,6 +97,7 @@ class Horizon extends Phaser.Scene {
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.ready = false;
+      this.deepSpace.destroy();
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
@@ -283,6 +283,11 @@ class Horizon extends Phaser.Scene {
     for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
     this.localHud.render(this.rocket.x, this.rocket.y, now);
     this.damageNumbers.render(this.hitFeedback.sample(now));
+    const camera=this.cameras.main;
+    const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
+    camera.setZoom(easeZoom(camera.zoom,cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat),elapsed));
+    this.deepSpace.update(camera);
+    this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

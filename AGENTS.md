@@ -1,6 +1,8 @@
 # Project Horizon architecture
 
-Current scope: P2S9 FILL GAME + deterministic bot foundation, plus explicitly accepted P2S8 full-flight correction, on `work`. Preserve P2S1–P2S8. Commit/push only work; no merge/deployment/Pages rebuild or Phase 3/LLM work.
+Current scope: P3S1 visual foundation only on `work`, preserving all accepted Phase 2 gameplay and the 2400-unit arena. User authorization supersedes historical restrictions below. Four staged commits: A deep space/camera, B ice planet/light/distant bodies, C Horizon/lensing/intensity, D readability/fallback/tests/docs. Client-only visual work; no P3S2 map expansion, storm/gravity/surges, collision/loot/landing, AI or general VFX redesign. No deployment or Pages rebuild.
+
+`src/visual` owns presentation only; never import it into server/shared gameplay. Camera zoom stays >=1 so no additional competitive visibility, with subtle bounded easing. Layer textures are cached, bounded, and cleaned up at scene shutdown; no extra animation/gameplay clocks.
 
 P2S9: `RoomStore.fill` validates socket membership, human host, waiting, strict room/round intent and fills eight participant slots with direct BOT-controller participants. Bots never retain socket membership. RoomInfo playerIds includes queued spectators; participantIds excludes them, queuedIds identifies them. Real humans are bounded to eight; a full room with backfill bots accepts queued OUT spectators during active/ended without changing the locked roster. Waiting joins transactionally replace a bot immediately; reset prevalidates prospective eight spawns then removes bots for queued humans, preserving other bot IDs. removeBot clears projectiles, tractor state and controller/target references. No human sockets remaining destroys the room and all bots. Host selection excludes bots.
 
