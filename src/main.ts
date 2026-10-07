@@ -105,10 +105,20 @@ class Horizon extends Phaser.Scene {
     this.drawMap();
     if (import.meta.env.DEV) Object.assign(window, { __HORIZON_FLIGHT__: this.connection });
   }
+  private drawHull(hull: Phaser.GameObjects.Graphics, color: number, alien: boolean) {
+    hull.clear();
+    if (alien) {
+      // Round ghost silhouette and lavender tint, distinct from human triangles.
+      hull.fillStyle(ALIEN_COLOR).fillCircle(0,-2,15).fillTriangle(-14,0,-24,13,12,11);
+      hull.fillStyle(0x080e1e).fillCircle(5,-6,3).fillCircle(5,3,3);
+    } else {
+      hull.fillStyle(color).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
+      hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
+    }
+  }
   private addShip(player: PlayerState): Ship {
     const hull = this.add.graphics();
-    hull.fillStyle(player.color).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
-    hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
+    this.drawHull(hull, player.color, false);
     const local = player.id === this.connection.socket.id;
     const body = local ? this.rocket : this.add.container(player.x, player.y).setDepth(4);
     body.add(hull);
@@ -123,10 +133,8 @@ class Horizon extends Phaser.Scene {
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
     const alien = player.status === 'ALIEN';
     if (ship.alien !== alien) {
-      ship.alien = alien; ship.hull.clear();
-      // Round ghost silhouette and lavender tint, distinct from human triangles.
-      ship.hull.fillStyle(ALIEN_COLOR).fillCircle(0,-2,15).fillTriangle(-14,0,-24,13,12,11);
-      ship.hull.fillStyle(0x080e1e).fillCircle(5,-6,3).fillCircle(5,3,3);
+      ship.alien = alien;
+      this.drawHull(ship.hull, player.color, alien);
     }
     ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
     ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
