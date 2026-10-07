@@ -1,3 +1,4 @@
+import { advanceBots, advanceBotActions } from './bots';
 import { activateTractor, advanceTractors } from './tractor';
 import { advanceMatch, evaluateResult, matchSnapshot, startMatch } from './match';
 import { reload } from './reload';
@@ -45,6 +46,10 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
+    socket.on('fillGame',(request,reply)=>{
+      if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=store.fill(room,socket.id,request);
+      if(result.ok && room)notify(room.code);reply(result);
+    });
     socket.on('startMatch', (request, reply) => {
       if (typeof reply !== 'function') return;
       const room = store.roomFor(socket.id), result = startMatch(room, socket.id, request);
@@ -79,11 +84,14 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   function simulate(now: number) {
     tick++;
     for (const room of store.rooms.values()) {
+      const admitting=room.match.state==='ended' && [...room.players.values()].some(p=>p.state.queuedForNextRound);
       const reset = advanceMatch(room, tick * TICK_MS);
       advanceTractors(room,tick*TICK_MS);
+      if(!reset)advanceBots(room,now,tick);
       for (const player of room.players.values()) {
         if (!reset) simulatePlayer(player, room, now, tick * TICK_MS);
       }
+      if(!reset)advanceBotActions(room,tick);
       const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
       if (!reset) advanceProjectiles(room, hit => hits.push(hit), tick);
       advanceTractors(room,tick*TICK_MS,true);
@@ -93,6 +101,9 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
         match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
+      // Replacement membership is reliable, but follows the volatile snapshot
+      // so its outgoing buffer cannot suppress this tick's reset snapshot.
+      if(reset && admitting)io.to(roomChannel(room.code)).emit('roomState',store.info(room));
       // Preserve volatile snapshot delivery: reliable receipts come afterward.
       // Direct socket delivery only; targets and room spectators get no receipt.
       for (const hit of hits) io.to(hit.ownerId).emit('projectileHit', hit);

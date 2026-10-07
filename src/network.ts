@@ -180,6 +180,18 @@ export class FlightConnection {
     const send=()=>{if(epoch!==this.epoch || !this.socket.connected)return;this.socket.timeout(3000).emit('tractor',request,(error,result)=>{const accept=()=>{if(epoch===this.epoch)this.callbacks.status(error?'Tractor request timed out':result.message);};if(this.lag)this.lag.schedule('snapshot',accept);else accept();});};
     if(this.lag)this.lag.schedule('input',send);else send();
   }
+  fillGame() {
+    const match=this.latest?.match,room=this.room,epoch=this.epoch;
+    if(!this.socket.connected || !room || match?.state!=='waiting' || room.match.hostId!==this.socket.id)return;
+    const request={roomCode:room.code,round:match.round};
+    const send=()=>{if(epoch!==this.epoch || !this.socket.connected)return;
+      this.socket.timeout(3000).emit('fillGame',request,(error,result)=>{
+        const accept=()=>{if(epoch===this.epoch)this.callbacks.status(error?'Fill request timed out':result.message);};
+        if(this.lag)this.lag.schedule('snapshot',accept);else accept();
+      });
+    };
+    if(this.lag)this.lag.schedule('input',send);else send();
+  }
   startMatch() {
     const match = this.latest?.match;
     if (this.starting || !this.socket.connected || !match || match.state !== 'waiting' || this.room?.match.hostId !== this.socket.id) return;

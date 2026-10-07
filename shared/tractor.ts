@@ -3,7 +3,6 @@ export const TRACTOR_RANGE = 220;
 export const TRACTOR_CONE_ANGLE = Math.PI / 3;
 export const TRACTOR_PULL_STRENGTH = 200; // acceleration; terminal drag ~32 < normal thrust 290
 export const TRACTOR_KILL_LOCK_MS = 3000;
-export const TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER = 0.55;
 export const TRACTOR_COOLDOWN_MS = 15000;
 export const TRACTOR_MAX_DURATION_MS = 5000;
 export interface TractorState { targetId:string|null; attackerId:string|null; cooldownRemainingMs:number; remainingMs:number; lockElapsedMs:number; incomingLockElapsedMs:number; anchorX:number; anchorY:number }

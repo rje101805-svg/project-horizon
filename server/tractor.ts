@@ -6,7 +6,7 @@ export interface TractorBeam { attackerId:string; targetId:string; round:number;
 export type TractorLOS = (attacker:Readonly<RoomPlayer['state']>,target:Readonly<RoomPlayer['state']>)=>boolean;
 export const clearTractorLOS:TractorLOS=()=>true;
 function human(room:GameRoom,p:RoomPlayer|undefined):p is RoomPlayer {
- return !!p && room.match.state==='active' && room.match.roster.includes(p.state.id) && p.gameplayEnabled && !p.humanEliminated && p.state.status==='ALIVE' && p.state.controllerType==='HUMAN' && p.state.lifeState==='active' && p.state.health>0;
+ return !!p && room.match.state==='active' && room.match.roster.includes(p.state.id) && p.gameplayEnabled && !p.humanEliminated && p.state.status==='ALIVE' && p.state.lifeState==='active' && p.state.health>0;
 }
 export function clearBeam(room:GameRoom,id:string) {
  const beam=room.tractorBeams?.get(id);if(!beam)return;

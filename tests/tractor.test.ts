@@ -7,7 +7,7 @@ import { applyDamage, startReload } from '../server/combat';
 import { fire } from '../server/projectiles';
 import { simulatePlayer } from '../server/simulation';
 import { idleInput, TICK_MS } from '../shared/flight';
-import { TRACTOR_RANGE, TRACTOR_PULL_STRENGTH, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, TRACTOR_KILL_LOCK_MS, TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER, inTractorCone } from '../shared/tractor';
+import { TRACTOR_RANGE, TRACTOR_PULL_STRENGTH, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, TRACTOR_KILL_LOCK_MS, inTractorCone } from '../shared/tractor';
 import { stepMovement } from '../shared/movement';
 import { LocalPredictor } from '../src/prediction';
 function fixture(count=3,start=true){
@@ -25,9 +25,9 @@ test('tractor ACTIVE human acquisition selects nearest in-cone human with full r
  assert.equal(f.activate().ok,false);
 });
 test('tractor rejects waiting/ended, aliens, spectators, stale/malformed/forged packets and invalid geometry without cooldown',()=>{
- for(const mode of ['waiting','ended','alien','dead','zero health','controller','spectator','outside range','outside cone','forged','stale round','stale life','stale teleport','stale session'] as const){
+ for(const mode of ['waiting','ended','alien','dead','zero health','spectator','outside range','outside cone','forged','stale round','stale life','stale teleport','stale session'] as const){
   const f=fixture(2,mode!=='waiting');let r:unknown=f.request();
-  if(mode==='ended')f.room.match.state='ended';if(mode==='alien')f.a.state.status='ALIEN';if(mode==='dead')f.a.state.lifeState='dead';if(mode==='zero health')f.a.state.health=0;if(mode==='controller')f.a.state.controllerType='BOT';if(mode==='spectator')f.room.match.roster=['b'];
+  if(mode==='ended')f.room.match.state='ended';if(mode==='alien')f.a.state.status='ALIEN';if(mode==='dead')f.a.state.lifeState='dead';if(mode==='zero health')f.a.state.health=0;if(mode==='spectator')f.room.match.roster=['b'];
   if(mode==='outside range')f.b.state.x=f.a.state.x+TRACTOR_RANGE+1;if(mode==='outside cone')f.b.state.y+=200;
   if(mode==='forged')r={...f.request(),targetId:'b'};if(mode==='stale round')r={...f.request(),round:0};if(mode==='stale life')r={...f.request(),lifeGeneration:99};if(mode==='stale teleport')r={...f.request(),teleportSequence:99};if(mode==='stale session')r={...f.request(),reloadSession:'forged'};
   assert.equal(activateTractor(f.room,f.a,r).ok,false,mode);assert.equal(f.a.state.tractor.cooldownRemainingMs,0);assert.equal(f.room.tractorBeams?.size??0,0);
@@ -62,13 +62,13 @@ test('beaming attacker cannot shoot and loses no ammo; victim remains allowed to
  const f=fixture();assert.equal(f.activate().ok,true);const shot=(p=f.a)=>({sequence:1,aim:0,lifeGeneration:p.state.lifeGeneration,teleportSequence:p.state.teleportSequence});
  assert.equal(fire(f.room,f.a,shot(),0).ok,false);assert.equal(f.a.state.ammo,12);assert.equal(fire(f.room,f.b,shot(f.b),0).ok,true);assert.equal(startReload(f.b),true);
 });
-test('shared pull is smooth, normal rearward/lateral escape overpowers it, and attacker thrust stays mobile at multiplier',()=>{
+test('shared pull is smooth, normal rearward/lateral escape overpowers it, and attacker retains full normal thrust',()=>{
  for(const direction of ['idle','rearward','lateral'] as const){const f=fixture(2);assert.equal(f.activate().ok,true);const x=f.b.state.x;
  for(let i=0;i<30;i++)stepMovement(f.b.state,{...idleInput(),right:direction==='rearward',down:direction==='lateral'},f.room.blackHole);
  if(direction==='idle')assert.ok(f.b.state.x<x);if(direction==='rearward')assert.ok(f.b.state.x>x);if(direction==='lateral')assert.ok(f.b.state.y>1900);
  }
  const f=fixture(2);assert.equal(f.activate().ok,true);for(let i=0;i<60;i++)stepMovement(f.a.state,{...idleInput(),right:true},f.room.blackHole);
- assert.ok(Math.abs(f.a.state.vx-290*TRACTOR_ATTACKER_MOVEMENT_MULTIPLIER)<1);assert.ok(f.a.state.x>200);
+ assert.ok(Math.abs(f.a.state.vx-290)<1);assert.ok(f.a.state.x>200);
 });
 test('replicated tractor force predicts fixed ticks and acknowledgement/replay without server-only corrections',()=>{
  const f=fixture();f.activate();const predictor=new LocalPredictor();predictor.reconcile(f.b.state,f.room.blackHole);

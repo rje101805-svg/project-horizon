@@ -35,7 +35,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
   if (s.health === 0) eliminate(player, s.lastDamageSource, simulationTimeMs);
   return { shieldAbsorbed, healthDamage, depleted: s.health === 0 };
 }
-// Explicit lethal transition shared by ordinary depletion and tractor capture.
+// Explicit lethal transition shared by ordinary depletion and tractor lock finisher.
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs): boolean {
   const s=player.state;
   if(!player.gameplayEnabled || s.lifeState!=='active' || s.status==='OUT')return false;

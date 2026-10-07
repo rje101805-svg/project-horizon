@@ -1,16 +1,18 @@
+import { SHIP_COLORS } from '../shared/rooms';
+import { initialBotState } from '../shared/bots';
 import { clearAllTractors } from './tractor';
 import { MATCH_RESET_DELAY_MS, type MatchState, type StartMatchResult } from '../shared/match';
 import { initialLifeState } from '../shared/lifecycle';
 import { idleInput } from '../shared/flight';
 import { retireInputs } from './inputs';
-import { chooseSpawn, type GameRoom, type RoomPlayer } from './rooms';
+import { chooseSpawn, activeParticipants, removeBot, type GameRoom, type RoomPlayer } from './rooms';
 
 export function matchSnapshot(room: GameRoom): MatchState {
   return {...room.match, roster:[...room.match.roster], result:room.match.result ? {...room.match.result} : null};
 }
 export function roundHumans(room: GameRoom): RoomPlayer[] {
   const ids = room.match.state === 'waiting' ? [...room.players.keys()] : room.match.roster;
-  return ids.flatMap(id => {const p=room.players.get(id);return p && p.state.status==='ALIVE' && p.state.lifeState==='active' && p.state.health>0 ? [p] : [];});
+  return ids.flatMap(id => {const p=room.players.get(id);return p && !p.state.queuedForNextRound && p.state.status==='ALIVE' && p.state.lifeState==='active' && p.state.health>0 ? [p] : [];});
 }
 function freeze(player: RoomPlayer) {
   player.gameplayEnabled = false; retireInputs(player); player.input = idleInput(); player.lastInput = -Infinity;
@@ -30,17 +32,27 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
 // Reset is a room transaction: validate every spawn before changing any player.
 function resetRound(room: GameRoom): boolean {
   const spawns: NonNullable<ReturnType<typeof chooseSpawn>>[] = [];
-  for (const _player of room.players.values()) {
+  const queued=[...room.players.values()].filter(p=>p.state.queuedForNextRound);
+  const bots=activeParticipants(room).filter(p=>p.state.controllerType==='BOT').reverse();
+  const remove=bots.slice(0,Math.max(0,activeParticipants(room).length+queued.length-8));
+  const next=[...room.players.values()].filter(p=>!remove.includes(p));
+  if(next.length>8)return false;
+  for (const _player of next) {
     const spawn = chooseSpawn(spawns, room.blackHole); if (!spawn) return false; spawns.push(spawn);
   }
+  for(const p of remove)removeBot(room,p.state.id);
   clearAllTractors(room,true);
+  const usedColors=new Set(next.filter(p=>!p.state.queuedForNextRound).map(p=>p.state.color));
+  for(const p of next)if(p.state.queuedForNextRound){p.state.color=SHIP_COLORS.find(c=>!usedColors.has(c))!;usedColors.add(p.state.color);}
   let i=0;
   for (const player of room.players.values()) {
-    const s=player.state, lifeGeneration=s.lifeGeneration+1, teleportSequence=s.teleportSequence+1, deathSequence=s.deathSequence, reloadSession=s.reloadSession;
+    const s=player.state, lifeGeneration=s.lifeGeneration+1, teleportSequence=s.teleportSequence+1, deathSequence=s.deathSequence, reloadSession=s.reloadSession, controllerType=s.controllerType;
     retireInputs(player);
-    Object.assign(s, initialLifeState(), spawns[i++], {lifeGeneration,teleportSequence,deathSequence,reloadSession,region:'safe'});
+    Object.assign(s, initialLifeState(), spawns[i++], {controllerType,lifeGeneration,teleportSequence,deathSequence,reloadSession,region:'safe'});
     player.simulationTimeMs=room.simulationTimeMs;
-    player.humanEliminated=false; player.gameplayEnabled=true; player.invulnerableUntilMs=0;
+    s.queuedForNextRound=false;
+    if(s.controllerType==='BOT'){s.bot=initialBotState();player.botInputTick=player.botInputLife=player.botInputTeleport=undefined;}
+    player.humanEliminated=false; player.gameplayEnabled=s.controllerType!=='BOT'; player.invulnerableUntilMs=0;
     player.combatTimers={reload:0,cooldown:0,reloadCompleted:false}; player.respawnAtMs=null;
     player.input=idleInput();player.lastInput=-Infinity;player.reset=false;
     // Keep monotonic command/fire/reload IDs and membership session; new life/teleport
@@ -69,6 +81,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   const humans=roundHumans(room);
   if (humans.length<2) return reject('At least 2 eligible humans are required');
   room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);
+  for(const p of humans)p.gameplayEnabled=true;
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
   }
@@ -77,6 +90,6 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
 // Keep the current connected host; otherwise prefer surviving humans, then a
 // connected future-round member. Map insertion order makes reassignment stable.
 export function assignHost(room: GameRoom) {
-  if (room.match.hostId && room.players.has(room.match.hostId)) return;
-  room.match.hostId = roundHumans(room)[0]?.state.id ?? room.players.keys().next().value ?? null;
+  if (room.match.hostId && room.players.get(room.match.hostId)?.state.controllerType==='HUMAN') return;
+  room.match.hostId = roundHumans(room).find(p=>p.state.controllerType==='HUMAN')?.state.id ?? [...room.players.values()].find(p=>p.state.controllerType==='HUMAN')?.state.id ?? null;
 }

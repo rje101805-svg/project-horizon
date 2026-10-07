@@ -17,7 +17,7 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
     retireInputs(player);
     player.state.respawnRemainingMs = Math.max(0, (player.respawnAtMs ?? simulationTimeMs) - simulationTimeMs);
     if (player.respawnAtMs === null || simulationTimeMs < player.respawnAtMs) return;
-    const spawn = (player.state.status === 'ALIEN' ? chooseAlienSpawn : chooseSpawn)([...room.players.values()].filter(p => p !== player).map(p => p.state), room.blackHole);
+    const spawn = (player.state.status === 'ALIEN' ? chooseAlienSpawn : chooseSpawn)([...room.players.values()].filter(p => p !== player && !p.state.queuedForNextRound).map(p => p.state), room.blackHole);
     // Retry next tick if no safe spawn exists. Never revive into danger.
     if (!spawn) return;
     resetCombatState(player);
@@ -32,7 +32,7 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
   }
   advanceCombatTick(player);
   if (player.reset) {
-    const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player).map(p => p.state), room.blackHole);
+    const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player && !p.state.queuedForNextRound).map(p => p.state), room.blackHole);
     if (spawn) { Object.assign(player.state, spawn); player.state.teleportSequence++; }
     retireInputs(player);
     player.input = idleInput(); player.reset = false;

@@ -143,7 +143,7 @@ class Horizon extends Phaser.Scene {
       this.drawHull(ship.hull, player.color, alien);
     }
     ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
-    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
+    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
     // Edge-spawned ghosts keep their tag readable without moving the ship/camera.
     const view = this.cameras.main.worldView;
     if (alien && view.contains(player.x, player.y)) ship.label.setPosition(
@@ -218,8 +218,14 @@ class Horizon extends Phaser.Scene {
   freezeRemoteShips() { this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
   acceptHit(hit: ProjectileHit) { if (this.ready) this.hitFeedback.add(hit, this.connection.latest, this.connection.socket.id ?? '', performance.now()); }
   resetFlight() { this.aim = 0; this.connection.reset(); }
+  private lastBotDebug=0;
   private updateSpectatorCamera() {
     const latest=this.connection.latest, ids=this.connection.room?.playerIds ?? [];
+    if(import.meta.env.DEV && !el('debug-overlay').hidden && performance.now()-this.lastBotDebug>=250){
+    this.lastBotDebug=performance.now();
+    const botText=latest?.players.filter(p=>p.bot).map(p=>`${p.name} [BOT] ${p.id} · ${p.status} · ${p.bot!.mode} → ${p.bot!.target ?? '—'} · ${p.bot!.override ?? 'normal'} · heading ${p.bot!.desiredHeading.toFixed(2)} distance ${p.bot!.distance.toFixed(0)} · thrust ${p.bot!.thrust} boost ${p.bot!.boost} fire ${p.bot!.fire} reload ${p.bot!.reload} tractor ${p.bot!.tractor} melee ${p.bot!.melee} · ammo ${p.ammo} · lock ${p.tractor.lockElapsedMs}`).join('\n') ?? '';
+    if(el('debug-bots').textContent!==botText)el('debug-bots').textContent=botText;
+    }
     const local=latest?.players.find(p=>p.id===this.connection.socket.id);
     if (local?.status!=='OUT' || latest?.match.state!=='active') { this.spectatedId=null; return; }
     const valid=latest.players.filter(p=>latest.match.roster.includes(p.id) && ids.includes(p.id) && p.lifeState==='active' && p.health>0 && p.status!=='OUT');
@@ -323,6 +329,7 @@ function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
 function updateLobby() {
   const c=connection,match=c?.latest?.match,button=el<HTMLButtonElement>('start-match');
   const waiting=match?.state==='waiting',host=c?.room?.match.hostId===c?.socket.id;
+  const fill=el<HTMLButtonElement>('fill-game');fill.hidden=!waiting || !host;fill.disabled=(c?.room?.participantIds?.length ?? c?.room?.playerIds.length ?? 0)>=8;
   button.hidden=!waiting || !host;button.disabled=!!c?.starting || (c?.latest?.survivingHumans ?? 0)<2;
   el('lobby-status').textContent=waiting ? host ? button.disabled ? 'Waiting for at least 2 humans' : 'Ready to start' : 'WAITING FOR HOST' : '';
 }
@@ -330,7 +337,7 @@ function updateRoom(room: RoomInfo) {
   updateLobby();
   el('room-code-display').textContent = room.code;
   hud.setRoom(room.playerIds.length, connection?.socket.connected ?? false);
-  el('player-count').textContent = `${room.playerIds.length} / ${room.maxPlayers} players`;
+  el('player-count').textContent = `${room.participantIds?.length ?? room.playerIds.length} / ${room.maxPlayers} players${room.queuedIds?.length ? ` · ${room.queuedIds.length} queued` : ''}`;
   scene()?.removeShips(room.playerIds);
 }
 function goHome(message = '') {
@@ -383,6 +390,7 @@ async function enterRoom(mode: 'create' | 'join') {
     if (attempt === attemptId) { busy = false; el('cancel-connect').hidden = true; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
   }
 }
+el('fill-game').onclick=()=>connection?.fillGame();
 el('start-match').onclick=()=>{connection?.startMatch();updateLobby();};
 el('create').onclick = () => { void enterRoom('create'); };
 el('join').onclick = () => { void enterRoom('join'); };
