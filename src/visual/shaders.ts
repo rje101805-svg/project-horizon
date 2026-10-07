@@ -24,3 +24,53 @@ void main(){
  if(r>1.){float a=pow(max(0.,1.-(r-1.)/.075),2.)*.16;gl_FragColor=vec4(mix(vec3(.13,.25,.34),vec3(.40,.23,.08),intensity),a);}
  else{gl_FragColor=vec4(min(col,vec3(.55)),1.-smoothstep(.997,1.,r));}
 }`;
+
+// Samples the exact cached sky textures with their original parallax coordinates.
+// Only background rays bend. No framebuffer copy or distortion of gameplay entities.
+export const LENS_FRAGMENT=`
+precision mediump float;
+uniform vec2 resolution;
+uniform sampler2D iChannel0;
+uniform sampler2D iChannel1;
+uniform sampler2D iChannel2;
+uniform vec2 regionOrigin;
+uniform vec2 hole;
+uniform vec2 scroll;
+uniform vec2 viewport;
+uniform float zoom;
+uniform float radius;
+uniform float intensity;
+uniform float parallax;
+varying vec2 fragCoord;
+void main(){
+ vec2 world=regionOrigin+vec2(fragCoord.x,resolution.y-fragCoord.y);
+ vec2 delta=world-hole;float r=length(delta)/radius;
+ float envelope=1.-smoothstep(2.1,3.6,r);
+ float bend=(.22+.48*intensity)*envelope/(r*r+.32);
+ vec2 source=world+delta*bend;
+ vec2 screen=(source-scroll)*zoom+viewport*.5*(1.-zoom);
+ vec2 v=fract(screen/1024.);
+ vec3 base=texture2D(iChannel0,v).rgb;
+ vec2 stars=fract((screen+scroll*.035*parallax)/1024.);
+ vec4 s=texture2D(iChannel1,stars);base=base*(1.-s.a)+s.rgb;
+ vec2 haze=fract((screen+scroll*.10*parallax)/1024.);
+ vec4 h=texture2D(iChannel2,haze);base=base*(1.-h.a)+h.rgb;
+ float arc=exp(-pow((r-1.30)/.07,2.))*(.008+.018*intensity);
+ base+=vec3(.35,.23,.10)*arc;
+ gl_FragColor=vec4(base,1.);
+}`;
+export const DISK_FRAGMENT=`
+precision mediump float;
+uniform vec2 resolution;
+uniform sampler2D iChannel0;
+uniform float time;
+uniform float intensity;
+varying vec2 fragCoord;
+void main(){
+ vec2 p=fragCoord/resolution*2.-1.;p.y*=3.62;
+ float a=time*.026;mat2 rot=mat2(cos(a),-sin(a),sin(a),cos(a));
+ vec2 uv=(rot*p)*.5+.5;
+ if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.)))){gl_FragColor=vec4(0.);return;}
+ vec4 c=texture2D(iChannel0,uv);float asym=.65+.35*(.5+.5*p.x);
+ gl_FragColor=c*asym*(.85+.15*intensity);
+}`;

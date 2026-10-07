@@ -18,3 +18,13 @@ test('celestial light is directional, bounded, cool at baseline and warm facing 
 test('celestial culling preserves partially visible limbs and removes wholly offscreen bodies',()=>{
  const view={left:0,right:100,top:0,bottom:100};assert.equal(visibleCircle(view,{x:130,y:50},31),true);assert.equal(visibleCircle(view,{x:130,y:50},29),false);
 });
+
+import { blendIntensity,lensRegion,advancedEnabled } from '../src/visual/intensity';
+test('visual intensity eases independently, clamps inputs and never advances gameplay time',()=>{
+ let value=0;for(let n=0;n<100;n++){const next=blendIntensity(value,1,16);assert.ok(next>=value&&next<=1);value=next;}
+ assert.ok(value>.96);assert.equal(blendIntensity(.3,1,0),.3);assert.ok(blendIntensity(0,99,100000)<=blendIntensity(0,1,100)+1e-9);assert.equal(blendIntensity(NaN,NaN,16),0);
+});
+test('lensing region is bounded by the viewport at enormous apparent scales',()=>{
+ const view={left:0,right:1100,top:0,bottom:600};assert.deepEqual(lensRegion(view,{x:500,y:300},100000),{x:550,y:300,width:1100,height:600});assert.equal(lensRegion(view,{x:2000,y:1500},90),null);
+ assert.equal(advancedEnabled(false,true,'standard'),false);assert.equal(advancedEnabled(true,false,'standard'),false);assert.equal(advancedEnabled(true,true,'low'),false);assert.equal(advancedEnabled(true,true,'standard'),true);
+});

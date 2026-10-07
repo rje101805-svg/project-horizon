@@ -1,3 +1,6 @@
+import { HorizonVisual } from './visual/horizon';
+import type { Composition } from './visual/debug';
+import { VisualIntensity } from './visual/intensity';
 import { CelestialWorld } from './visual/celestial';
 import { DeepSpace } from './visual/space';
 import { cameraTarget, easeZoom } from './visual/config';
@@ -30,6 +33,11 @@ let busy = false;
 let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
 class Horizon extends Phaser.Scene {
+  private composition:Composition='auto';
+  private visualDebugCleanup?:()=>void;
+  private previewHorizon?:HorizonVisual;
+  private visualIntensity=new VisualIntensity();
+  private horizonVisual!:HorizonVisual;
   private celestial!: CelestialWorld;
   private deepSpace!: DeepSpace;
   private hitFeedback = new HitFeedback();
@@ -64,6 +72,7 @@ class Horizon extends Phaser.Scene {
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
+    this.horizonVisual=new HorizonVisual(this);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(connection.room.blackHole);
     const spawn = spawnFlight();
@@ -91,8 +100,8 @@ class Horizon extends Phaser.Scene {
       window.removeEventListener('keydown', reload);
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
-      this.ready = false;
-      this.deepSpace.destroy();this.celestial.destroy();
+      this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
+      this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
@@ -102,6 +111,9 @@ class Horizon extends Phaser.Scene {
       this.fireAim = this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
     });
     this.ready = true;
+    if(import.meta.env.DEV)void import('./visual/debug').then(({installVisualDebug})=>{
+      if(this.ready)this.visualDebugCleanup=installVisualDebug(this.visualIntensity,name=>{this.composition=name;if((name==='horizon'||name==='combat')&&!this.previewHorizon)this.previewHorizon=new HorizonVisual(this,'study');});
+    });
     if (this.connection.latest) this.acceptSnapshot(this.connection.latest);
     this.drawMap();
     if (import.meta.env.DEV) Object.assign(window, { __HORIZON_FLIGHT__: this.connection });
@@ -189,16 +201,9 @@ class Horizon extends Phaser.Scene {
     el('debug-projectiles').textContent = `Authoritative projectiles: ${snapshot.projectiles.length} · predicted: ${this.connection.projectilePrediction.count(performance.now())}`;
   }
   private drawBlackHole(hole: BlackHoleState) {
-    const key = JSON.stringify(hole);
-    if (key === this.holeKey) return;
-    this.holeKey = key;
-    const g = this.holeVisual;
-    g.clear().fillStyle(0x8149c9, .07).fillCircle(hole.x, hole.y, hole.influenceRadius);
-    g.lineStyle(2, 0xbb80ff, .45).strokeCircle(hole.x, hole.y, hole.influenceRadius);
-    for (let i = 5; i > 0; i--) g.lineStyle(i * 3, 0x9b65ff, .07).strokeCircle(hole.x, hole.y, hole.eventHorizonRadius + 12);
-    g.lineStyle(5, 0xffca85, .9).strokeEllipse(hole.x, hole.y, hole.eventHorizonRadius * 2.8, hole.eventHorizonRadius * 1.1);
-    g.fillStyle(0x010208).fillCircle(hole.x, hole.y, hole.eventHorizonRadius);
-    g.lineStyle(2, 0xd6abff).strokeCircle(hole.x, hole.y, hole.eventHorizonRadius);
+    const key=JSON.stringify(hole);if(key===this.holeKey)return;this.holeKey=key;
+    // Existing influence boundary remains a subdued gameplay landmark.
+    this.holeVisual.clear().lineStyle(1,0x947557,.18).strokeCircle(hole.x,hole.y,hole.influenceRadius);
   }
   removeShips(ids: string[]) {
     if (!this.ready) return;
@@ -280,9 +285,22 @@ class Horizon extends Phaser.Scene {
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
-    camera.setZoom(easeZoom(camera.zoom,cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat),elapsed));
-    this.deepSpace.update(camera);
-    this.celestial.update(camera,now,this.connection.latest?.blackHole ?? {x:1200,y:450});
+    camera.setZoom(easeZoom(camera.zoom,this.visualIntensity.camera?cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat):1,elapsed));
+    const intensity=this.visualIntensity.update(elapsed),hole=this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
+    this.deepSpace.update(camera,this.visualIntensity.parallax,this.visualIntensity.quality==='standard');
+    this.celestial.quality=this.visualIntensity.quality;
+    let light=hole??{x:1200,y:450};
+    if(import.meta.env.DEV){
+      const c=this.composition,study=c==='horizon'||c==='combat';
+      this.celestial.enabled=c!=='open'&&c!=='horizon';
+      this.celestial.planet.x=c==='auto'?650:this.rocket.x+(c==='dark'?-240:240);
+      this.celestial.planet.y=c==='auto'?1500:this.rocket.y+35;
+      const preview=study?{x:this.rocket.x+285,y:this.rocket.y-40,eventHorizonRadius:105,influenceRadius:500}:null;
+      if(preview)light=preview;
+      this.previewHorizon?.update(camera,now,preview,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
+    }
+    this.celestial.update(camera,now,light,intensity);
+    this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
