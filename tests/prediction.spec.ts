@@ -105,7 +105,8 @@ test('gravity predictions stay stable and reset/respawn discard old inputs under
     await expect(page.locator('#death-overlay')).toBeVisible();
     expect((await metrics(page)).pending).toBe(0);
     await expect(page.locator('#death-overlay')).toBeHidden({ timeout: 5000 });
-    await expect.poll(() => metrics(page).then(m => Math.abs(m.x - 1370))).toBeLessThan(1);
+    await expect.poll(() => metrics(page).then(m => Math.abs(m.x - player.state.x))).toBeLessThan(1);
+    expect(player.state.status).toBe('ALIEN');
     expect(player.state.vx).toBe(0); await page.keyboard.up('d');
   } finally { await server.close(); }
 });

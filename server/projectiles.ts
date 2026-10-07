@@ -1,3 +1,4 @@
+import { melee } from './melee';
 import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type ProjectileState } from '../shared/projectiles';
 import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
 import { applyDamage, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
@@ -7,12 +8,13 @@ export interface ServerProjectile extends ProjectileState { remainingTicks: numb
 export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined, raw: unknown, tick: number): FireResult {
   const request = parseFire(raw);
   const reject = (reason: string): FireResult => ({ ok: false, sequence: request?.sequence ?? 0, reason });
-  if (!request || !room || !player) return reject('Invalid fire request or membership');
+  if (!request || !room || !player || room.players.get(player.state.id) !== player) return reject('Invalid fire request or membership');
   if (request.sequence <= player.lastFireSequence) return reject('Duplicate or stale shot');
   player.lastFireSequence = request.sequence; // Rejections cannot be replayed later.
   const s = player.state;
   if (request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
-    s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0) return reject('Inactive or stale player');
+    s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
+  if (s.status === 'ALIEN') return melee(room, player, request.sequence);
   if (s.isReloading) return reject('No ammo or reloading');
   if (s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }
   if (s.ammo < 0) return reject('No ammo or reloading');
@@ -42,19 +44,19 @@ function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {
 export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) => void, tick = 0) {
   for (const [id, p] of room.projectiles) {
     const owner = room.players.get(p.ownerId)?.state;
-    if (!owner || owner.lifeState !== 'active' || owner.lifeGeneration !== p.lifeGeneration || owner.teleportSequence !== p.teleportSequence) { room.projectiles.delete(id); continue; }
+    if (!owner || owner.lifeGeneration !== p.lifeGeneration || !(owner.teleportSequence === p.teleportSequence && owner.lifeState === 'active' || owner.status === 'ALIEN' && owner.lifeState === 'dead' && owner.teleportSequence === p.teleportSequence + 1)) { room.projectiles.delete(id); continue; }
     const next = { x: p.x + p.vx * TICK_SECONDS, y: p.y + p.vy * TICK_SECONDS };
     let contact = Math.min(boundaryEntry(p, next), circleEntry(p, next, room.blackHole, room.blackHole.eventHorizonRadius + BASIC_BLASTER.projectileRadius) ?? Infinity);
     let target: RoomPlayer | null = null;
     for (const player of room.players.values()) {
       const s = player.state;
-      if (s.id === p.ownerId || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0) continue;
+      if (s.id === p.ownerId || s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) continue;
       const t = circleEntry(p, next, s, BASIC_BLASTER.shipRadius + BASIC_BLASTER.projectileRadius);
       if (t !== null && t < contact) { contact = t; target = player; }
     }
     if (contact !== Infinity) {
       if (target) {
-        const damage = applyDamage(target, p.damage, { type: 'PLAYER', playerId: p.ownerId });
+        const damage = applyDamage(target, p.damage, { type: 'PLAYER', playerId: p.ownerId }, target.simulationTimeMs);
         if (damage && damage.shieldAbsorbed + damage.healthDamage > 0) onHit?.({
           projectileId: p.id, shotSequence: p.shotSequence, hitTick: tick, roomCode: room.code,
           ownerId: p.ownerId, ownerSession: owner.reloadSession, lifeGeneration: p.lifeGeneration, teleportSequence: p.teleportSequence,

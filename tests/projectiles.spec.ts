@@ -36,7 +36,7 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     expect(a.state.isReloading).toBe(false);
     await page.locator('[data-combat-action="refill"]').click();await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug: refill');await frame();
     await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
-    expect(b.state.status).toBe('ALIVE');expect(b.state.kills).toBe(0);
+    expect(b.state.status).toBe('ALIEN');expect(b.state.kills).toBe(0);
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id!==(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.ammo)).toBe(12);
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id===(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.health)).toBe(b.state.health);
   }finally{await peer.close();await page.close();await server.close();}

@@ -10,7 +10,7 @@ import { TICK_MS, TICK_RATE } from '../shared/flight';
 import type { ClientEvents, ServerEvents } from '../shared/protocol';
 import type { ProjectileHit } from '../shared/hit-feedback';
 
-import { RoomStore, roomChannel } from './rooms';
+import { RoomStore, roomChannel, survivingHumans } from './rooms';
 
 export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean; combatDebug?: boolean } = {}) {
   const http = createServer((req, res) => {
@@ -45,13 +45,13 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     socket.on('createRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
       const result = store.create(socket.id, request?.name, performance.now());
-      if (result.ok) { void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
+      if (result.ok) { store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });
     socket.on('joinRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
       const result = store.join(socket.id, request?.code, request?.name, performance.now());
-      if (result.ok) { void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
+      if (result.ok) { store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });
     const leave = () => {
@@ -77,7 +77,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       advanceProjectiles(room, hit => hits.push(hit), tick);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
       // Preserve volatile snapshot delivery: reliable receipts come afterward.

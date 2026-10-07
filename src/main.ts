@@ -1,3 +1,4 @@
+import { ALIEN_COLOR, ALIEN_OPACITY } from '../shared/alien';
 import { ShipCombatHud } from './ship-combat-hud';
 import { HitFeedback } from './hit-feedback';
 import { DamageNumbers } from './damage-numbers';
@@ -23,7 +24,7 @@ let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
 let attemptId = 0;
-type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text };
+type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
 class Horizon extends Phaser.Scene {
   private hitFeedback = new HitFeedback();
   private damageNumbers!: DamageNumbers;
@@ -114,13 +115,25 @@ class Horizon extends Phaser.Scene {
     const label = this.add.text(player.x, player.y + 27, player.name + (local ? ' (you)' : ''), {
       fontSize: '13px', color: '#ffffff', backgroundColor: '#0e1729', padding: { x: 4, y: 2 },
     }).setOrigin(.5, 0).setDepth(5);
-    const ship = { body, label }; this.ships.set(player.id, ship); return ship;
+    const ship = { body, label, hull, alien:false }; this.ships.set(player.id, ship); return ship;
   }
   private placeShip(player: PlayerState) {
     const ship = this.ships.get(player.id) ?? this.addShip(player);
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
-    ship.body.setAlpha(player.lifeState === 'dead' ? .25 : 1);
-    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
+    const alien = player.status === 'ALIEN';
+    if (ship.alien !== alien) {
+      ship.alien = alien; ship.hull.clear();
+      // Round ghost silhouette and lavender tint, distinct from human triangles.
+      ship.hull.fillStyle(ALIEN_COLOR).fillCircle(0,-2,15).fillTriangle(-14,0,-24,13,12,11);
+      ship.hull.fillStyle(0x080e1e).fillCircle(5,-6,3).fillCircle(5,3,3);
+    }
+    ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
+    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
+    // Edge-spawned ghosts keep their tag readable without moving the ship/camera.
+    const view = this.cameras.main.worldView;
+    if (alien && view.contains(player.x, player.y)) ship.label.setPosition(
+      Phaser.Math.Clamp(player.x, view.left + ship.label.width / 2 + 4, view.right - ship.label.width / 2 - 4),
+      Phaser.Math.Clamp(player.y + 27, view.top + 4, view.bottom - ship.label.height - 4));
 
   }
   acceptSnapshot(snapshot: Snapshot) {
@@ -134,7 +147,7 @@ class Horizon extends Phaser.Scene {
     this.localHud.accept(local, performance.now());
     this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
-    hud.combat(local);
+    hud.combat(local); hud.humans(snapshot.survivingHumans);
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
     const lifeKey = `${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
@@ -146,9 +159,10 @@ class Horizon extends Phaser.Scene {
     const dead = local.lifeState === 'dead';
     el('death-overlay').hidden = !dead;
     el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
-    el('death-health').textContent = `Health ${local.health} / ${MAX_HEALTH} · Black hole`;
-    el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${MAX_HEALTH}`;
-    el('black-hole-status').textContent = dead ? 'Lost to the black hole · automatic respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
+    el('death-title').textContent = 'Eliminated · alien respawn pending';
+    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
+    el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
+    el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead';
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;

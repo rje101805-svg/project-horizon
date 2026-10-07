@@ -44,7 +44,7 @@ export class ProjectilePrediction {
   }
   result(result: FireResult, latest: Snapshot | null) {
     const visual = this.pending.get(result.sequence); if (!visual) return;
-    if (!result.ok) { this.pending.delete(result.sequence); return; }
+    if (!result.ok || result.kind === 'melee') { this.pending.delete(result.sequence); return; }
     visual.accepted = { id: result.projectileId, spawnTick: result.spawnTick };
     if (latest && latest.tick > result.spawnTick && !latest.projectiles.some(p => p.id === result.projectileId)) this.pending.delete(result.sequence);
   }

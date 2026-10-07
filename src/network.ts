@@ -1,3 +1,4 @@
+import { ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { ProjectilePrediction } from './projectile-prediction';
 import { BASIC_BLASTER, type FireRequest, type FireResult } from '../shared/projectiles';
 import { io, type Socket } from 'socket.io-client';
@@ -178,10 +179,10 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status !== 'ALIVE' || local.health <= 0 || local.ammo <= 0 || local.isReloading) return;
-    this.nextFireAt = now + BASIC_BLASTER.fireIntervalMs;
+    if (!this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
+    this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : BASIC_BLASTER.fireIntervalMs);
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
-    this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
+    if (local.status === 'ALIVE') this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
     const epoch = this.epoch;
     const send = () => {
       if (epoch !== this.epoch || !this.socket.connected || !this.room) return;
@@ -204,7 +205,7 @@ export class FlightConnection {
   }
   reload() {
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;
-    if (!this.socket.connected || !room || !local || local.lifeState !== 'active') return;
+    if (!this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
     const request = { sequence: ++this.reloadSequence, lifeGeneration: local.lifeGeneration,
       teleportSequence: local.teleportSequence, roomCode: room.code, reloadSession: local.reloadSession }, epoch = this.epoch;
     const send = () => {

@@ -1,3 +1,4 @@
+import { ALIEN_HEALTH } from '../shared/alien';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
@@ -65,18 +66,19 @@ test('real sockets receive same-identity death/respawn and late-join health; cli
     assert.ok(respawnA.timeMs >= deathAt + RESPAWN_DELAY_MS);
     assert.deepEqual(respawnA.players, respawnB.players);
     assert.equal(player.state.id, id); assert.equal(a.connected, true);
-    assert.equal(player.state.lifeState, 'active'); assert.equal(player.state.health, MAX_HEALTH);
+    assert.equal(player.state.lifeState, 'active'); assert.equal(player.state.health, ALIEN_HEALTH); assert.equal(player.state.status, 'ALIEN');
     assert.equal(player.state.lifeGeneration, 1); assert.equal(classifyRegion(player.state, room.blackHole), 'safe');
     assert.equal(player.state.vx, 0); assert.equal(player.state.vy, 0);
     const spawnX = player.state.x;
     // Inputs/reset sent in the previous life must not affect the new life.
     a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true }); a.emit('resetFlight', 0);
     await t.frame([a]); assert.equal(player.state.x, spawnX); assert.equal(player.state.vx, 0);
-    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 2, lifeGeneration: 1, right: true }); await t.frame([a]);
-    assert.ok(player.state.x > spawnX); assert.ok(player.state.vx > 0);
+    const right = spawnX < 2000;
+    a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 2, lifeGeneration: 1, right, left:!right }); await t.frame([a]);
+    assert.ok(right ? player.state.x > spawnX : player.state.x < spawnX); assert.ok(right ? player.state.vx > 0 : player.state.vx < 0);
     const newLate = await t.connect(); await t.join(newLate, room.code, 'After respawn');
     const [aliveSnapshot] = await t.frame([newLate]);
-    assert.equal(aliveSnapshot.players.find(p => p.id === id)!.health, MAX_HEALTH);
+    assert.equal(aliveSnapshot.players.find(p => p.id === id)!.health, ALIEN_HEALTH);
     assert.equal(aliveSnapshot.players.find(p => p.id === id)!.lifeGeneration, 1);
   } finally { await t.close(); }
 });

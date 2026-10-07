@@ -27,7 +27,7 @@ export class HitFeedback {
   private currentTarget(h: ProjectileHit, snapshot: Snapshot) {
     const p = snapshot.players.find(p => p.id === h.targetId);
     return p && p.reloadSession === h.targetSession && p.lifeGeneration === h.targetLifeGeneration &&
-      p.teleportSequence === h.targetTeleportSequence && p.lifeState === 'active';
+      p.teleportSequence === h.targetTeleportSequence;
   }
   reconcile(snapshot: Snapshot, selfId: string) {
     const owner = snapshot.players.find(p => p.id === selfId);

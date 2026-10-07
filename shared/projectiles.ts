@@ -4,7 +4,8 @@ export const BASIC_BLASTER = Object.freeze({ damage: 25, muzzleSpeed: 800, lifet
   fireIntervalMs: FIRE_COOLDOWN, magazineSize: MAX_AMMO, maxActive: 12,
   muzzleOffset: 28, projectileRadius: 3, shipRadius: 18 });
 export interface FireRequest { sequence: number; aim: number; lifeGeneration: number; teleportSequence: number }
-export type FireResult = { ok: true; sequence: number; projectileId: string; spawnTick: number } |
+export type FireResult = { ok: true; sequence: number; projectileId: string; spawnTick: number; kind?: 'projectile' } |
+  { ok: true; kind: 'melee'; sequence: number; damageApplied: number } |
   { ok: false; sequence: number; reason: string };
 export interface ProjectileState { id: string; ownerId: string; shotSequence: number; lifeGeneration: number;
   teleportSequence: number; x: number; y: number; vx: number; vy: number; damage: number; spawnTick: number; remainingMs: number }

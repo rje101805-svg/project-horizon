@@ -15,7 +15,7 @@ function fixture() {
 const ready = (p: ReturnType<typeof fixture>['p']) => { for (let i = 0; i < 6; i++) advanceCombatTick(p); };
 test('valid shot uses authoritative muzzle/velocity and consumes ammo/cooldown, ignoring forged fields', () => {
   const { room, p } = fixture(); Object.assign(p.state, { vx: 123, vy: -50 });
-  const r = fire(room, p, { ...request(), x: 0, vx: 99999, damage: 99999, ownerId: 'victim' }, 7); assert.ok(r.ok);
+  const r = fire(room, p, { ...request(), x: 0, vx: 99999, damage: 99999, ownerId: 'victim' }, 7); assert.ok(r.ok && r.kind !== 'melee');
   const bullet = room.projectiles.get(r.projectileId)!;
   assert.equal(bullet.x, p.state.x + BASIC_BLASTER.muzzleOffset); assert.equal(bullet.vx, 123 + BASIC_BLASTER.muzzleSpeed);
   assert.equal(bullet.vy, -50); assert.equal(bullet.ownerId, 'a'); assert.equal(bullet.damage, BASIC_BLASTER.damage);
@@ -48,19 +48,19 @@ test('zero ammo/reload/dead/zero-health/noncontestant rejects', () => {
   assert.equal(refillAmmo(p),true); consumeAmmo(p); startReload(p); assert.equal(fire(room,p,request(2),0).ok,false);
   assert.equal(refillAmmo(p),false); for(let i=0;i<45;i++)advanceCombatTick(p);
   let sequence=2;
-  for(const changes of [{lifeState:'dead'},{lifeState:'active',health:0},{health:100,status:'ALIEN'},{status:'OUT'}]) {
+  for(const changes of [{lifeState:'dead'},{lifeState:'active',health:0},{status:'OUT'}]) {
     Object.assign(p.state,changes); assert.equal(fire(room,p,request(++sequence),0).ok,false);
   }
   Object.assign(p.state,{status:'ALIVE',lifeState:'active',health:100});
   assert.equal(fire(room,p,request(p.lastFireSequence+1),0).ok,true);
   refillAmmo(p); assert.equal(fire(room,p,request(p.lastFireSequence+1),0).ok,false); // Refill cannot reset cooldown.
 });
-test('server swept hits are single-use, shield-first with typed PLAYER source, and never eliminate', () => {
+test('server swept hits are single-use, shield-first with typed PLAYER source, and eliminate at zero', () => {
   const {room,p,store} = fixture(); store.join('b',room.code,'B',0); const b=room.players.get('b')!;
   Object.assign(b.state,{x:p.state.x+70,y:p.state.y});
   for(let seq=1;seq<=6;seq++) { assert.equal(fire(room,p,request(seq),0).ok,true); advanceProjectiles(room); assert.equal(room.projectiles.size,0); ready(p); }
-  assert.equal(b.state.shield,0); assert.equal(b.state.health,0); assert.equal(b.state.status,'ALIVE');
-  assert.equal(b.state.lifeState,'active'); assert.equal(b.state.kills,0);
+  assert.equal(b.state.shield,0); assert.equal(b.state.health,0); assert.equal(b.state.status,'ALIEN');
+  assert.equal(b.state.lifeState,'dead'); assert.equal(b.state.kills,0);
   assert.deepEqual(b.state.lastDamageSource,{type:'PLAYER',playerId:'a'});
   const before=b.state.health; advanceProjectiles(room); assert.equal(b.state.health,before);
   assert.equal(p.state.health,100); assert.equal(p.state.shield,50);
@@ -92,7 +92,7 @@ test('active cap is per owner; cleanup removes old-life and disconnected-owner p
 });
 test('authoritative snapshot interpolation is bounded, removes hits immediately and never mutates authority', () => {
   const {room,p}=fixture(); fire(room,p,request(),0); const view=new ProjectileView();
-  const frame=(tick:number,timeMs:number)=>({tick,timeMs,roomCode:room.code,blackHole:room.blackHole,players:[p.state],projectiles:projectileSnapshot(room)});
+  const frame=(tick:number,timeMs:number)=>({tick,timeMs,roomCode:room.code,blackHole:room.blackHole,players:[p.state],survivingHumans: 1, projectiles:projectileSnapshot(room)});
   const first=frame(1,0); view.push(first,0); advanceProjectiles(room); const second=frame(2,100); view.push(second,100);
   const midpoint=view.sample(150)[0]; assert.equal(midpoint.x,(first.projectiles[0].x+second.projectiles[0].x)/2);
   assert.equal(first.projectiles[0].x,p.state.x+BASIC_BLASTER.muzzleOffset);

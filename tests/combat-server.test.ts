@@ -51,8 +51,8 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
         assert.equal(p.state.ammo, 12); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadProgress, 1);
         assert.equal(p.state.fireCooldownRemainingMs, 0);
         for (let i = 0; i < 4; i++) await request('damage');
-        assert.equal(p.state.health, 0); assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.lifeState, 'active');
-        assert.equal(p.state.kills, 0); assert.equal(p.state.deathSequence, 0);
+        assert.equal(p.state.health, 0); assert.equal(p.state.status, 'ALIEN'); assert.equal(p.state.lifeState, 'dead');
+        assert.equal(p.state.kills, 0); assert.equal(p.state.deathSequence, 1);
       }
     } finally { sockets.forEach(s => s.disconnect()); await server.close(); }
   });

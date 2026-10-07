@@ -7,7 +7,7 @@ import {BASIC_BLASTER} from '../shared/projectiles';
 function fixture(){
  const store=new RoomStore();store.create('a','A',0);const room=store.roomFor('a')!,p=room.players.get('a')!;
  const request={sequence:1,aim:0,lifeGeneration:0,teleportSequence:0},prediction=new ProjectilePrediction();
- const snapshot=(tick=1)=>({tick,timeMs:tick*1000/30,roomCode:room.code,blackHole:room.blackHole,players:[p.state],projectiles:projectileSnapshot(room)});
+ const snapshot=(tick=1)=>({tick,timeMs:tick*1000/30,roomCode:room.code,blackHole:room.blackHole,players:[p.state],survivingHumans: 1, projectiles:projectileSnapshot(room)});
  return {store,room,p,request,prediction,snapshot};
 }
 test('immediate predicted visual inherits velocity but cannot change server health/ammo/cooldown or spawn projectiles',()=>{

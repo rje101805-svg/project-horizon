@@ -57,7 +57,7 @@ test('last accepted round spawns normally and immediately starts reload without 
   const { room, p } = fixture(); p.state.ammo = 2;
   assert.equal(fire(room, p, shot(1), 0).ok, true); assert.equal(p.state.ammo, 1); assert.equal(p.state.isReloading, false);
   for (let i = 0; i < 6; i++) advanceCombatTick(p);
-  const last = fire(room, p, shot(2), 6); assert.ok(last.ok);
+  const last = fire(room, p, shot(2), 6); assert.ok(last.ok && last.kind !== 'melee');
   assert.equal(room.projectiles.size, 2); assert.equal(room.projectiles.get(last.projectileId)!.shotSequence, 2);
   assert.equal(p.state.ammo, 0); assert.equal(p.state.isReloading, true); assert.equal(p.combatTimers.reload, 45);
   assert.equal(p.combatTimers.cooldown, 6);
@@ -107,7 +107,7 @@ test('final-round prediction hands off while reloading; stale rejection clears w
   assert.equal(prediction.add(shot(1), p.state, 0), true);
   const result = fire(room, p, shot(1), 0); assert.ok(result.ok); assert.equal(p.state.isReloading, true);
   const snapshot = { tick: 1, timeMs: TICK_MS, roomCode: room.code, players: [{ ...p.state }],
-    blackHole: { ...room.blackHole }, projectiles: projectileSnapshot(room) }, before = structuredClone(snapshot);
+    blackHole: { ...room.blackHole }, survivingHumans: 1, projectiles: projectileSnapshot(room) }, before = structuredClone(snapshot);
   prediction.result(result, snapshot); prediction.reconcile(snapshot, p.state.id, 10);
   assert.equal(prediction.count(10), 0); assert.equal(prediction.render(snapshot.projectiles, 10).length, 1);
   assert.deepEqual(snapshot, before);

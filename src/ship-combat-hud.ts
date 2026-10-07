@@ -23,7 +23,7 @@ export class ShipCombatHud {
     this.progress = s.reloading ? Math.max(this.progress, Math.min(.98, s.reloadProgress + Math.max(0, now - this.arrival) / RELOAD_DURATION)) : 0;
     const shield = Math.round(s.shield * (SHIP_BAR_WIDTH - 2)), health = Math.round(s.health * (SHIP_BAR_WIDTH - 2));
     const reload = Math.round(this.progress * (SHIP_BAR_WIDTH - 2));
-    const key = `${shield}:${health}:${s.lowHealth}:${s.reloading}:${reload}`;
+    const key = `${s.alien}:${shield}:${health}:${s.lowHealth}:${s.reloading}:${reload}`;
     if (key === this.key) return; this.key = key;
     const g = this.graphics.clear(), w = SHIP_BAR_WIDTH;
     const bar = (top: number, height: number, color: number, fill: number) => {
@@ -31,7 +31,7 @@ export class ShipCombatHud {
       g.lineStyle(1, color).strokeRect(0, top, w, height);
       if (fill > 0) g.fillStyle(color).fillRect(1, top + 1, fill, height - 2);
     };
-    bar(10, 6, SHIELD_COLOR, shield); // Outline persists with zero fill.
+    if (!s.alien) bar(10, 6, SHIELD_COLOR, shield); // Outline persists with zero fill.
     bar(19, 6, s.lowHealth ? LOW_HEALTH_COLOR : HEALTH_COLOR, health);
     if (s.reloading) bar(0, 4, RELOAD_COLOR, reload);
   }

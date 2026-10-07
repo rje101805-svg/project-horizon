@@ -5,7 +5,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface RoomPlayer { humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
 export interface GameRoom { projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const roomChannel = (code: string) => `flight:${code}`;
 export function generateRoomCode(): string {
@@ -25,6 +25,21 @@ export function chooseSpawn(existing: Iterable<Pick<PlayerState, 'x' | 'y'>>, ho
   // No arbitrary coordinates, and never silently overlap if capacity changes later.
   return point ? { ...origin, ...point } : null;
 }
+// Random valid edge point; bounded shuffled candidates preserve safe separation.
+export function chooseAlienSpawn(existing: Iterable<Pick<PlayerState, 'x' | 'y'>>, hole = createBlackHole()) {
+  const players = [...existing], candidates: {x:number;y:number}[] = [];
+  for (let coordinate = EDGE_MARGIN; coordinate <= WORLD - EDGE_MARGIN; coordinate += 100) {
+    candidates.push({x:EDGE_MARGIN,y:coordinate},{x:WORLD-EDGE_MARGIN,y:coordinate},
+      {x:coordinate,y:EDGE_MARGIN},{x:coordinate,y:WORLD-EDGE_MARGIN});
+  }
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1); [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const point = candidates.find(p => Math.hypot(p.x-hole.x,p.y-hole.y) > hole.influenceRadius + SPAWN_CLEARANCE &&
+    players.every(other => Math.hypot(p.x-other.x,p.y-other.y) >= SPAWN_MIN_DISTANCE));
+  return point ? {...spawnFlight(), ...point} : null;
+}
+export const survivingHumans = (room: GameRoom) => [...room.players.values()].filter(p => p.state.status === 'ALIVE' && p.state.lifeState === 'active' && p.state.health > 0).length;
 export class RoomStore {
   readonly rooms = new Map<string, GameRoom>();
   private membership = new Map<string, string>();
@@ -56,7 +71,7 @@ export class RoomStore {
     const color = SHIP_COLORS.find(c => [...room.players.values()].every(p => p.state.color !== c));
     const spawn = chooseSpawn([...room.players.values()].map(p => p.state), room.blackHole);
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
-    room.players.set(id, { lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
+    room.players.set(id, { humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
     this.membership.set(id, room.code);
     return { ok: true, room: this.info(room), selfId: id };
   }

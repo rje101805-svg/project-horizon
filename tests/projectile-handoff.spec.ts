@@ -51,7 +51,7 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
   if(lag)await page.keyboard.down('d'); // Representative moving fire with latency/jitter.
   await page.keyboard.down('Space');await page.waitForTimeout(1200);await page.keyboard.up('Space');if(lag)await page.keyboard.up('d');
   await page.waitForTimeout(lag?400:100);
-  const all=await page.evaluate(()=>(window as unknown as DebugWindow).__handoffTrace),accepted=all.results.filter((r):r is Extract<FireResult,{ok:true}>=>r.ok);
+  const all=await page.evaluate(()=>(window as unknown as DebugWindow).__handoffTrace),accepted=all.results.filter((r):r is Extract<FireResult,{ok:true;projectileId:string}>=>r.ok && r.kind !== 'melee');
   const held=accepted.filter(r=>r.sequence>10);expect(held.length).toBeGreaterThanOrEqual(lag?3:4);expect(held.length).toBeLessThanOrEqual(7);
   for(let i=1;i<held.length;i++)expect(held[i].spawnTick-held[i-1].spawnTick).toBeGreaterThanOrEqual(6);
   expect(p.state.ammo).toBe(12-held.length);expect(new Set(all.requests.map(r=>r.sequence)).size).toBe(all.requests.length);

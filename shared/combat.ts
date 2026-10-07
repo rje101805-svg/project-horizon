@@ -10,6 +10,7 @@ export type ControllerType = 'HUMAN' | 'BOT';
 export type DamageSource = { type: 'PLAYER'; playerId: string } |
   { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
 export interface CombatState {
+  spawnInvulnerabilityRemainingMs: number; lastMeleeDamage: number;
   reloadSession: string; // Server-issued membership identity; not a client authority token.
   health: number; maxHealth: number;
   shield: number; maxShield: number;
@@ -20,7 +21,7 @@ export interface CombatState {
   lastDamageSource: DamageSource | null;
 }
 export const initialCombatState = (): CombatState => ({
-  reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
+  spawnInvulnerabilityRemainingMs: 0, lastMeleeDamage: 0, reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
   ammo: MAX_AMMO, maxAmmo: MAX_AMMO, isReloading: false, reloadRemainingMs: 0, reloadProgress: 0,
   fireCooldownRemainingMs: 0, fireCooldownProgress: 1, status: 'ALIVE',
   controllerType: 'HUMAN', kills: 0, lastDamageSource: null,

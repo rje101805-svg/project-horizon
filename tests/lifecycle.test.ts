@@ -1,3 +1,4 @@
+import { ALIEN_HEALTH } from '../shared/alien';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_HEALTH, RESPAWN_DELAY_MS, clampHealth } from '../shared/lifecycle';
@@ -59,7 +60,7 @@ test('controlled simulation time drives the deadline, countdown and exactly-once
   assert.equal(player.state.lifeState, 'dead'); assert.equal(player.state.respawnRemainingMs, 1);
   simulatePlayer(player, room, 9999999, 1000 + RESPAWN_DELAY_MS);
   assert.equal(player.state.id, 'a'); assert.equal(player.state.name, 'A');
-  assert.equal(player.state.lifeState, 'active'); assert.equal(player.state.health, MAX_HEALTH);
+  assert.equal(player.state.lifeState, 'active'); assert.equal(player.state.health, ALIEN_HEALTH); assert.equal(player.state.status, 'ALIEN');
   assert.equal(player.state.lifeGeneration, 1); assert.equal(player.state.deathSequence, 1);
   assert.equal(player.state.deathSource, null); assert.equal(player.state.respawnRemainingMs, 0);
   assert.equal(player.respawnAtMs, null); assert.equal(player.state.vx, 0); assert.equal(player.state.vy, 0);
@@ -71,13 +72,13 @@ test('controlled simulation time drives the deadline, countdown and exactly-once
 test('repeated respawns use current moved/grown black-hole state and retain safety clearance', () => {
   const { room, player, kill } = fixture();
   for (let cycle = 0; cycle < 20; cycle++) {
-    const time = cycle * (RESPAWN_DELAY_MS + 100);
+    const time = cycle * (RESPAWN_DELAY_MS + 2100);
     kill(time);
     // Changed after death: selection must read the current authoritative state.
     Object.assign(room.blackHole, { x: 1200 + cycle * 5, y: 1200, influenceRadius: 600 + cycle * 2 });
     simulatePlayer(player, room, time + RESPAWN_DELAY_MS, time + RESPAWN_DELAY_MS);
     assert.equal(player.state.lifeState, 'active'); assert.equal(player.state.lifeGeneration, cycle + 1);
-    assert.equal(player.state.health, MAX_HEALTH); assert.equal(classifyRegion(player.state, room.blackHole), 'safe');
+    assert.equal(player.state.health, ALIEN_HEALTH); assert.equal(classifyRegion(player.state, room.blackHole), 'safe');
     assert.ok(Math.hypot(player.state.x - room.blackHole.x, player.state.y - room.blackHole.y) > room.blackHole.influenceRadius + SPAWN_CLEARANCE);
     assert.equal(player.state.vx, 0); assert.equal(player.state.vy, 0);
   }

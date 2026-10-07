@@ -1,3 +1,4 @@
+import { ALIEN_HEALTH } from '../shared/alien';
 import { consumeAmmo, startReload, startFireCooldown } from '../server/combat';
 import { applyDamage } from '../server/health';
 import { test, expect, type Page } from '@playwright/test';
@@ -50,21 +51,22 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH - 25} / ${MAX_HEALTH}`);
     await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH - 25);
     for (let cycle = 0; cycle < 2; cycle++) {
+      if (cycle > 0) { await advance(60); await frame(); } // Allow authoritative alien protection to expire.
       consumeAmmo(player, 3); startReload(player); startFireCooldown(player);
       // Server-side fixture avoids waiting for flight time or respawn wall time.
       Object.assign(player.state, { x: room.blackHole.x - 200, y: room.blackHole.y, vx: 20000, vy: 0 });
       await frame();
       await expect(page.locator('#death-overlay')).toBeVisible();
-      await expect(page.locator('#hud-health-value')).toHaveText(`0 / ${MAX_HEALTH}`);
+      await expect(page.locator('#hud-health-value')).toHaveText(`0 / ${ALIEN_HEALTH}`);
       await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', 0);
       await expect(page.locator('#debug-overlay')).toBeVisible();
-      await expect(page.locator('#death-health')).toHaveText(`Health 0 / ${MAX_HEALTH} · Black hole`);
+      await expect(page.locator('#death-health')).toHaveText(`ALIEN · Health 0 / ${ALIEN_HEALTH} · BLACK_HOLE`);
       await expect(page.locator('#death-countdown')).toHaveText('Respawning in 3.0s');
       await expect(page.locator('#restart')).toBeDisabled();
       await expect.poll(() => peer.evaluate(id => {
         const ship = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].ships.get(id);
         return { alpha: ship?.body.alpha, label: ship?.label.text };
-      }, id)).toEqual({ alpha: .25, label: 'Dying · DEAD' });
+      }, id)).toEqual({ alpha: .5, label: 'Dying · ALIEN · DEAD' });
       const death = { x: player.state.x, y: player.state.y };
       await page.keyboard.down('d'); await page.keyboard.press('r'); await frame();
       expect({ x: player.state.x, y: player.state.y }).toEqual(death); expect(player.state.health).toBe(0);
@@ -75,30 +77,30 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       if (cycle === 0) await page.screenshot({ path: 'test-results/step6-death.png' });
       await advance(Math.ceil(RESPAWN_DELAY_MS / TICK_MS) - 45 + 1); await frame();
       await expect(page.locator('#death-overlay')).toBeHidden();
-      await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
-      await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH);
+      await expect(page.locator('#hud-health-value')).toHaveText(`${ALIEN_HEALTH} / ${ALIEN_HEALTH}`);
+      await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', ALIEN_HEALTH);
       await expect(page.locator('#debug-overlay')).toBeVisible();
-      await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
+      await expect(page.locator('#life-status')).toHaveText(`Alive · health ${ALIEN_HEALTH} / ${ALIEN_HEALTH}`);
       expect(player.state.id).toBe(id); expect(player.state.lifeGeneration).toBe(cycle + 1);
       expect(player.state.shield).toBe(player.state.maxShield); expect(player.state.ammo).toBe(player.state.maxAmmo);
       expect(player.state.isReloading).toBe(false); expect(player.state.reloadRemainingMs).toBe(0);
       expect(player.state.fireCooldownRemainingMs).toBe(0);
-      expect(player.state.status).toBe('ALIVE'); expect(player.state.controllerType).toBe('HUMAN');
-      await expect(page.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
-      await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
+      expect(player.state.status).toBe('ALIEN'); expect(player.state.controllerType).toBe('HUMAN');
+      await expect(page.locator('#hud-shield')).toHaveText('Shield unavailable · ALIEN');
+      await expect(page.locator('#hud-ammo')).toBeHidden(); await expect(page.locator('#hud-alien')).toHaveText('ALIEN · HP 40 / 40');
       expect(player.state.vx).toBe(0); expect(player.state.vy).toBe(0);
       await expect.poll(() => peer.evaluate(id => {
         const body = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].ships.get(id)?.body;
         return { x: body?.x, y: body?.y, alpha: body?.alpha };
-      }, id)).toEqual({ x: player.state.x, y: player.state.y, alpha: 1 });
+      }, id)).toEqual({ x: player.state.x, y: player.state.y, alpha: .5 });
       // Held key from the old life was cleared; fresh press restores movement.
-      const spawnX = player.state.x; await frame(); expect(player.state.x).toBe(spawnX);
+      const spawnX = player.state.x, key = spawnX < 2000 ? 'd' : 'a'; await frame(); expect(player.state.x).toBe(spawnX);
       await page.locator('canvas').click({ position: { x: 400, y: 300 } });
-      await page.keyboard.up('d'); await page.keyboard.down('d');
+      await page.keyboard.up('d'); await page.keyboard.down(key);
       // Ordered tick commands can follow queued neutral ticks. Drive the real
       // simulation while waiting, as a running server does (no wall-time respawn).
-      await expect.poll(async () => { await frame(); return player.state.x; }, { intervals: [33] }).toBeGreaterThan(spawnX);
-      expect(player.state.x).toBeGreaterThan(spawnX); await page.keyboard.up('d');
+      await expect.poll(async () => { await frame(); return Math.abs(player.state.x-spawnX); }, { intervals: [33] }).toBeGreaterThan(0);
+      expect(Math.abs(player.state.x-spawnX)).toBeGreaterThan(0); await page.keyboard.up(key);
     }
     expect(errors).toEqual([]);
   } finally { await peer.close(); await page.close(); await server.close(); }

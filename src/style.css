@@ -20,3 +20,8 @@
 
 .combat-controls { pointer-events: auto; display: flex; flex-wrap: wrap; gap: 4px; max-width: 300px; }
 .combat-controls button { font-size: 11px; padding: 5px 8px; }
+
+#humans-remaining { display:block; font:12px/1.5 monospace; color:#aab6ce; margin-bottom:4px; }
+#hud-alien { color:#cf9dff; }
+.alien-message { position:absolute; top:18px; left:50%; transform:translateX(-50%); color:#e3c5ff; background:rgba(8,14,30,.9); padding:12px; border:1px solid #cf9dff; font-weight:bold; text-align:center; pointer-events:none; z-index:21; }
+.alien-message[hidden] { display:none; }

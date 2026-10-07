@@ -1,3 +1,4 @@
+import { ALIEN_HEALTH } from '../shared/alien';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
@@ -26,18 +27,18 @@ test('new human combat state is full, ALIVE, idle, cooldown ready', () => {
   assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'HUMAN');
   assert.equal(p.state.kills, 0); assert.equal(p.state.lastDamageSource, null);
 });
-test('damage absorbs shield first, overflows to health, clamps and never eliminates', () => {
+test('damage absorbs shield first, overflows to health, clamps and eliminates once at zero', () => {
   const { player: p } = fixture(); p.state.shield = 20;
   assert.deepEqual(applyDamage(p, 35, source), { shieldAbsorbed: 20, healthDamage: 15, depleted: false });
   assert.equal(p.state.health, 85); assert.equal(p.state.shield, 0); assert.deepEqual(p.state.lastDamageSource, source);
   resetCombatState(p); applyDamage(p, MAX_SHIELD, { type: 'ENVIRONMENT', cause: 'HAZARD' });
   assert.equal(p.state.health, MAX_HEALTH); assert.equal(p.state.shield, 0);
   applyDamage(p, 10000, source); assert.equal(p.state.health, 0); assert.equal(p.state.shield, 0);
-  assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.lifeState, 'active'); assert.equal(p.state.kills, 0);
-  assert.equal(p.state.deathSequence, 0); assert.equal(p.respawnAtMs, null);
+  assert.equal(p.state.status, 'ALIEN'); assert.equal(p.state.lifeState, 'dead'); assert.equal(p.state.kills, 0);
+  assert.equal(p.state.deathSequence, 1); assert.equal(p.respawnAtMs, RESPAWN_DELAY_MS);
   for (const amount of [NaN, Infinity, -1, 0]) assert.equal(applyDamage(p, amount, source), null);
-  p.state.health = -4; p.state.shield = 999; applyDamage(p, 1, source);
-  assert.equal(p.state.health, 0); assert.equal(p.state.shield, MAX_SHIELD - 1);
+  const fresh = fixture().player; fresh.state.health = -4; fresh.state.shield = 999; applyDamage(fresh, 1, source);
+  assert.equal(fresh.state.health, 0); assert.equal(fresh.state.shield, 0); assert.equal(fresh.state.status, 'ALIEN');
   assert.equal(applyDamage(p, 1, { type: 'PLAYER', playerId: '' }), null);
 });
 test('ammo rejects insufficient/invalid consumption and keeps its max', () => {
@@ -74,25 +75,26 @@ test('cooldown ticks down exactly and combat state has no movement effects', () 
   for (const p of [a.player, b.player]) stepMovement(p.state, { ...idleInput(), right: true }, a.room.blackHole);
   assert.equal(a.player.state.x, b.player.state.x); assert.equal(a.player.state.vx, b.player.state.vx);
 });
-test('status is centralized and independent of controller type; no alien/winner systems are invoked', () => {
+test('status is centralized, controller independent and alien eligibility cannot be restored', () => {
   const { player: p } = fixture();
-  for (const status of ['ALIEN', 'OUT', 'ALIVE'] as const) {
+  for (const status of ['ALIVE', 'ALIEN', 'OUT'] as const) {
     assert.equal(setStatus(p, status), true); assert.equal(p.state.status, status); assert.equal(p.state.controllerType, 'HUMAN');
   }
   assert.equal(setStatus(p, 'FAKE' as 'ALIVE'), false);
-  p.state.controllerType = 'BOT'; resetCombatState(p); assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'BOT');
+  assert.equal(setStatus(p, 'ALIVE'), false);
+  p.state.controllerType = 'BOT'; resetCombatState(p); assert.equal(p.state.status, 'ALIEN'); assert.equal(p.state.controllerType, 'BOT');
 });
-test('black-hole death stays lethal through shields and respawn centrally resets every combat field', () => {
+test('black-hole death stays lethal through shields and respawn resets alien combat fields', () => {
   const { player: p, room } = fixture(); consumeAmmo(p, 3); startReload(p); startFireCooldown(p);
   Object.assign(p.state, { x: room.blackHole.x, y: room.blackHole.y });
   simulatePlayer(p, room, 0, 0); assert.equal(p.state.lifeState, 'dead'); assert.equal(p.state.health, 0); assert.equal(p.state.shield, 0);
   assert.deepEqual(p.state.deathSource, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' });
   const marker = p.state.teleportSequence;
   simulatePlayer(p, room, 99999999, RESPAWN_DELAY_MS);
-  assert.equal(p.state.lifeState, 'active'); assert.equal(p.state.health, MAX_HEALTH); assert.equal(p.state.shield, MAX_SHIELD);
-  assert.equal(p.state.ammo, MAX_AMMO); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadRemainingMs, 0);
+  assert.equal(p.state.lifeState, 'active'); assert.equal(p.state.health, ALIEN_HEALTH); assert.equal(p.state.shield, 0);
+  assert.equal(p.state.ammo, 0); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadRemainingMs, 0);
   assert.equal(p.state.reloadProgress, 0); assert.equal(p.state.fireCooldownRemainingMs, 0);
-  assert.equal(p.state.status, 'ALIVE'); assert.equal(p.state.controllerType, 'HUMAN'); assert.equal(p.state.lifeGeneration, 1);
+  assert.equal(p.state.status, 'ALIEN'); assert.equal(p.state.controllerType, 'HUMAN'); assert.equal(p.state.lifeGeneration, 1);
   assert.ok(p.state.teleportSequence > marker); assert.equal(p.pendingInputs.length, 0);
 });
 test('debug requires an explicit server flag and production veto, with stale and unknown actions rejected', () => {
