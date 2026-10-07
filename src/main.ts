@@ -1,3 +1,4 @@
+import { CelestialWorld } from './visual/celestial';
 import { DeepSpace } from './visual/space';
 import { cameraTarget, easeZoom } from './visual/config';
 import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_KILL_LOCK_MS, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
@@ -22,13 +23,14 @@ import { normalizeRoomCode } from '../shared/rooms';
 import type { PlayerState, RoomInfo, Snapshot } from '../shared/protocol';
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const hud = new GameplayHud(document);
-const planets = [{ x: 650, y: 700, r: 90, color: 0x6095d6, name: 'AZURE' }, { x: 1750, y: 650, r: 115, color: 0xc88066, name: 'EMBER' }, { x: 700, y: 1750, r: 105, color: 0x7caf9a, name: 'VERDANT' }, { x: 1800, y: 1750, r: 85, color: 0x9b8dd0, name: 'ECHO' }];
+const planets = [{ x:650,y:1500,r:380,color:0x7194a7,name:'ICE PROTOTYPE' }];
 let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
 let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
 class Horizon extends Phaser.Scene {
+  private celestial!: CelestialWorld;
   private deepSpace!: DeepSpace;
   private hitFeedback = new HitFeedback();
   private damageNumbers!: DamageNumbers;
@@ -58,14 +60,7 @@ class Horizon extends Phaser.Scene {
   create() {
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
-    for (const p of planets) {
-      const g = this.add.graphics();
-      g.lineStyle(1, p.color, .2).strokeCircle(p.x, p.y, p.r + 22);
-      g.fillStyle(p.color, .15).fillCircle(p.x, p.y, p.r + 9);
-      g.fillStyle(p.color).fillCircle(p.x, p.y, p.r);
-      g.fillStyle(0x080e1e, .25).fillCircle(p.x + p.r * .35, p.y - p.r * .15, p.r * .8);
-      this.add.text(p.x, p.y + p.r + 35, p.name, { fontSize: '12px', color: '#9aacc9', letterSpacing: 3 }).setOrigin(.5);
-    }
+    this.celestial = new CelestialWorld(this);
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
@@ -97,7 +92,7 @@ class Horizon extends Phaser.Scene {
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.ready = false;
-      this.deepSpace.destroy();
+      this.deepSpace.destroy();this.celestial.destroy();
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
@@ -287,6 +282,7 @@ class Horizon extends Phaser.Scene {
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
     camera.setZoom(easeZoom(camera.zoom,cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat),elapsed));
     this.deepSpace.update(camera);
+    this.celestial.update(camera,now,this.connection.latest?.blackHole ?? {x:1200,y:450});
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
