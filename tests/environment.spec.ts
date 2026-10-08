@@ -57,6 +57,8 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
    const shooter=players[3];shooter.combatTimers.cooldown=0;expect(fire(room,shooter,{sequence:++sequence,aim:-Math.PI/2,lifeGeneration:shooter.state.lifeGeneration,teleportSequence:shooter.state.teleportSequence},tick).ok).toBe(true);await frame();
    await expect.poll(()=>page.evaluate(id=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],g=s.ships.get(id);return {alien:g?.alien,alpha:g?.body.alpha,label:g?.label.text};},ghost.state.id)).toMatchObject({alien:true,alpha:ALIEN_OPACITY,label:expect.stringContaining('ALIEN')});
    await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.celestial.bodies.filter((b:any)=>b.fallback.visible).length;})).toBe(region.expectedBodies);
+   // Teleported remotes and the follow camera settle on independent render frames.
+   await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return [...s.ships.values()].filter((ship:any)=>s.cameras.main.worldView.contains(ship.body.x,ship.body.y)).length;})).toBe(8);
    const state=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return {visible:[...s.ships.values()].filter((ship:any)=>s.cameras.main.worldView.contains(ship.body.x,ship.body.y)).length,ships:s.ships.size,tractor:s.tractorGraphics.commandBuffer.length,bullets:s.projectileGraphics.commandBuffer.length};});expect(state.ships).toBe(8);expect(state.visible).toBe(8);expect(state.tractor).toBeGreaterThan(0);expect(state.bullets).toBeGreaterThan(0);
    await page.locator('canvas').screenshot({path:`/tmp/p3s26-encounter-${region.biome}.png`});
   }

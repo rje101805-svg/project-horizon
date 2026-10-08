@@ -1,3 +1,4 @@
+import {SHIP_ART,shipArtForColor,type ShipArt} from './visual/ships';
 import {preloadCosmicImages} from './visual/cosmic-images';
 import {PLANET_REGIONS,LANDMARKS,mapPoint} from './visual/solar-layout';
 import { HorizonVisual } from './visual/horizon';
@@ -32,7 +33,7 @@ let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
 let attemptId = 0;
-type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
+type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Image; art: ShipArt; alien: boolean };
 class Horizon extends Phaser.Scene {
   private composition:Composition='auto';
   private inspectionPoint:{x:number;y:number}|null=null;
@@ -67,7 +68,7 @@ class Horizon extends Phaser.Scene {
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
-  preload() { preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
+  preload() { for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
   create() {
     const webgl=this.game.renderer.type===Phaser.WEBGL;
     this.visualIntensity.quality=defaultVisualQuality(webgl);
@@ -110,6 +111,7 @@ class Horizon extends Phaser.Scene {
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
       this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
+      for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
@@ -129,15 +131,11 @@ class Horizon extends Phaser.Scene {
   private drawHull(hull: Phaser.GameObjects.Graphics, color: number, alien: boolean) {
     hull.clear();
     if (alien) {
-      // Round ghost silhouette and lavender tint, distinct from human triangles.
+      // Round ghost silhouette and lavender tint, distinct from custom human hulls.
       hull.lineStyle(4,0x02050d,1).strokeCircle(0,-2,15).strokeTriangle(-14,0,-24,13,12,11);
       hull.fillStyle(ALIEN_COLOR).fillCircle(0,-2,15).fillTriangle(-14,0,-24,13,12,11);
       hull.lineStyle(1.5,0xe8eaff,.9).strokeCircle(0,-2,15).strokeTriangle(-14,0,-24,13,12,11);
       hull.fillStyle(0x080e1e).fillCircle(5,-6,3).fillCircle(5,3,3);
-    } else {
-      hull.lineStyle(3,0x02050d).strokeTriangle(22,0,-13,-12,-8,0).strokeTriangle(22,0,-8,0,-13,12);
-      hull.fillStyle(color).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
-      hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
     }
   }
   private addShip(player: PlayerState): Ship {
@@ -145,20 +143,25 @@ class Horizon extends Phaser.Scene {
     this.drawHull(hull, player.color, false);
     const local = player.id === this.connection.socket.id;
     const body = local ? this.rocket : this.add.container(player.x, player.y).setDepth(4);
-    body.add(hull);
+    const art=shipArtForColor(player.color);
+    const sprite=this.add.image(0,0,art.textureKey).setOrigin(art.originX,art.originY).setScale(art.visualScale).setRotation(art.rotationOffset).setName('custom-ship');
+    hull.setVisible(false);body.add([sprite,hull]);
     const label = this.add.text(player.x, player.y + 27, player.name + (local ? ' (you)' : ''), {
       fontSize: '13px', color: '#ffffff', backgroundColor: '#0e1729', padding: { x: 4, y: 2 },
     }).setOrigin(.5, 0).setDepth(5);
-    const ship = { body, label, hull, alien:false }; this.ships.set(player.id, ship); return ship;
+    const ship = { body, label, hull, sprite, art, alien:false }; this.ships.set(player.id, ship); return ship;
   }
   private placeShip(player: PlayerState) {
     if (player.status === 'OUT') return;
     const ship = this.ships.get(player.id) ?? this.addShip(player);
     ship.body.setPosition(player.x, player.y).setRotation(player.rotation);
+    const art=shipArtForColor(player.color);
+    if(ship.art!==art){ship.art=art;ship.sprite.setTexture(art.textureKey).setOrigin(art.originX,art.originY).setScale(art.visualScale).setRotation(art.rotationOffset);}
     const alien = player.status === 'ALIEN';
     if (ship.alien !== alien) {
       ship.alien = alien;
       this.drawHull(ship.hull, player.color, alien);
+      ship.sprite.setVisible(!alien);ship.hull.setVisible(alien);
     }
     ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
     ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
@@ -265,7 +268,7 @@ class Horizon extends Phaser.Scene {
     for(const player of snapshot.players){
       if(!player.tractor.targetId)continue;
       const body=this.ships.get(player.id)?.body;if(!body)continue;
-      const angle=body.rotation,half=TRACTOR_CONE_ANGLE/2,nose=18;
+      const angle=body.rotation,half=TRACTOR_CONE_ANGLE/2,appearance=this.ships.get(player.id),nose=appearance&&!appearance.alien?appearance.art.noseOffset:18;
       const x=body.x+Math.cos(angle)*nose,y=body.y+Math.sin(angle)*nose;
       this.tractorGraphics.fillStyle(0x70ffdc,.18).lineStyle(1,0x9cffe9,.65).beginPath().moveTo(x,y);
       for(let i=0;i<=8;i++){const a=angle-half+TRACTOR_CONE_ANGLE*i/8;this.tractorGraphics.lineTo(body.x+Math.cos(a)*TRACTOR_RANGE,body.y+Math.sin(a)*TRACTOR_RANGE);}

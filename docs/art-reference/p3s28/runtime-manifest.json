@@ -1,0 +1,194 @@
+[
+  {
+    "key": "redline",
+    "sourceFilename": "ship-redline.png",
+    "textureKey": "ship-art-redline",
+    "originX": 0.5,
+    "originY": 0.42,
+    "visualScale": 0.133103,
+    "noseOffset": 14.311,
+    "rotationOffset": "Math.PI/2",
+    "width": 239,
+    "height": 256,
+    "hullRadius": 157.773,
+    "bytes": 70895,
+    "sourceSize": [
+      938,
+      1004
+    ],
+    "crop": [
+      0,
+      0,
+      938,
+      1004
+    ]
+  },
+  {
+    "key": "dreadnought",
+    "sourceFilename": "ship-dreadnought.png",
+    "textureKey": "ship-art-dreadnought",
+    "originX": 0.5,
+    "originY": 0.455,
+    "visualScale": 0.159596,
+    "noseOffset": 18.59,
+    "rotationOffset": "Math.PI/2",
+    "width": 172,
+    "height": 256,
+    "hullRadius": 131.582,
+    "bytes": 79749,
+    "sourceSize": [
+      969,
+      1446
+    ],
+    "crop": [
+      0,
+      0,
+      969,
+      1446
+    ]
+  },
+  {
+    "key": "rocket",
+    "sourceFilename": "ship-rocket.png",
+    "textureKey": "ship-art-rocket",
+    "originX": 0.5,
+    "originY": 0.4,
+    "visualScale": 0.17138,
+    "noseOffset": 17.549,
+    "rotationOffset": "Math.PI/2",
+    "width": 137,
+    "height": 256,
+    "hullRadius": 122.535,
+    "bytes": 43726,
+    "sourceSize": [
+      800,
+      1491
+    ],
+    "crop": [
+      0,
+      0,
+      800,
+      1491
+    ]
+  },
+  {
+    "key": "horizon",
+    "sourceFilename": "ship-horizon.png",
+    "textureKey": "ship-art-horizon",
+    "originX": 0.5,
+    "originY": 0.42,
+    "visualScale": 0.192247,
+    "noseOffset": 20.67,
+    "rotationOffset": "Math.PI/2",
+    "width": 171,
+    "height": 256,
+    "hullRadius": 109.235,
+    "bytes": 65941,
+    "sourceSize": [
+      1007,
+      1507
+    ],
+    "crop": [
+      0,
+      0,
+      1007,
+      1507
+    ]
+  },
+  {
+    "key": "nova",
+    "sourceFilename": "ship-nova.png",
+    "textureKey": "ship-art-nova",
+    "originX": 0.5,
+    "originY": 0.425,
+    "visualScale": 0.159511,
+    "noseOffset": 17.355,
+    "rotationOffset": "Math.PI/2",
+    "width": 160,
+    "height": 256,
+    "hullRadius": 131.652,
+    "bytes": 43882,
+    "sourceSize": [
+      921,
+      1473
+    ],
+    "crop": [
+      0,
+      0,
+      921,
+      1473
+    ]
+  },
+  {
+    "key": "zenith",
+    "sourceFilename": "ship-zenith.png",
+    "textureKey": "ship-art-zenith",
+    "originX": 0.5,
+    "originY": 0.5,
+    "visualScale": 0.163851,
+    "noseOffset": 15.812,
+    "rotationOffset": "Math.PI/2",
+    "width": 256,
+    "height": 193,
+    "hullRadius": 128.165,
+    "bytes": 84405,
+    "sourceSize": [
+      1336,
+      1006
+    ],
+    "crop": [
+      0,
+      0,
+      1336,
+      1006
+    ]
+  },
+  {
+    "key": "raider",
+    "sourceFilename": "ship-raider-provisional.png",
+    "textureKey": "ship-art-raider",
+    "originX": 0.5,
+    "originY": 0.42,
+    "visualScale": 0.155294,
+    "noseOffset": 16.697,
+    "rotationOffset": "Math.PI/2",
+    "width": 185,
+    "height": 256,
+    "hullRadius": 135.228,
+    "bytes": 90295,
+    "sourceSize": [
+      724,
+      1002
+    ],
+    "crop": [
+      0,
+      0,
+      724,
+      1002
+    ]
+  },
+  {
+    "key": "eclipse",
+    "sourceFilename": "ship-eclipse-provisional.png",
+    "textureKey": "ship-art-eclipse",
+    "originX": 0.5,
+    "originY": 0.41,
+    "visualScale": 0.158156,
+    "noseOffset": 16.6,
+    "rotationOffset": "Math.PI/2",
+    "width": 177,
+    "height": 256,
+    "hullRadius": 132.78,
+    "bytes": 57130,
+    "sourceSize": [
+      983,
+      1419
+    ],
+    "crop": [
+      0,
+      0,
+      983,
+      1419
+    ]
+  }
+]

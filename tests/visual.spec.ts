@@ -23,7 +23,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
     const sparse=new Set(scene.deepSpace.layers.filter((l:any)=>l.depth===-29||l.depth===8).map((l:any)=>l.canvas));
     const proto=CanvasRenderingContext2D.prototype,draw=proto.drawImage,fill=proto.fillRect;let copies=0,frames=0,specks=0;
     proto.drawImage=function(this:CanvasRenderingContext2D,image:CanvasImageSource,...coords:number[]){if(sparse.has(image))copies++;Reflect.apply(draw,this,[image,...coords]);};
-    proto.fillRect=function(...args:Parameters<typeof fill>){if(['#b9c6d4','#aebfd5','#d0ccc2','#bfb5a1'].includes(this.fillStyle as string))specks++;return fill.apply(this,args);};
+    proto.fillRect=function(...args:Parameters<typeof fill>){if(['#f4f7ff','#e0eaff','#ffffff','#c9ddff'].includes(this.fillStyle as string))specks++;return fill.apply(this,args);};
     const done=()=>{if(++frames===6){game.events.off('postrender',done);proto.drawImage=draw;proto.fillRect=fill;texture.refresh=refresh;resolve({copies,geometry:scene.deepSpace.canvasGeometry.length,specks,bakes});}};
     game.events.on('postrender',done);
    }));
@@ -60,11 +60,12 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
    await p.locator('canvas').screenshot({path:'/tmp/p3s1-combat.png'});
   }
   const resources=await p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;});
-  expect(resources).toBe(10);
+  // P3S2.7 added eight cached space-cosmic textures to the original ten.
+  expect(resources).toBe(18);
   expect(errors).toEqual([]);
   await p.getByRole('button',{name:'Back to home'}).click();await expect(p.locator('#visual-controls')).toHaveCount(0);
   await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible({timeout:15000});
-  await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(9);
+  await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(17);
   await expect(p.locator('#visual-controls')).toHaveCount(1);
   await p.getByRole('button',{name:'Back to home'}).click();
  }}finally{await browser.close();}
