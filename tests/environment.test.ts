@@ -12,3 +12,11 @@ test('parallax fields wrap continuously and cached nebulae stay dark with seam c
  for(let i=0;i<20;i++){const u=i/20;for(let c=0;c<3;c++){assert.ok(Math.abs(nebulaColor(0,u)[c]-nebulaColor(1,u)[c])<1e-8);}}
  for(let y=0;y<20;y++)for(let x=0;x<20;x++)for(const c of nebulaColor(x/20,y/20))assert.ok(c>=0&&c<65);
 });
+import {DISTANT_BODIES,distantSurface,bakeDistant} from '../src/visual/distant';
+test('distant scenery is a restrained, varied client-only set with directional sphere shading',()=>{
+ assert.equal(DISTANT_BODIES.length,5);assert.equal(new Set(DISTANT_BODIES.map(b=>b.kind)).size,5);
+ assert.ok(DISTANT_BODIES.every(b=>b.parallax<.2&&b.alpha<=.5&&b.size<=180));
+ assert.notDeepEqual(distantSurface('gas',.1,.2,.97),distantSurface('ice',.1,.2,.97));
+ let output=new Uint8ClampedArray();const ctx={createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:(i:any)=>output=i.data};bakeDistant(ctx as unknown as CanvasRenderingContext2D,64,'rock');
+ const pixel=(x:number,y:number)=>output[(y*64+x)*4];assert.ok(pixel(20,20)>pixel(44,44));assert.equal(output[3],0);
+});

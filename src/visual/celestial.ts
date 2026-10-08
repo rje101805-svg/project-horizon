@@ -1,9 +1,9 @@
+import {DISTANT_BODIES,bakeDistant} from './distant';
 import Phaser from 'phaser';
 import {PLANET_REGIONS,LANDMARKS} from './solar-layout';
 import {seededRandom} from './config';
 import { advancedEnabled } from './intensity';
 import { horizonDirection,shadeNormal,visibleCircle, type Point } from './lighting';
-import { PARALLAX } from './config';
 import { BIOMES, bakeMaterial, MATERIAL_FRAGMENT, type Biome, type SurfaceMap } from './planet-material';
 import { optionalShader } from './shader-support';
 // CPU bake is deliberately shared by distant decoration and the Canvas fallback.
@@ -42,7 +42,15 @@ export class CelestialWorld {
    this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
   }
   const random=seededRandom(3203);for(const p of LANDMARKS){const g=scene.add.graphics().setPosition(p.x,p.y).setDepth(-11);for(let i=0;i<p.count;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=6+random()*12;g.fillStyle(0x48505c,.6).fillEllipse(x,y,r*2,r*1.4);g.lineStyle(1,0x87929d,.5).strokeEllipse(x,y,r*2,r*1.4);}this.decorations.push(g);}
-  for(const [i,size]of [512,128].entries()){const key=`distant-body-${i}`,tex=scene.textures.createCanvas(key,size,size)!;bakeSphere(tex.context,size,[1,0,.48],0,true);tex.refresh();this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.28:.30));}
+  // Two shared atlases, five images, no per-frame sphere generation.
+  const atlas=scene.textures.createCanvas('distant-body-0',512,512)!;
+  const scratch=document.createElement('canvas');scratch.width=scratch.height=256;const ctx=scratch.getContext('2d')!;
+  for(let i=0;i<4;i++){bakeDistant(ctx,256,DISTANT_BODIES[i].kind);const x=(i%2)*256,y=Math.floor(i/2)*256;atlas.context.drawImage(scratch,x,y);atlas.add(String(i),0,x,y,256,256);}atlas.refresh();
+  const ring=scene.textures.createCanvas('distant-body-1',512,256)!,rc=ring.context;
+  rc.save();rc.translate(256,128);rc.rotate(-.25);rc.strokeStyle='rgba(101,108,119,.5)';rc.lineWidth=14;rc.beginPath();rc.ellipse(0,0,215,38,0,0,Math.PI*2);rc.stroke();rc.restore();
+  bakeDistant(ctx,256,'ringed');rc.drawImage(scratch,176,48,160,160);ring.refresh();
+  for(const [i,p]of DISTANT_BODIES.entries())this.distant.push(scene.add.image(0,0,i<4?'distant-body-0':'distant-body-1',i<4?String(i):undefined).setScrollFactor(0).setDepth(-25).setAlpha(p.alpha));
+
  }
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
   for(const body of this.bodies){
@@ -54,9 +62,14 @@ export class CelestialWorld {
    if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,384,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
   for(let i=0;i<this.decorations.length;i++)this.decorations[i].setVisible(!this.study&&visibleCircle(camera.worldView,LANDMARKS[i],200));
-  const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height,px=camera.scrollX*PARALLAX.bodies,py=camera.scrollY*PARALLAX.bodies;
-  this.distant[0].setDisplaySize(1320/z,1320/z).setPosition(w*.5+(w*.9-px-w*.5)/z,h*.5+(160-py*.4-h*.5)/z);
-  this.distant[1].setDisplaySize(150/z,150/z).setPosition(w*.5+(260-px*.6-w*.5)/z,h*.5+(90-py*.5-h*.5)/z);
+  const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
+  for(const [i,d]of this.distant.entries()){
+   const p=DISTANT_BODIES[i],x=p.x-camera.scrollX*p.parallax,y=p.y-camera.scrollY*p.parallax;
+   const height=p.kind==='ringed'?p.size*.5:p.size;
+   d.setDisplaySize(p.size/z,height/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z);
+   d.setVisible(x+p.size/2>0&&x-p.size/2<w&&y+height/2>0&&y-height/2<h);
+  }
+
  }
  destroy(){for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
 }
