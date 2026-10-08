@@ -286,7 +286,7 @@ class Horizon extends Phaser.Scene {
         const output=document.getElementById('visual-rendering');if(output){
           const visible=this.celestial.bodies.filter(b=>b.fallback.visible||b.shader?.visible).length;
           const rocks=this.celestial.decorations.filter(g=>g.visible).reduce((sum,g)=>sum+g.length,0);
-          const text=`Renderer: ${this.game.renderer.type===Phaser.WEBGL?'WebGL':'Canvas'} · ${this.visualIntensity.quality} · planets ${visible}/4 · debris ${rocks}/47 · distant ${this.celestial.distant.filter(d=>d.visible).length}/${this.celestial.distant.length} · cached stars ${this.deepSpace.starCount}`;
+          const text=`Renderer: ${this.game.renderer.type===Phaser.WEBGL?'WebGL':'Canvas'} · ${this.visualIntensity.quality} · planets ${visible}/4 · debris ${rocks}/47 · distant ${this.celestial.distant.filter(d=>d.visible).length}/${this.celestial.distant.length} · asteroid groups ${this.celestial.cosmicClusters.filter(g=>g.visible).length}/4 · galaxies 5 · cached stars ${this.deepSpace.starCount}`;
           if(output.textContent!==text)output.textContent=text;
         }
       }

@@ -3,7 +3,7 @@ import {paintGalaxies,GALAXY_SPAN} from './cosmos';
 import {generateStars,STAR_COLORS,SKY_SPAN,nebulaColor,parallaxOffset} from './environment';
 import Phaser from 'phaser';
 import { PARALLAX, seededRandom } from './config';
-// Four cached tile layers. No per-star objects, randomization, or particle emitters at runtime.
+// Five cached tile layers. No per-star objects, randomization, or particle emitters at runtime.
 export class DeepSpace {
   readonly layers:Phaser.GameObjects.TileSprite[]=[];
   private keys:string[]=[];
@@ -51,7 +51,7 @@ export class DeepSpace {
           for(let bin=0;bin<64;bin++){
             ctx.globalAlpha=(Math.floor(bin/4)+.5)/16*src.alpha*camera.alpha;
             ctx.fillStyle=depth===8?'#a0b9bf':`#${STAR_COLORS[bin%4].toString(16)}`;
-            const bucket=buckets[bin],step=g.getData('detail')?1:2;
+            const bucket=buckets[bin],step=g.getData('detail')?1:4;
             for(let i=0;i<bucket.length;i+=step){const p=bucket[i];
               const x=(p.x-shiftX+span)%span,y=(p.y-shiftY+span)%span;
               for(let sy=y;sy<h;sy+=span)for(let sx=x;sx<w;sx+=span)ctx.fillRect(sx,sy,p.size,depth===8?.6:p.size);

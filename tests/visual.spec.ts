@@ -6,7 +6,10 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
  const gpu=await browser.newPage();
  try{for(const [p,webgl] of [[page,false],[gpu,true]] as const){
   const errors:string[]=[];p.on('pageerror',e=>errors.push(e.message));
-  await p.goto('http://127.0.0.1:5175');await p.locator('#server-url').fill('http://127.0.0.1:3002');await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible();
+  await p.goto('http://127.0.0.1:5175');await p.locator('#server-url').fill('http://127.0.0.1:3002');const started=Date.now();await p.getByRole('button',{name:'Create room',exact:true}).click();
+  // Software-GPU cold bakes can exceed five seconds; match the solar fixture's
+  // bounded readiness budget without changing any rendering assertions.
+  await expect(p.locator('canvas')).toBeVisible({timeout:15000});console.log('P3S2.6 visual cold readiness ms',webgl?'SwiftShader':'Canvas',Date.now()-started);
   await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return !!s.celestial?.fallback;})).toBe(true);
   expect(await p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return !!s.celestial.shader;})).toBe(webgl);
   if(!webgl){
@@ -60,7 +63,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
   expect(resources).toBe(10);
   expect(errors).toEqual([]);
   await p.getByRole('button',{name:'Back to home'}).click();await expect(p.locator('#visual-controls')).toHaveCount(0);
-  await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible();
+  await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible({timeout:15000});
   await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(9);
   await expect(p.locator('#visual-controls')).toHaveCount(1);
   await p.getByRole('button',{name:'Back to home'}).click();

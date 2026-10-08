@@ -14,7 +14,7 @@ export function galaxyPoints(index:number){
   let x:number,y:number;
   if(g.kind==='spiral'){x=Math.cos(theta)*r*g.radius;y=Math.sin(theta)*r*g.radius*.5;}
   else {x=(random()+random()-1)*g.radius;y=(random()+random()-1)*g.radius*(g.kind==='band'?.08:.38);}
-  return {x:g.x+x*Math.cos(g.angle)-y*Math.sin(g.angle),y:g.y+x*Math.sin(g.angle)+y*Math.cos(g.angle),alpha:.08+random()*.32,size:.4+random()*.8};
+  return {x:g.x+x*Math.cos(g.angle)-y*Math.sin(g.angle),y:g.y+x*Math.sin(g.angle)+y*Math.cos(g.angle),alpha:.08+random()*.32,size:1.6+random()*1.7};
  });
 }
 export function paintGalaxies(ctx:CanvasRenderingContext2D,size:number){

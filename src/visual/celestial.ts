@@ -99,7 +99,10 @@ export class CelestialWorld {
   for(const [i,group]of this.cosmicClusters.entries()){
    const p=COSMIC_CLUSTERS[i],x=p.x-camera.scrollX*p.parallax,y=p.y-camera.scrollY*p.parallax;
    group.setScale(1/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z).setVisible((animated||i%2===0)&&x+180>0&&x-180<w&&y+110>0&&y-110<h);
-   if(group.visible&&animated)for(let j=0;j<group.length;j++){const rock=group.list[j] as Phaser.GameObjects.Image;rock.rotation=Number(rock.getData('baseRotation'))+elapsed*.000012*(j%2?1:-1);if(j>=8)rock.y=Number(rock.getData('baseY'))+Math.sin(elapsed*.00016+j)*3;}
+   for(let j=0;j<group.length;j++){
+    const rock=group.list[j] as Phaser.GameObjects.Image;rock.setVisible(animated||j<4);
+    if(group.visible&&animated){rock.rotation=Number(rock.getData('baseRotation'))+elapsed*.000012*(j%2?1:-1);if(j>=8)rock.y=Number(rock.getData('baseY'))+Math.sin(elapsed*.00016+j)*3;}
+   }
 
   }
 
