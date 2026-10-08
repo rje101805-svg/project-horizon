@@ -1,3 +1,4 @@
+import {paintGalaxies,GALAXY_SPAN} from './cosmos';
 import {generateStars,STAR_COLORS,SKY_SPAN,nebulaColor,parallaxOffset} from './environment';
 import Phaser from 'phaser';
 import { PARALLAX, seededRandom } from './config';
@@ -18,10 +19,13 @@ export class DeepSpace {
     },-29);
     // A small opaque bake replaces both navy uniformity and expensive transparent
     // fog copies. Low hides it; the logical period matches the stars for lens sampling.
-    this.make('haze',512,PARALLAX.haze,ctx=>{
-      const image=ctx.createImageData(512,512);
-      for(let y=0;y<512;y++)for(let x=0;x<512;x++){const rgb=nebulaColor(x/512,y/512),o=(y*512+x)*4;for(let c=0;c<3;c++)image.data[o+c]=rgb[c];image.data[o+3]=255;}ctx.putImageData(image,0,0);
-    },-29.5,4);
+    this.make('haze',1024,PARALLAX.haze,ctx=>{
+      const image=ctx.createImageData(1024,1024);
+      for(let y=0;y<1024;y++)for(let x=0;x<1024;x++){const rgb=nebulaColor(x/1024,y/1024+.3),o=(y*1024+x)*4;for(let c=0;c<3;c++)image.data[o+c]=rgb[c];image.data[o+3]=255;}ctx.putImageData(image,0,0);
+          const dustRandom=seededRandom(32611);
+      for(let i=0;i<7500;i++){const x=dustRandom()*1024,y=dustRandom()*1024,rgb=nebulaColor(x/1024,y/1024+.3);if(Math.max(...rgb)<65)continue;ctx.globalAlpha=.12+dustRandom()*.35;ctx.fillStyle=i%3?'#ec86ee':'#53dce9';ctx.fillRect(x,y,.35+dustRandom()*.55,.35+dustRandom()*.55);}ctx.globalAlpha=1;
+    },-29.5,2);
+    this.make('galaxies',1024,.012,ctx=>paintGalaxies(ctx,1024),-29.25,GALAXY_SPAN/1024);
     this.make('dust',1024,PARALLAX.dust,ctx=>{for(let i=0;i<34;i++){const alpha=.035+rng()*.055,x=rng()*1024,y=rng()*1024;this.dustPoints.push({x,y,size:1.3,alpha});ctx.fillStyle=`rgba(160,185,191,${alpha})`;ctx.fillRect(x,y,1.3,.6);}},8);
     // Phaser Canvas copies transparent TileSprite canvases into the main canvas.
     // Profiling showed these sparse star/dust copies dominate draw time. Cache
@@ -63,7 +67,7 @@ export class DeepSpace {
       layer.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
       const factor=enabled ? layer.getData('parallax') as number : 0;
       const scale=layer.getData('tileScale') as number;layer.tilePositionX=camera.scrollX*factor/scale;layer.tilePositionY=camera.scrollY*factor/scale;
-      if(layer.depth===8||layer.depth===-29.5)layer.setVisible(dust);
+      if(layer.depth===8||(layer.depth===-29.5||layer.depth===-29.25))layer.setVisible(dust);
       if(this.canvasGeometry.length&&(layer.depth===-29||layer.depth===8))layer.setVisible(false);
     }
     for(const g of this.canvasGeometry){

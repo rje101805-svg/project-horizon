@@ -57,11 +57,11 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
    await p.locator('canvas').screenshot({path:'/tmp/p3s1-combat.png'});
   }
   const resources=await p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;});
-  expect(resources).toBe(9);
+  expect(resources).toBe(10);
   expect(errors).toEqual([]);
   await p.getByRole('button',{name:'Back to home'}).click();await expect(p.locator('#visual-controls')).toHaveCount(0);
   await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible();
-  await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(8);
+  await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(9);
   await expect(p.locator('#visual-controls')).toHaveCount(1);
   await p.getByRole('button',{name:'Back to home'}).click();
  }}finally{await browser.close();}
