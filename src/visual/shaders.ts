@@ -51,10 +51,10 @@ void main(){
  vec2 screen=(source-scroll)*zoom+viewport*.5*(1.-zoom);
  vec2 v=fract(screen/1024.);
  vec3 base=texture2D(iChannel0,v).rgb;
- vec2 stars=fract((screen+scroll*.035*parallax)/1024.);
- vec4 s=texture2D(iChannel1,stars);base=base*(1.-s.a)+s.rgb;
- vec2 haze=fract((screen+scroll*.10*parallax)/1024.);
+ vec2 haze=fract((screen+scroll*.10*parallax)/2048.);
  vec4 h=texture2D(iChannel2,haze);base=base*(1.-h.a)+h.rgb;
+ vec2 stars=fract((screen+scroll*.035*parallax)/2048.);
+ vec4 s=texture2D(iChannel1,stars);base=base*(1.-s.a)+s.rgb;
  float arcDistance=(r-1.30)/.07;float arc=exp(-arcDistance*arcDistance)*(.008+.018*intensity);
  base+=vec3(.35,.23,.10)*arc;
  gl_FragColor=vec4(base*envelope,envelope);

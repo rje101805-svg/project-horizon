@@ -1,3 +1,5 @@
+Current user-authorized scope: P3S2.5 environment and planet-material refinement only, four independently verified commits on work. Preserve 12000-unit world, all planet geometry and accepted gameplay. Decoration is subdued, client-only and non-interactive; gameplay and danger retain visual priority. No P3S3, deployment or Pages rebuild. This supersedes historical scope restrictions below.
+
 Current user-authorized scope: P3S2 solar-system expansion in four verified staged commits on work. Planets and secondary landmarks are visual-only. No collision, bullet/tractor obstruction, obstacle navigation, later gameplay, deployment or Pages rebuild. Preserve accepted gameplay; use clustered temporary human spawns. This supersedes the historical P3S1 scope below.
 
 # Project Horizon architecture
