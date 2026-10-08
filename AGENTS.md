@@ -1,3 +1,5 @@
+Current user-authorized scope: P3S2 solar-system expansion in four verified staged commits on work. Planets and secondary landmarks are visual-only. No collision, bullet/tractor obstruction, obstacle navigation, later gameplay, deployment or Pages rebuild. Preserve accepted gameplay; use clustered temporary human spawns. This supersedes the historical P3S1 scope below.
+
 # Project Horizon architecture
 
 Current scope: P3S1 visual foundation only on `work`, preserving all accepted Phase 2 gameplay and the 2400-unit arena. User authorization supersedes historical restrictions below. Four staged commits: A deep space/camera, B ice planet/light/distant bodies, C Horizon/lensing/intensity, D readability/fallback/tests/docs. Client-only visual work; no P3S2 map expansion, storm/gravity/surges, collision/loot/landing, AI or general VFX redesign. No deployment or Pages rebuild.

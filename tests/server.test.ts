@@ -28,7 +28,7 @@ test('fixed-step physics preserves speed, normalized diagonals, inertia, bounds 
   for (let i = 0; i < 30; i++) stepFlight(boosted, { ...idleInput(), right: true, boost: true });
   assert.ok(boosted.vx > 439 && boosted.vx <= 440);
   const before = boosted.vx; stepFlight(boosted, idleInput()); assert.ok(boosted.vx > 0 && boosted.vx < before);
-  for (let i = 0; i < 1000; i++) stepFlight(boosted, { ...idleInput(), right: true });
+  for (let i = 0; i < Math.ceil(WORLD / 290 / TICK_SECONDS); i++) stepFlight(boosted, { ...idleInput(), right: true });
   assert.equal(boosted.x, WORLD - EDGE_MARGIN);
   assert.equal(TICK_SECONDS, 1 / 30);
   assert.equal(parseInput({ ...idleInput(), aim: Infinity }), null);

@@ -5,7 +5,7 @@ import { MAX_HEALTH, RESPAWN_DELAY_MS, clampHealth } from '../shared/lifecycle';
 import { RoomStore } from '../server/rooms';
 import { simulatePlayer } from '../server/simulation';
 import { applyDamage } from '../server/health';
-import { idleInput } from '../shared/flight';
+import { WORLD, idleInput } from '../shared/flight';
 import { classifyRegion, SPAWN_CLEARANCE } from '../shared/black-hole';
 function fixture() {
   const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
@@ -85,7 +85,7 @@ test('repeated respawns use current moved/grown black-hole state and retain safe
 });
 test('no available safe spawn keeps the player dead and retries safely without extra deaths', () => {
   const { room, player, kill } = fixture(); kill(0);
-  room.blackHole.influenceRadius = 10000;
+  room.blackHole.influenceRadius = WORLD*2;
   simulatePlayer(player, room, RESPAWN_DELAY_MS, RESPAWN_DELAY_MS);
   assert.equal(player.state.lifeState, 'dead'); assert.equal(player.state.health, 0);
   assert.equal(player.state.respawnRemainingMs, 0); assert.equal(player.state.lifeGeneration, 0);

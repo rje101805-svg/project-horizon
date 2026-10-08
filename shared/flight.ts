@@ -1,5 +1,5 @@
 // Shared fixed-tick flight values for authority and local prediction.
-export const WORLD = 2400;
+export const WORLD = 12000;
 export const CENTER = WORLD / 2;
 export const TICK_RATE = 30;
 export const TICK_SECONDS = 1 / TICK_RATE;
@@ -16,7 +16,7 @@ export interface PlayerInput {
 }
 export interface FlightState { x: number; y: number; vx: number; vy: number; rotation: number }
 export const idleInput = (): PlayerInput => ({ up: false, down: false, left: false, right: false, boost: false, aim: 0 });
-export const spawnFlight = (): FlightState => ({ x: CENTER + 170, y: CENTER, vx: 0, vy: 0, rotation: 0 });
+export const spawnFlight = (): FlightState => ({ x: 1370, y: 1200, vx: 0, vy: 0, rotation: 0 });
 // Strictly select input fields: client positions, velocities and speeds are never used.
 export function parseInput(value: unknown): PlayerInput | null {
   if (!value || typeof value !== 'object') return null;

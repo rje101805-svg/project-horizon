@@ -104,7 +104,7 @@ test('edge spawn validates bounds, separation and current horizon; no candidate 
     assert.ok(spawn.x===EDGE_MARGIN || spawn.x===WORLD-EDGE_MARGIN || spawn.y===EDGE_MARGIN || spawn.y===WORLD-EDGE_MARGIN);
     assert.ok(Math.hypot(spawn.x-room.blackHole.x,spawn.y-room.blackHole.y)>room.blackHole.influenceRadius+SPAWN_CLEARANCE);
   }
-  kill(b); room.blackHole.influenceRadius=10000; respawn(b); assert.equal(b.state.lifeState,'dead'); assert.equal(b.state.lifeGeneration,0);
+  kill(b); room.blackHole.influenceRadius=WORLD*2; respawn(b); assert.equal(b.state.lifeState,'dead'); assert.equal(b.state.lifeGeneration,0);
   room.blackHole.influenceRadius=500; respawn(b,4001); assert.equal(b.state.lifeState,'active'); assert.equal(b.state.status,'ALIEN');
 });
 test('human projectiles kill an unprotected alien, report lethal clamped damage and retain eligibility across respawn', () => {
