@@ -12,3 +12,14 @@ test('CPU material fallback preserves volcanic emission in shadow and moon has n
  // Top pixel lies in atmospheric shell, outside solid sphere.
  assert.equal(moon[(1*64+32)*4+3],0);assert.ok(bake('ice')[(1*64+32)*4+3]>0);
 });
+import {reliefNormal} from '../src/visual/planet-material';
+test('crater relief normals follow the sphere basis and both directional lights',()=>{
+ const n=[.6,0,.8];assert.deepEqual(reliefNormal(...n as [number,number,number],[0,0,1]),n);
+ const bent=reliefNormal(0,0,1,[-.6,0,.8]);assert.deepEqual(bent,[-.6,0,.8]);assert.ok(Math.abs(Math.hypot(...reliefNormal(.3,.4,Math.sqrt(.75),[.2,-.3,.93]))-1)<1e-9);
+ const map={width:2,height:2,data:new Uint8ClampedArray(16).fill(150)},clouds={...map,data:new Uint8ClampedArray(16)};
+ const detail=(left:boolean)=>({...map,data:new Uint8ClampedArray(Array.from({length:4},()=>[left?51:204,128,230,255]).flat())});
+ const bake=(left:boolean,warm:readonly number[],intensity:number)=>{let output=new Uint8ClampedArray();const ctx={createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:(i:any)=>output=i.data};bakeMaterial(ctx as unknown as CanvasRenderingContext2D,32,'moon',map,clouds,warm,intensity,detail(left));return output[(16*32+16)*4];};
+ assert.ok(bake(true,[1,0,0],0)>bake(false,[1,0,0],0));
+ assert.ok(bake(false,[1,0,0],1)>bake(true,[1,0,0],1));
+ assert.ok(bake(true,[-1,0,0],1)>bake(false,[-1,0,0],1));
+});

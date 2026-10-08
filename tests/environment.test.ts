@@ -20,3 +20,8 @@ test('distant scenery is a restrained, varied client-only set with directional s
  let output=new Uint8ClampedArray();const ctx={createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:(i:any)=>output=i.data};bakeDistant(ctx as unknown as CanvasRenderingContext2D,64,'rock');
  const pixel=(x:number,y:number)=>output[(y*64+x)*4];assert.ok(pixel(20,20)>pixel(44,44));assert.equal(output[3],0);
 });
+import {rockOutline} from '../src/visual/debris';
+test('rock atlases have bounded irregular silhouettes with deterministic shape variation',()=>{
+ assert.deepEqual(rockOutline(32530),rockOutline(32530));assert.notDeepEqual(rockOutline(32530),rockOutline(32531));
+ for(let i=0;i<8;i++){const rock=rockOutline(32530+i);assert.ok(rock.length>=7&&rock.length<=10);assert.ok(rock.every(p=>Math.hypot(p.x,p.y)<1));assert.ok(new Set(rock.map(p=>Math.hypot(p.x,p.y).toFixed(3))).size>4);}
+});

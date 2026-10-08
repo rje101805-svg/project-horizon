@@ -1,3 +1,4 @@
+import {bakeRock} from './debris';
 import {DISTANT_BODIES,bakeDistant} from './distant';
 import Phaser from 'phaser';
 import {PLANET_REGIONS,LANDMARKS} from './solar-layout';
@@ -28,7 +29,7 @@ export class CelestialWorld {
  readonly bodies:Body[]=[];
  get planet(){return this.bodies[0].planet;}get fallback(){return this.bodies[0].fallback;}get shader(){return this.bodies[0].shader;}
  readonly distant:Phaser.GameObjects.Image[]=[];
- readonly decorations:Phaser.GameObjects.Graphics[]=[];study=false;
+ readonly decorations:Phaser.GameObjects.Container[]=[];study=false;
  enabled=true;quality:'standard'|'low'='standard';studyBiome:Biome='ice';
  private clouds:SurfaceMap;
  constructor(private scene:Phaser.Scene){
@@ -36,12 +37,20 @@ export class CelestialWorld {
   this.clouds=read('surface-clouds');
   for(const [i,biome]of BIOMES.entries()){
    const planet={...PLANET_REGIONS[i]},key=i===0?'ice-prototype':`planet-${biome}-bake`,map=read(`surface-${biome}`),detail=read(`surface-${biome}-detail`);
-   const texture=scene.textures.createCanvas(key,384,384)!;bakeMaterial(texture.context,384,biome,map,this.clouds,[1,0,.48],0,detail);texture.refresh();
+   const texture=scene.textures.createCanvas(key,768,768)!;bakeMaterial(texture.context,768,biome,map,this.clouds,[1,0,.48],0,detail);texture.refresh();
    const fallback=scene.add.image(planet.x,planet.y,key).setDisplaySize(planet.radius*2.15,planet.radius*2.15).setDepth(-12);
    const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
    this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
   }
-  const random=seededRandom(3203);for(const p of LANDMARKS){const g=scene.add.graphics().setPosition(p.x,p.y).setDepth(-11);for(let i=0;i<p.count;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=6+random()*12;g.fillStyle(0x48505c,.6).fillEllipse(x,y,r*2,r*1.4);g.lineStyle(1,0x87929d,.5).strokeEllipse(x,y,r*2,r*1.4);}this.decorations.push(g);}
+  const rocks=scene.textures.createCanvas('debris-atlas',256,128)!;
+  const rockCanvas=document.createElement('canvas');rockCanvas.width=rockCanvas.height=64;const rockContext=rockCanvas.getContext('2d')!;
+  for(let i=0;i<8;i++){bakeRock(rockContext,64,32530+i);const x=(i%4)*64,y=Math.floor(i/4)*64;rocks.context.drawImage(rockCanvas,x,y);rocks.add(String(i),0,x,y,64,64);}rocks.refresh();
+  const random=seededRandom(3203);
+  for(const p of LANDMARKS){const group=scene.add.container(p.x,p.y).setDepth(-11);
+   for(let i=0;i<p.count;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=12+random()*22;
+    group.add(scene.add.image(x,y,'debris-atlas',String(Math.floor(random()*8))).setDisplaySize(r,r*(.65+random()*.4)).setRotation(random()*Math.PI*2).setAlpha(.72));
+   }this.decorations.push(group);
+  }
   // Two shared atlases, five images, no per-frame sphere generation.
   const atlas=scene.textures.createCanvas('distant-body-0',512,512)!;
   const scratch=document.createElement('canvas');scratch.width=scratch.height=256;const ctx=scratch.getContext('2d')!;
@@ -59,7 +68,7 @@ export class CelestialWorld {
    const warm=horizonDirection(p,horizon);
    if(body.shader){const size=p.radius*2.15;if(body.shader.width!==size){body.shader.setSize(size,size);body.shader.updateDisplayOrigin();}body.shader.setVisible(visible&&live).setPosition(p.x,p.y);if(visible&&live){body.shader.setUniform('intensity.value',intensity);body.shader.setUniform('warmDirection.value',warm);}}
    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
-   if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,384,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
+   if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,768,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
   for(let i=0;i<this.decorations.length;i++)this.decorations[i].setVisible(!this.study&&visibleCircle(camera.worldView,LANDMARKS[i],200));
   const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
@@ -71,5 +80,5 @@ export class CelestialWorld {
   }
 
  }
- destroy(){for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
+ destroy(){this.scene.textures.remove('debris-atlas');for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
 }
