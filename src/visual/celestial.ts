@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { advancedEnabled } from './intensity';
 import { horizonDirection,shadeNormal,visibleCircle, type Point } from './lighting';
 import { PARALLAX } from './config';
-import { PLANET_FRAGMENT } from './shaders';
+import { BIOMES, bakeMaterial, MATERIAL_FRAGMENT, type Biome, type SurfaceMap } from './planet-material';
 import { optionalShader } from './shader-support';
 // CPU bake is deliberately shared by distant decoration and the Canvas fallback.
 export function bakeSphere(ctx:CanvasRenderingContext2D,size:number,warm:readonly number[]=[1,0,.48],intensity=0,distant=false){
@@ -19,34 +19,39 @@ export function bakeSphere(ctx:CanvasRenderingContext2D,size:number,warm:readonl
  }
  ctx.putImageData(image,0,0);
 }
+interface Body {
+ planet:{x:number;y:number;radius:number};biome:Biome;fallback:Phaser.GameObjects.Image;shader:Phaser.GameObjects.Shader|null;key:string;lightKey:string;lastBake:number;map:SurfaceMap;detail:SurfaceMap;
+}
 export class CelestialWorld {
-  readonly planet={x:650,y:1500,radius:380};
-  readonly fallback:Phaser.GameObjects.Image;
-  readonly shader:Phaser.GameObjects.Shader|null;
-  readonly distant:Phaser.GameObjects.Image[]=[];
-  enabled=true;
-  quality:'standard'|'low'='standard';
-  private intensityKey='0';private lastBake=-Infinity;
-  constructor(private scene:Phaser.Scene){
-   const texture=scene.textures.createCanvas('ice-prototype',384,384)!;bakeSphere(texture.context,384);texture.refresh();
-   this.fallback=scene.add.image(this.planet.x,this.planet.y,'ice-prototype').setDisplaySize(817,817).setDepth(-12);
-   this.shader=optionalShader(scene,'ice-sphere',PLANET_FRAGMENT,this.planet.x,this.planet.y,817,817,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]}})?.setDepth(-12)??null;
-   for(const [i,size] of [512,128].entries()){
-     const key=`distant-body-${i}`,tex=scene.textures.createCanvas(key,size,size)!;bakeSphere(tex.context,size,[1,0,.48],0,true);tex.refresh();
-     this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.28:.30));
-   }
+ readonly bodies:Body[]=[];
+ get planet(){return this.bodies[0].planet;}get fallback(){return this.bodies[0].fallback;}get shader(){return this.bodies[0].shader;}
+ readonly distant:Phaser.GameObjects.Image[]=[];
+ enabled=true;quality:'standard'|'low'='standard';studyBiome:Biome='ice';
+ private clouds:SurfaceMap;
+ constructor(private scene:Phaser.Scene){
+  const read=(key:string):SurfaceMap=>{const source=scene.textures.get(key).getSourceImage() as HTMLImageElement,c=document.createElement('canvas');c.width=source.width;c.height=source.height;const ctx=c.getContext('2d')!;ctx.drawImage(source,0,0);return {width:c.width,height:c.height,data:ctx.getImageData(0,0,c.width,c.height).data};};
+  this.clouds=read('surface-clouds');
+  for(const [i,biome]of BIOMES.entries()){
+   const planet={x:650,y:1500,radius:380},key=i===0?'ice-prototype':`planet-${biome}-bake`,map=read(`surface-${biome}`),detail=read(`surface-${biome}-detail`);
+   const texture=scene.textures.createCanvas(key,384,384)!;bakeMaterial(texture.context,384,biome,map,this.clouds,[1,0,.48],0,detail);texture.refresh();
+   const fallback=scene.add.image(planet.x,planet.y,key).setDisplaySize(planet.radius*2.15,planet.radius*2.15).setDepth(-12);
+   const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
+   this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
   }
-  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
-    const visible=this.enabled&&visibleCircle(camera.worldView,this.planet,this.planet.radius*1.08),live=advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!this.shader,this.quality);
-    this.fallback.setVisible(visible&&!live).setPosition(this.planet.x,this.planet.y);
-    const warm=horizonDirection(this.planet,horizon);
-    if(this.shader){this.shader.setVisible(visible&&live).setPosition(this.planet.x,this.planet.y);if(visible&&live){this.shader.setUniform('intensity.value',intensity);this.shader.setUniform('warmDirection.value',warm);}}
-    // Only rebake on a visible, changed light direction/intensity, at most 4Hz.
-    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
-    if(visible&&!live&&key!==this.intensityKey&&now-this.lastBake>=250){this.lastBake=now;this.intensityKey=key;const tex=this.scene.textures.get('ice-prototype') as Phaser.Textures.CanvasTexture;bakeSphere(tex.context,384,warm,intensity);tex.refresh();}
-    const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height,px=camera.scrollX*PARALLAX.bodies,py=camera.scrollY*PARALLAX.bodies;
-    this.distant[0].setDisplaySize(1320/z,1320/z).setPosition(w*.5+(w*.9-px-w*.5)/z,h*.5+(160-py*.4-h*.5)/z);
-    this.distant[1].setDisplaySize(150/z,150/z).setPosition(w*.5+(260-px*.6-w*.5)/z,h*.5+(90-py*.5-h*.5)/z);
+  for(const [i,size]of [512,128].entries()){const key=`distant-body-${i}`,tex=scene.textures.createCanvas(key,size,size)!;bakeSphere(tex.context,size,[1,0,.48],0,true);tex.refresh();this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.28:.30));}
+ }
+ update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
+  for(const body of this.bodies){
+   const p=body.planet,visible=this.enabled&&body.biome===this.studyBiome&&visibleCircle(camera.worldView,p,p.radius*1.075),live=advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
+   body.fallback.setVisible(visible&&!live).setPosition(p.x,p.y).setDisplaySize(p.radius*2.15,p.radius*2.15);
+   const warm=horizonDirection(p,horizon);
+   if(body.shader){body.shader.setVisible(visible&&live).setPosition(p.x,p.y);if(visible&&live){body.shader.setUniform('intensity.value',intensity);body.shader.setUniform('warmDirection.value',warm);}}
+   const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
+   if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,384,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
-  destroy(){this.shader?.destroy();this.fallback.destroy();for(const d of this.distant)d.destroy();for(const key of ['ice-prototype','distant-body-0','distant-body-1'])this.scene.textures.remove(key);}
+  const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height,px=camera.scrollX*PARALLAX.bodies,py=camera.scrollY*PARALLAX.bodies;
+  this.distant[0].setDisplaySize(1320/z,1320/z).setPosition(w*.5+(w*.9-px-w*.5)/z,h*.5+(160-py*.4-h*.5)/z);
+  this.distant[1].setDisplaySize(150/z,150/z).setPosition(w*.5+(260-px*.6-w*.5)/z,h*.5+(90-py*.5-h*.5)/z);
+ }
+ destroy(){for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
 }

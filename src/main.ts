@@ -65,6 +65,7 @@ class Horizon extends Phaser.Scene {
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
+  preload() { this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
   create() {
     const webgl=this.game.renderer.type===Phaser.WEBGL;
     this.visualIntensity.quality=defaultVisualQuality(webgl);
@@ -113,7 +114,7 @@ class Horizon extends Phaser.Scene {
       pointer.updateWorldPoint(this.cameras.main);
       this.fireAim = this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
     });
-    this.ready = true;
+    this.ready = true;this.game.canvas.style.visibility='visible';el('game').style.visibility='visible';
     if(import.meta.env.DEV)void import('./visual/debug').then(({installVisualDebug})=>{
       if(this.ready)this.visualDebugCleanup=installVisualDebug(this.visualIntensity,name=>{this.composition=name;if((name==='horizon'||name==='combat')&&!this.previewHorizon)this.previewHorizon=new HorizonVisual(this,'study');});
     });
@@ -348,6 +349,7 @@ function launch() {
   el('status').textContent = 'Connecting to flight server…';
   el('home').hidden = true; el('mission').hidden = false;
   if (game) { game.destroy(true); game = undefined; }
+  el('game').style.visibility='hidden';
   game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 1100, height: 600, backgroundColor: '#080e1e', scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: Horizon });
   if (import.meta.env.DEV) Object.assign(window, { __HORIZON_GAME__: game });
 }

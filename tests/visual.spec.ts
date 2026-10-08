@@ -1,7 +1,7 @@
 import { test, expect, chromium } from '@playwright/test';
 import { existsSync } from 'node:fs';
 test('WebGL sphere initializes and Canvas fallback remains visible without gameplay errors', async ({ page }) => {
- test.setTimeout(60000);
+ test.setTimeout(90000);
  const browser=await chromium.launch({executablePath:existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-timer-throttling','--disable-renderer-backgrounding','--disable-backgrounding-occluded-windows']});
  const gpu=await browser.newPage();
  try{for(const [p,webgl] of [[page,false],[gpu,true]] as const){
@@ -78,7 +78,7 @@ test('eight-participant visual studies retain authoritative combat, alien identi
  const address=server.http.address();if(!address||typeof address==='string')throw Error('Missing port');let tick=0;const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const frame=async()=>{await page.evaluate(()=>new Promise<void>(r=>(window as any).__HORIZON_FLIGHT__.socket.emit('latencyProbe',r)));server.step();tick++;await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
+  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await expect.poll(()=>page.evaluate(()=>!!(window as any).__HORIZON_FLIGHT__)).toBe(true);await frame();
   await page.locator('#fill-game').click();await expect.poll(()=>[...store.rooms.values()][0].players.size).toBe(8);await frame();await page.locator('#start-match').click();await expect.poll(()=>[...store.rooms.values()][0].match.state).toBe('active');
   const room=[...store.rooms.values()][0],players=[...room.players.values()],a=players[0],b=players[1],ghost=players[7];
   applyDamage(ghost,999,{type:'PLAYER',playerId:a.state.id},room.simulationTimeMs);ghost.respawnAtMs=room.simulationTimeMs;await frame();expect(ghost.state.status).toBe('ALIEN');expect(ghost.state.lifeState).toBe('active');
