@@ -14,10 +14,12 @@ test('distant parallax fields wrap continuously through negative and positive tr
 import {DISTANT_BODIES,distantSurface,bakeDistant} from '../src/visual/distant';
 test('distant scenery is a restrained, varied client-only set with directional sphere shading',()=>{
  assert.equal(DISTANT_BODIES.length,11);assert.equal(new Set(DISTANT_BODIES.map(b=>b.kind)).size,11);
- assert.ok(DISTANT_BODIES.every(b=>b.parallax<.2&&b.alpha<=.9&&b.size<=210));
+ assert.ok(DISTANT_BODIES.every(b=>b.parallax<.2&&b.alpha<=.9&&b.size<=138));
  assert.notDeepEqual(distantSurface('gas',.1,.2,.97),distantSurface('ice',.1,.2,.97));
  let output=new Uint8ClampedArray();const ctx={createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:(i:any)=>output=i.data};bakeDistant(ctx as unknown as CanvasRenderingContext2D,64,'rock');
  const pixel=(x:number,y:number)=>output[(y*64+x)*4];assert.ok(pixel(20,20)>pixel(44,44));assert.equal(output[3],0);
+ bakeDistant(ctx as unknown as CanvasRenderingContext2D,64,'silhouette');
+ assert.ok(pixel(20,20)>35);assert.ok(pixel(20,20)>pixel(44,44)*1.5);
 });
 import {rockOutline} from '../src/visual/debris';
 test('rock atlases have bounded irregular silhouettes with deterministic shape variation',()=>{
