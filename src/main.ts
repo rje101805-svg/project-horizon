@@ -1,3 +1,4 @@
+import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
 import {SHIP_ART,shipArtForColor,type ShipArt} from './visual/ships';
 import {preloadCosmicImages} from './visual/cosmic-images';
 import {PLANET_REGIONS,LANDMARKS,mapPoint} from './visual/solar-layout';
@@ -48,6 +49,7 @@ class Horizon extends Phaser.Scene {
   private localHud!: ShipCombatHud;
   private projectileView = new ProjectileView();
   private tractorGraphics!: Phaser.GameObjects.Graphics;
+  private hitboxGraphics?: Phaser.GameObjects.Graphics;
   private lastTractorShake=0;
   private projectileGraphics!: Phaser.GameObjects.Graphics;
   private fireAim = 0;
@@ -79,6 +81,7 @@ class Horizon extends Phaser.Scene {
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
+    if(import.meta.env.DEV)this.hitboxGraphics=this.add.graphics().setDepth(7).setVisible(false);
     this.horizonVisual=new HorizonVisual(this);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(connection.room.blackHole);
@@ -146,7 +149,7 @@ class Horizon extends Phaser.Scene {
     const art=shipArtForColor(player.color);
     const sprite=this.add.image(0,0,art.textureKey).setOrigin(art.originX,art.originY).setScale(art.visualScale).setRotation(art.rotationOffset).setName('custom-ship');
     hull.setVisible(false);body.add([sprite,hull]);
-    const label = this.add.text(player.x, player.y + 27, player.name + (local ? ' (you)' : ''), {
+    const label = this.add.text(player.x, player.y + 44, player.name + (local ? ' (you)' : ''), {
       fontSize: '13px', color: '#ffffff', backgroundColor: '#0e1729', padding: { x: 4, y: 2 },
     }).setOrigin(.5, 0).setDepth(5);
     const ship = { body, label, hull, sprite, art, alien:false }; this.ships.set(player.id, ship); return ship;
@@ -164,7 +167,7 @@ class Horizon extends Phaser.Scene {
       ship.sprite.setVisible(!alien);ship.hull.setVisible(alien);
     }
     ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
-    ship.label.setPosition(player.x, player.y + 27).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
+    ship.label.setPosition(player.x, player.y + (alien?27:44)).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
     // Edge-spawned ghosts keep their tag readable without moving the ship/camera.
     const view = this.cameras.main.worldView;
     if (alien && view.contains(player.x, player.y)) ship.label.setPosition(
@@ -300,10 +303,23 @@ class Horizon extends Phaser.Scene {
     }
     for (const player of this.interpolator.sample(performance.now(), this.connection.socket.id ?? '')) this.placeShip(player);
     this.updateSpectatorCamera();
+    if(import.meta.env.DEV&&this.hitboxGraphics){
+      const visible=!el('debug-overlay').hidden;
+      this.hitboxGraphics.clear().setVisible(visible);
+      if(visible){
+        // Latest authoritative centers, not interpolated/predicted hull positions.
+        // Ordinary world-space Graphics inherit the camera's zoom and scroll.
+        this.hitboxGraphics.lineStyle(1,0x9defff,.7);
+        for(const player of this.connection.latest?.players??[]){
+          if(player.status!=='OUT'&&player.lifeState==='active'&&player.health>0)
+            this.hitboxGraphics.strokeCircle(player.x,player.y,SHIP_HITBOX_RADIUS);
+        }
+      }
+    }
     this.drawTractors(now);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
     for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) {this.projectileGraphics.fillStyle(0x030912).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius+1);this.projectileGraphics.fillStyle(0xffe08a).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius);}
-    this.localHud.render(this.rocket.x, this.rocket.y, now);
+    this.localHud.render(this.rocket.x, this.rocket.y-(local?.status==='ALIEN'?0:17), now);
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;

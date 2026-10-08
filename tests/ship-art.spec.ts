@@ -1,3 +1,4 @@
+import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
 import {test,expect} from '@playwright/test';
 import {RoomStore} from '../server/rooms';
 import {createGameServer} from '../server/game';
@@ -15,13 +16,31 @@ try{
  const room=store.rooms.get(code!)!,players=[...room.players.values()];const initial=await snapshot();if(new Set(initial.map(p=>p.key)).size!==8)throw Error('Designs not unique');
  const second=await peer.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return [...s.ships].map(([id,v]:any)=>({id,key:v.art.key})).sort((a,b)=>a.id.localeCompare(b.id));});if(JSON.stringify(second)!==JSON.stringify(initial.map(({id,key})=>({id,key}))))throw Error('Client assignments disagree');
  // Test-only snapshot layout shows all supplied hulls at once. No runtime switcher or server source change.
- const center=players[0].state;const positions=[[0,0],[-360,-120],[-140,-120],[100,-120],[340,-120],[-340,120],[-100,120],[180,120]];
+ const center=players[0].state;const positions=[[0,0],[-360,-120],[-140,-120],[100,-120],[280,-120],[-340,120],[-100,120],[180,120]];
  for(const [i,p]of players.entries()){p.state.x=center.x+positions[i][0];p.state.y=center.y+positions[i][1];p.state.teleportSequence++;}await frame();await page.waitForTimeout(500);
  await page.locator('canvas').screenshot({path:'test-results/p3s28-eight-ships.png'});
  // Inspect rotation transforms directly through the existing presentation method.
  const rotations=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],players=(window as any).__HORIZON_FLIGHT__.latest.players;const observations=[];
  for(const player of players)for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5]){s.placeShip({...player,rotation:angle});const ship=s.ships.get(player.id),m=ship.sprite.getWorldTransformMatrix(),origin=m.transformPoint(0,0),nose=m.transformPoint(0,-1);observations.push({angle,pivotError:Math.hypot(origin.x-ship.body.x,origin.y-ship.body.y),noseError:Math.hypot(nose.x-origin.x-Math.cos(angle)*ship.sprite.scaleX,nose.y-origin.y-Math.sin(angle)*ship.sprite.scaleY)});}return observations;});
  if(rotations.some(r=>r.pivotError>.001||r.noseError>.001))throw Error('Heading/pivot alignment failed');
+ // Validate main opaque hull coverage, excluding the manually normalized flame tails.
+ const radii=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return [...s.ships.values()].map((ship:any)=>{
+  const source=ship.sprite.texture.getSourceImage(),canvas=document.createElement('canvas');canvas.width=source.width;canvas.height=source.height;const ctx=canvas.getContext('2d')!;ctx.drawImage(source,0,0);const pixels=ctx.getImageData(0,0,source.width,source.height).data;let radius=0;
+  for(let y=0;y<source.height*ship.art.originY*2;y++)for(let x=0;x<source.width;x++)if(pixels[(y*source.width+x)*4+3]>=128)radius=Math.max(radius,Math.hypot(x-source.width*ship.art.originX,y-source.height*ship.art.originY)*ship.art.visualScale);
+  return {key:ship.art.key,radius};});});
+ for(const hull of radii)expect(hull.radius,`${hull.key} main hull coverage`).toBeLessThanOrEqual(SHIP_HITBOX_RADIUS);
+ expect(await page.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].hitboxGraphics.visible)).toBe(false);
+ await page.keyboard.press('F3');
+ const circles=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],g=s.hitboxGraphics,circles:any[]=[],original=g.strokeCircle;g.strokeCircle=function(x:number,y:number,radius:number){circles.push({x,y,radius});return original.call(this,x,y,radius);};s.update();g.strokeCircle=original;return {space:[g.scrollFactorX,g.scrollFactorY,g.scaleX,g.scaleY],visible:g.visible,circles,players:(window as any).__HORIZON_FLIGHT__.latest.players.map(({x,y}:any)=>({x,y}))};});
+ expect(circles.space).toEqual([1,1,1,1]);expect(circles.visible).toBe(true);expect(circles.circles).toHaveLength(8);expect(circles.circles.map(({x,y})=>({x,y}))).toEqual(circles.players);expect(circles.circles.every(c=>c.radius===SHIP_HITBOX_RADIUS)).toBe(true);
+ await page.locator('canvas').screenshot({path:'test-results/p3s281-hitboxes.png'});
+ await page.keyboard.press('F3');await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].hitboxGraphics.visible)).toBe(false);
+ // Same camera, viewport and frozen fixture: isolate the 40% hull enlargement.
+ await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];s.scene.pause();for(const ship of s.ships.values()){ship.sprite.setScale(ship.art.visualScale/1.4);ship.label.y=ship.body.y+27;}s.localHud.graphics.y+=17;});
+ await page.locator('canvas').screenshot({path:'test-results/p3s281-before.png'});
+ await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];for(const ship of s.ships.values()){ship.sprite.setScale(ship.art.visualScale);ship.label.y=ship.body.y+44;}s.localHud.graphics.y-=17;});
+ await page.locator('canvas').screenshot({path:'test-results/p3s281-after.png'});
+ await page.evaluate(()=>{(window as any).__HORIZON_GAME__.scene.scenes[0].scene.resume();});
  await page.keyboard.press('F3');await page.locator('#visual-quality').selectOption('standard');await page.locator('canvas').screenshot({path:'test-results/p3s28-standard.png'});await page.locator('#visual-quality').selectOption('low');await page.waitForTimeout(100);await page.locator('canvas').screenshot({path:'test-results/p3s28-low.png'});
  await peer.getByRole('button',{name:'Back to home'}).click();await frame();const survivors=await snapshot();for(const s of survivors)if(s.key!==initial.find(p=>p.id===s.id)?.key)throw Error('Departing player reshuffled designs');
  await page.getByRole('button',{name:'Back to home'}).click();await page.waitForFunction(()=>Object.keys((window as any).__HORIZON_GAME__?.textures?.list??{}).filter(k=>k.startsWith('ship-art-')).length===0);

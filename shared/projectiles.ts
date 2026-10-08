@@ -1,8 +1,9 @@
+import { SHIP_HITBOX_RADIUS } from './ship-geometry';
 import { FIRE_COOLDOWN, MAX_AMMO } from './combat';
 // Temporary basic blaster balance; magazine/cooldown share the combat configuration.
 export const BASIC_BLASTER = Object.freeze({ damage: 25, muzzleSpeed: 800, lifetimeMs: 2000,
   fireIntervalMs: FIRE_COOLDOWN, magazineSize: MAX_AMMO, maxActive: 12,
-  muzzleOffset: 28, projectileRadius: 3, shipRadius: 18 });
+  muzzleOffset: 28, projectileRadius: 3, shipRadius: SHIP_HITBOX_RADIUS });
 export interface FireRequest { sequence: number; aim: number; lifeGeneration: number; teleportSequence: number }
 export type FireResult = { ok: true; sequence: number; projectileId: string; spawnTick: number; kind?: 'projectile' } |
   { ok: true; kind: 'melee'; sequence: number; damageApplied: number } |

@@ -81,7 +81,7 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
     // Bars follow the locally rendered ship, not a delayed/rotating enemy container.
     await page.keyboard.down('d');await page.waitForTimeout(lag?250:80);
     const start=a.state.x;await expect.poll(async()=>{await frame();return a.state.x;},{timeout:10000,intervals:[20]}).toBeGreaterThan(start);await page.keyboard.up('d');
-    v=await visual(page);expect(v.x+36).toBeCloseTo(v.shipX,3);expect(v.y+55).toBeCloseTo(v.shipY,3);expect(v.rotation).toBe(0);
+    v=await visual(page);expect(v.x+36).toBeCloseTo(v.shipX,3);expect(v.y+72).toBeCloseTo(v.shipY,3);expect(v.rotation).toBe(0);
     await page.screenshot({path:`test-results/p2s5-hud-${lag?'lag':'normal'}.png`,fullPage:true});
     await page.keyboard.press('F3');await expect(page.locator('#debug-overlay')).toBeVisible();
     for(const width of [1280,680,375]){

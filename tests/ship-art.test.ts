@@ -21,7 +21,7 @@ test('runtime PNG headers and editable hull-centered geometry match the loaded r
   assert.ok(art.width>0&&art.height>0&&Math.max(art.width,art.height)===256);
   assert.equal(png[25],6); // RGBA, not an opaque RGB export.
   assert.ok(art.originX>.4&&art.originX<.6&&art.originY>=.4&&art.originY<=.5);
-  assert.ok(art.visualScale>0&&art.noseOffset>10&&art.noseOffset<=21);
+  assert.ok(art.visualScale>0&&art.noseOffset>14&&art.noseOffset<=30);
   assert.equal(art.rotationOffset,Math.PI/2);
   // Upward image-space nose becomes rightward at gameplay heading zero.
   assert.ok(Math.abs(Math.sin(art.rotationOffset)-1)<1e-10);

@@ -1,3 +1,4 @@
+import { BASIC_BLASTER } from '../shared/projectiles';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
@@ -22,7 +23,7 @@ test('hit receipt reports actual shield, health, split and clamped damage once, 
     advanceProjectiles(room, h => receipts.push(h), 2); advanceProjectiles(room, h => receipts.push(h), 3);
     assert.equal(receipts.length, 1); const h = receipts[0];
     assert.equal(h.shieldDamage, expectedShield); assert.equal(h.healthDamage, expectedHealth);
-    assert.equal(h.x, 249); assert.equal(h.y, 1800); assert.equal(h.hitTick, 2);
+    assert.equal(h.x, b.state.x - BASIC_BLASTER.shipRadius - BASIC_BLASTER.projectileRadius); assert.equal(h.y, 1800); assert.equal(h.hitTick, 2);
     assert.equal(h.ownerSession, a.state.reloadSession); assert.equal(h.targetSession, b.state.reloadSession);
     assert.equal(h.ownerId, 'a'); assert.equal(h.targetId, 'b'); assert.equal(h.shotSequence, 1);
     assert.equal(b.state.shield, shield - expectedShield); assert.equal(b.state.health, health - expectedHealth);
