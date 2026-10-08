@@ -1,0 +1,206 @@
+{
+  "mode": "webgl",
+  "errors": [],
+  "failures": [],
+  "initial": {
+    "stars": 13650,
+    "width": 1100,
+    "height": 600,
+    "renderer": 2,
+    "horizonLens": true,
+    "starLayers": [
+      {
+        "key": "stars",
+        "visible": true
+      },
+      {
+        "key": "stars-low",
+        "visible": false
+      }
+    ],
+    "cosmic": [
+      {
+        "key": "space-cosmic-0",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 288.7662473423215,
+        "visible": true
+      },
+      {
+        "key": "space-cosmic-1",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 234.0002349153295,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-2",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 283.78751893986765,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-3",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 243.9576917202371,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-4",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 497.8728402453818,
+        "visible": true
+      },
+      {
+        "key": "space-cosmic-5",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 477.95792663556665,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-6",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 487.9153834404742,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-7",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 458.0430130257513,
+        "visible": false
+      }
+    ],
+    "keys": [
+      "space-cosmic-0",
+      "space-cosmic-1",
+      "space-cosmic-2",
+      "space-cosmic-3",
+      "space-cosmic-4",
+      "space-cosmic-5",
+      "space-cosmic-6",
+      "space-cosmic-7",
+      "space-dust",
+      "space-haze",
+      "space-stars",
+      "space-stars-low",
+      "space-void"
+    ]
+  },
+  "low": {
+    "ambientVisible": false,
+    "quality": "low",
+    "cosmicVisible": 3,
+    "starLayers": [
+      {
+        "key": "stars",
+        "visible": false
+      },
+      {
+        "key": "stars-low",
+        "visible": true
+      }
+    ]
+  },
+  "combat": {
+    "players": 8,
+    "participants": 8,
+    "projectiles": 1
+  },
+  "afterShutdown": [],
+  "recreated": {
+    "stars": 13650,
+    "width": 1100,
+    "height": 600,
+    "renderer": 2,
+    "horizonLens": true,
+    "starLayers": [
+      {
+        "key": "stars",
+        "visible": true
+      },
+      {
+        "key": "stars-low",
+        "visible": false
+      }
+    ],
+    "cosmic": [
+      {
+        "key": "space-cosmic-0",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 288.9922982661196,
+        "visible": true
+      },
+      {
+        "key": "space-cosmic-1",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 234.18341411220035,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-2",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 284.0096724339451,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-3",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 244.1486657765493,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-4",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 498.2625832174475,
+        "visible": true
+      },
+      {
+        "key": "space-cosmic-5",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 478.33207988874966,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-6",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 488.2973315530986,
+        "visible": false
+      },
+      {
+        "key": "space-cosmic-7",
+        "sourceWidth": 1536,
+        "sourceHeight": 1024,
+        "width": 458.4015765600518,
+        "visible": false
+      }
+    ],
+    "keys": [
+      "space-cosmic-0",
+      "space-cosmic-1",
+      "space-cosmic-2",
+      "space-cosmic-3",
+      "space-cosmic-4",
+      "space-cosmic-5",
+      "space-cosmic-6",
+      "space-cosmic-7",
+      "space-dust",
+      "space-haze",
+      "space-stars",
+      "space-stars-low",
+      "space-void"
+    ]
+  }
+}

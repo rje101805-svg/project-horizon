@@ -29,7 +29,8 @@ export class CosmicImages {
       image.setDisplaySize(width/z,height/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z);
       // Low retains the same landmarks and image detail; only ambient animation,
       // star density and auxiliary layering are reduced elsewhere.
-      image.setVisible(x+width>0&&x-width<w&&y+height>0&&y-height<h);
+      const radius=Math.hypot(width,height)*.5;
+      image.setVisible(x+radius>0&&x-radius<w&&y+radius>0&&y-radius<h);
     }
   }
   destroy(){for(const image of this.images)image.destroy();for(const key of this.keys)this.scene.textures.remove(key);}
