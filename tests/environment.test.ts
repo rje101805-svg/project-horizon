@@ -27,10 +27,14 @@ test('rock atlases have bounded irregular silhouettes with deterministic shape v
  for(let i=0;i<8;i++){const rock=rockOutline(32530+i);assert.ok(rock.length>=7&&rock.length<=10);assert.ok(rock.every(p=>Math.hypot(p.x,p.y)<1));assert.ok(new Set(rock.map(p=>Math.hypot(p.x,p.y).toFixed(3))).size>4);}
 });
 
-import {GALAXIES,galaxyPoints} from '../src/visual/cosmos';
-test('distant galaxies have varied bounded deterministic structures',()=>{
- assert.equal(GALAXIES.length,5);assert.equal(new Set(GALAXIES.map(g=>g.kind)).size,3);
- for(let i=0;i<5;i++){const points=galaxyPoints(i);assert.equal(points.length,900);assert.deepEqual(points,galaxyPoints(i));assert.ok(points.every(p=>Number.isFinite(p.x+p.y)&&p.alpha<=.4));}
+import {COSMIC_IMAGES,maskCosmicPixels} from '../src/visual/cosmos';
+test('production galaxies are unique, small, separated and keep source radiance without black rectangles',()=>{
+ assert.equal(COSMIC_IMAGES.length,4);assert.equal(new Set(COSMIC_IMAGES.map(p=>p.file)).size,4);
+ assert.ok(COSMIC_IMAGES.every(p=>p.width<=290&&p.parallax<=.07&&p.alpha<.8));
+ const pixels=new Uint8ClampedArray([1,2,1,255,100,50,20,255,255,200,150,255]);maskCosmicPixels(pixels);
+ assert.deepEqual([...pixels.slice(0,4)],[0,0,0,0]);
+ for(const [i,original]of [[4,[100,50,20]],[8,[255,200,150]]] as const)
+  for(let c=0;c<3;c++)assert.ok(Math.abs(pixels[i+c]*pixels[i+3]/255-(original[c]-5))<1.5);
 });
 
 import {sampleMeteor,type MeteorFrame} from '../src/visual/stellar-motion';

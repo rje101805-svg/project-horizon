@@ -1,10 +1,11 @@
 import {sampleMeteor,type MeteorFrame} from './stellar-motion';
-import {paintGalaxies,GALAXY_SPAN} from './cosmos';
+import {CosmicImages} from './cosmic-images';
 import {generateStars,STAR_COLORS,SKY_SPAN,nebulaColor,parallaxOffset} from './environment';
 import Phaser from 'phaser';
 import { PARALLAX, seededRandom } from './config';
 // Five cached tile layers. No per-star objects, randomization, or particle emitters at runtime.
 export class DeepSpace {
+  readonly cosmic:CosmicImages;
   readonly layers:Phaser.GameObjects.TileSprite[]=[];
   private keys:string[]=[];
   private canvasGeometry:Phaser.GameObjects.Graphics[]=[];
@@ -33,7 +34,7 @@ export class DeepSpace {
           const dustRandom=seededRandom(32611);
       for(let i=0;i<7500;i++){const x=dustRandom()*1024,y=dustRandom()*1024,rgb=nebulaColor(x/1024,y/1024+.3);if(Math.max(...rgb)<65)continue;ctx.globalAlpha=.12+dustRandom()*.35;ctx.fillStyle=i%3?'#ec86ee':'#53dce9';ctx.fillRect(x,y,.35+dustRandom()*.55,.35+dustRandom()*.55);}ctx.globalAlpha=1;
     },-29.5,2);
-    this.make('galaxies',1024,.012,ctx=>paintGalaxies(ctx,1024),-29.25,GALAXY_SPAN/1024);
+    this.cosmic=new CosmicImages(scene);
     this.twinkles=this.starPoints.slice(-6);
     this.ambient=scene.add.graphics().setScrollFactor(0).setDepth(-26);
     this.make('dust',1024,PARALLAX.dust,ctx=>{for(let i=0;i<34;i++){const alpha=.035+rng()*.055,x=rng()*1024,y=rng()*1024;this.dustPoints.push({x,y,size:1.3,alpha});ctx.fillStyle=`rgba(160,185,191,${alpha})`;ctx.fillRect(x,y,1.3,.6);}},8);
@@ -72,6 +73,7 @@ export class DeepSpace {
     layer.tileScaleX=layer.tileScaleY=tileScale;layer.setData('tileScale',tileScale);layer.setData('parallax',factor);this.layers.push(layer);
   }
   update(camera:Phaser.Cameras.Scene2D.Camera,enabled=true,dust=true,now=performance.now()){
+    this.cosmic.update(camera,enabled,dust);
     const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
     for(const layer of this.layers){
       layer.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
@@ -99,5 +101,5 @@ export class DeepSpace {
     }
 
   }
-  destroy(){this.ambient.destroy();for(const g of this.canvasGeometry)g.destroy();for(const l of this.layers)l.destroy();for(const k of this.keys)this.scene.textures.remove(k);}
+  destroy(){this.cosmic.destroy();this.ambient.destroy();for(const g of this.canvasGeometry)g.destroy();for(const l of this.layers)l.destroy();for(const k of this.keys)this.scene.textures.remove(k);}
 }

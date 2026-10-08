@@ -1,3 +1,4 @@
+import {preloadCosmicImages} from './visual/cosmic-images';
 import {PLANET_REGIONS,LANDMARKS,mapPoint} from './visual/solar-layout';
 import { HorizonVisual } from './visual/horizon';
 import type { Composition } from './visual/debug';
@@ -66,7 +67,7 @@ class Horizon extends Phaser.Scene {
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
-  preload() { this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
+  preload() { preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
   create() {
     const webgl=this.game.renderer.type===Phaser.WEBGL;
     this.visualIntensity.quality=defaultVisualQuality(webgl);
