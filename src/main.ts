@@ -1,3 +1,4 @@
+import {PLANET_REGIONS,LANDMARKS,mapPoint} from './visual/solar-layout';
 import { HorizonVisual } from './visual/horizon';
 import type { Composition } from './visual/debug';
 import { VisualIntensity } from './visual/intensity';
@@ -26,7 +27,6 @@ import { normalizeRoomCode } from '../shared/rooms';
 import type { PlayerState, RoomInfo, Snapshot } from '../shared/protocol';
 const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const hud = new GameplayHud(document);
-const planets = [{ x:650,y:1500,r:380,color:0x7194a7,name:'ICE PROTOTYPE' }];
 let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
@@ -34,6 +34,7 @@ let attemptId = 0;
 type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; alien: boolean };
 class Horizon extends Phaser.Scene {
   private composition:Composition='auto';
+  private inspectionPoint:{x:number;y:number}|null=null;
   private visualDebugCleanup?:()=>void;
   private previewHorizon?:HorizonVisual;
   private visualIntensity=new VisualIntensity();
@@ -116,7 +117,7 @@ class Horizon extends Phaser.Scene {
     });
     this.ready = true;this.game.canvas.style.visibility='visible';el('game').style.visibility='visible';
     if(import.meta.env.DEV)void import('./visual/debug').then(({installVisualDebug})=>{
-      if(this.ready)this.visualDebugCleanup=installVisualDebug(this.visualIntensity,name=>{this.composition=name;if((name==='horizon'||name==='combat')&&!this.previewHorizon)this.previewHorizon=new HorizonVisual(this,'study');});
+      if(this.ready)this.visualDebugCleanup=installVisualDebug(this.visualIntensity,(name,biome)=>{this.composition=name;if(biome)this.celestial.studyBiome=biome;if((name==='horizon'||name==='combat')&&!this.previewHorizon)this.previewHorizon=new HorizonVisual(this,'study');},point=>{this.inspectionPoint=point;this.connection.release();if(point)this.cameras.main.stopFollow().centerOn(point.x,point.y);else this.cameras.main.startFollow(this.rocket,true,.12,.12).centerOn(this.rocket.x,this.rocket.y);});
     });
     if (this.connection.latest) this.acceptSnapshot(this.connection.latest);
     this.drawMap();
@@ -298,11 +299,12 @@ class Horizon extends Phaser.Scene {
     this.celestial.quality=this.visualIntensity.quality;
     let light=hole??{x:1200,y:450};
     if(import.meta.env.DEV){
+      if(this.inspectionPoint)camera.centerOn(this.inspectionPoint.x,this.inspectionPoint.y);
       const c=this.composition,study=c==='horizon'||c==='combat';
       this.celestial.enabled=c!=='open'&&c!=='horizon';
       this.celestial.distant[0].setVisible(c!=='horizon');
-      this.celestial.planet.x=c==='auto'?650:this.rocket.x+(c==='dark'?-240:240);
-      this.celestial.planet.y=c==='auto'?1500:this.rocket.y+35;
+      this.celestial.study=c!=='auto';
+      for(const [i,body]of this.celestial.bodies.entries()){const p=PLANET_REGIONS[i];body.planet.x=c==='auto'?p.x:this.rocket.x+(c==='dark'?-240:240);body.planet.y=c==='auto'?p.y:this.rocket.y+35;body.planet.radius=c==='auto'?p.radius:380;}
       const preview=study?{x:this.rocket.x+285,y:this.rocket.y-40,eventHorizonRadius:105,influenceRadius:500}:null;
       if(preview)light=preview;
       this.previewHorizon?.update(camera,now,preview,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
@@ -311,6 +313,7 @@ class Horizon extends Phaser.Scene {
     this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
+    if(import.meta.env.DEV&&this.inspectionPoint){this.connection.release();return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;
@@ -325,7 +328,9 @@ class Horizon extends Phaser.Scene {
     const x = this.scale.width - 164, y = 14, size = 150, s = size / WORLD;
     this.map.clear().fillStyle(0x0e1729, .95).fillRoundedRect(x - 5, y - 5, size + 10, size + 10, 8);
     this.map.lineStyle(1, 0x384c68).strokeRect(x, y, size, size);
-    for (const p of planets) this.map.fillStyle(p.color).fillCircle(x + p.x * s, y + p.y * s, p.r * s);
+    for(const p of PLANET_REGIONS){const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(p.color,.75).fillCircle(x+m.x,y+m.y,p.radius*s);}
+    for(const p of LANDMARKS){const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(0x84939f,.6).fillRect(x+m.x-1,y+m.y-1,2,2);}
+    const view=this.cameras.main.worldView;this.map.lineStyle(1,0xbacdde,.5).strokeRect(x+view.left*s,y+view.top*s,view.width*s,view.height*s);
     const hole = this.connection.latest?.blackHole ?? this.connection.room?.blackHole;
     if (hole) {
       this.map.lineStyle(1, 0xbb80ff, .7).strokeCircle(x + hole.x * s, y + hole.y * s, hole.influenceRadius * s);

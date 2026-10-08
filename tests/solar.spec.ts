@@ -9,7 +9,7 @@ test('four cached biome materials render and clean up in WebGL and Canvas',async
  await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].celestial?.bodies.length)).toBe(4);
  await p.keyboard.press('F3');await p.locator('#visual-planet').click();
  for(const biome of ['ice','volcanic','terrestrial','moon']){
- await p.evaluate(b=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];s.celestial.studyBiome=b;for(const body of s.celestial.bodies){body.planet.x=s.rocket.x+240;body.planet.y=s.rocket.y+35;}},biome);
+ await p.locator('#visual-biome').selectOption(biome);
  await expect.poll(()=>p.evaluate(b=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],body=s.celestial.bodies.find((x:any)=>x.biome===b);return webglState(body);function webglState(body:any){return {visible:body.shader?.visible||body.fallback.visible,compiled:!!body.shader};}},biome)).toEqual({visible:true,compiled:webgl});
  if(webgl)await p.locator('canvas').screenshot({path:`/tmp/p3s2-${biome}.png`});
  }
