@@ -23,3 +23,10 @@ test('crater relief normals follow the sphere basis and both directional lights'
  assert.ok(bake(false,[1,0,0],1)>bake(true,[1,0,0],1));
  assert.ok(bake(true,[-1,0,0],1)>bake(false,[-1,0,0],1));
 });
+
+import {sampleSurfaceLinear} from '../src/visual/planet-material';
+test('CPU source sampling interpolates before sphere magnification and reuses output storage',()=>{
+ const map={width:3,height:2,data:new Uint8ClampedArray([0,0,0,255,100,100,100,255,0,0,0,255,100,100,100,255,200,200,200,255,100,100,100,255])},out=[0,0,0,0];
+ sampleSurfaceLinear(map,.25,.5,out);assert.ok(Math.abs(out[0]-100/255)<1e-9);assert.equal(out[3],1);
+ const wrap=[0,0,0,0];sampleSurfaceLinear(map,1.25,.5,wrap);assert.deepEqual(out,wrap);
+});

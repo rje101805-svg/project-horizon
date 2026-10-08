@@ -100,11 +100,13 @@ class Horizon extends Phaser.Scene {
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
     document.addEventListener('visibilitychange', visibility);
+    const rendered=()=>hud.renderFrame();this.game.events.on('postrender',rendered);
     const cleanup = () => {
       if (!this.ready) return;
       window.removeEventListener('keydown', reload);
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
+      this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
       this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
@@ -280,6 +282,14 @@ class Horizon extends Phaser.Scene {
     if (now - this.lastDebug >= 250) {
       this.lastDebug = now;
       const p = this.connection.prediction;
+      if(import.meta.env.DEV&&!el('debug-overlay').hidden){
+        const output=document.getElementById('visual-rendering');if(output){
+          const visible=this.celestial.bodies.filter(b=>b.fallback.visible||b.shader?.visible).length;
+          const rocks=this.celestial.decorations.filter(g=>g.visible).reduce((sum,g)=>sum+g.length,0);
+          const text=`Renderer: ${this.game.renderer.type===Phaser.WEBGL?'WebGL':'Canvas'} · ${this.visualIntensity.quality} · planets ${visible}/4 · debris ${rocks}/47 · distant ${this.celestial.distant.filter(d=>d.visible).length}/5 · cached stars ${this.deepSpace.starCount}`;
+          if(output.textContent!==text)output.textContent=text;
+        }
+      }
       el('debug-prediction').textContent = `Input ${p.sequence} · ack ${p.acknowledged} · pending ${p.pending.length}${p.overflow ? ' · paused (queue full)' : ''}`;
       el('debug-projectiles').textContent = `Authoritative projectiles: ${this.connection.latest?.projectiles.length ?? 0} · predicted: ${this.connection.projectilePrediction.count(now)}`;
       el('debug-correction').textContent = `Correction ${p.correction.toFixed(2)} · remote delay 100 ms`;

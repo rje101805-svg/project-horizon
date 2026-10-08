@@ -34,3 +34,11 @@ test('rate ignores invalid/backward sample times and does not flicker between sa
   for (let i = 0; i < 10; i++) rate.record();
   assert.equal(rate.sample(1500), 1); assert.equal(rate.sample(2100), 10);
 });
+
+test('rolling rendered FPS uses three bounded elapsed-time windows and resets between sessions',()=>{
+ const rate=new SampleRate(0,3);for(let i=0;i<60;i++)rate.record();assert.equal(rate.sample(1000),60);
+ for(let i=0;i<30;i++)rate.record();assert.equal(rate.sample(2000),45);
+ for(let i=0;i<60;i++)rate.record();assert.equal(rate.sample(3000),50);
+ for(let i=0;i<90;i++)rate.record();assert.equal(rate.sample(4000),60);
+ rate.reset(5000);assert.equal(rate.sample(5999),null);for(let i=0;i<40;i++)rate.record();assert.equal(rate.sample(7000),20);
+});

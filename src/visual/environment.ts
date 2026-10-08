@@ -12,7 +12,7 @@ export function generateStars(seed=3251):Star[]{
  const random=seededRandom(seed),stars:Star[]=[];
  for(let i=0;i<14000;i++){
   const x=random()*SKY_SPAN,y=random()*SKY_SPAN;if(random()>skyDensity(x,y))continue;
-  const rank=random(),alpha=.045+rank**5*.43,size=.35+rank**3*.7;
+  const rank=random(),alpha=.045+rank**5*.43,size=.55+rank**3*.7;
   stars.push({x,y,size,alpha,color:Math.floor(random()*STAR_COLORS.length)});
  }
  // Only five restrained anchor stars, without projectile-like halos or trails.

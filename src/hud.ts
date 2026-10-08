@@ -14,13 +14,15 @@ export function healthPresentation(health: unknown, max = MAX_HEALTH) {
 export class SampleRate {
   private count = 0;
   private value: number | null = null;
-  constructor(private startedAt: number) {}
+  private history: {count:number;elapsed:number}[]=[];
+  constructor(private startedAt: number,private windows=1) {}
   record() { this.count++; }
-  reset(now: number) { this.startedAt = now; this.count = 0; this.value = null; }
+  reset(now: number) { this.startedAt = now; this.count = 0; this.value = null; this.history=[]; }
   sample(now: number): number | null {
     const elapsed = now - this.startedAt;
     if (Number.isFinite(elapsed) && elapsed >= 1000) {
-      this.value = this.count * 1000 / elapsed;
+      this.history.push({count:this.count,elapsed});if(this.history.length>this.windows)this.history.shift();
+      this.value = this.history.reduce((sum,s)=>sum+s.count,0)*1000/this.history.reduce((sum,s)=>sum+s.elapsed,0);
       this.startedAt = now; this.count = 0;
     }
     return this.value;
@@ -38,7 +40,7 @@ export class GameplayHud {
   private readonly overlay: HTMLElement;
   private node(id: string) { return this.document.getElementById(id)!; }
   constructor(private document: Document, now = performance.now()) {
-    this.frames = new SampleRate(now); this.snapshots = new SampleRate(now);
+    this.frames = new SampleRate(now,3); this.snapshots = new SampleRate(now);
     this.bar = this.node('hud-health-bar') as HTMLProgressElement;
     this.bar.max = MAX_HEALTH;
     this.overlay = this.node('debug-overlay');
@@ -101,13 +103,13 @@ export class GameplayHud {
   private renderServer(rate: number | null) {
     write(this.node('debug-server'), `Server: ${TICK_RATE} Hz (recv ${rate === null ? '—' : `${rate.toFixed(1)}/s`})`);
   }
+  renderFrame() { this.frames.record(); }
   frame(now = performance.now()) {
     if (this.alienMessageUntil && now >= this.alienMessageUntil) { this.node('alien-message').hidden = true; this.alienMessageUntil = 0; }
-    this.frames.record();
     const fps = this.frames.sample(now), receive = this.snapshots.sample(now);
     if (now - this.lastRefresh < 250) return;
     this.lastRefresh = now;
-    write(this.node('debug-fps'), fps === null ? 'FPS: —' : `FPS: ${Math.round(fps)}`);
+    write(this.node('debug-fps'), fps === null ? 'FPS: —' : `FPS: ${Math.round(fps)} (3s avg)`);
     this.renderServer(this.connected ? receive : null);
   }
 }

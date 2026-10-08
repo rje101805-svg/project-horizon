@@ -8,6 +8,7 @@ export class DeepSpace {
   private canvasGeometry:Phaser.GameObjects.Graphics[]=[];
   private starPoints:{x:number;y:number;size:number;alpha:number;color?:number}[]=[];
   private dustPoints:{x:number;y:number;size:number;alpha:number;color?:number}[]=[];
+  get starCount(){return this.starPoints.length;}
   constructor(private scene:Phaser.Scene) {
     const rng=seededRandom();
     this.make('void',1024,0,ctx=>{ctx.fillStyle='#040810';ctx.fillRect(0,0,1024,1024);},-30);

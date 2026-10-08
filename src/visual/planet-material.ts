@@ -8,9 +8,14 @@ export function sampleSurface(map:SurfaceMap,u:number,v:number):readonly number[
 }
 // CPU tier uses the same unlit maps, normals, key light and warm blend as WebGL.
 // Low is intentionally static: no texture uploads or full sphere bakes each frame.
-const texel=(map:SurfaceMap,u:number,v:number)=>{
- const x=Math.floor(((u%1+1)%1)*(map.width-1)),y=Math.min(map.height-1,Math.max(0,Math.floor(v*(map.height-1))));return (y*map.width+x)*4;
-};
+// CPU UV sampling must interpolate the source maps too: smoothing only the final
+// magnified sphere cannot remove blocks introduced by nearest source lookup.
+// Callers reuse target storage; the bake creates no per-pixel RGBA tuples.
+export function sampleSurfaceLinear(map:SurfaceMap,u:number,v:number,target:number[]){
+ const fx=((u%1+1)%1)*(map.width-1),fy=Math.max(0,Math.min(1,v))*(map.height-1),x=Math.floor(fx),y=Math.floor(fy),tx=fx-x,ty=fy-y;
+ const a=(y*map.width+x)*4,b=(y*map.width+Math.min(map.width-1,x+1))*4,c=(Math.min(map.height-1,y+1)*map.width+x)*4,d=(Math.min(map.height-1,y+1)*map.width+Math.min(map.width-1,x+1))*4;
+ for(let k=0;k<4;k++)target[k]=((map.data[a+k]*(1-tx)+map.data[b+k]*tx)*(1-ty)+(map.data[c+k]*(1-tx)+map.data[d+k]*tx)*ty)/255;
+}
 // Convert a tangent-space relief normal into the visible sphere's frame. This
 // basis turns with the sphere; both key and Horizon light use the resulting normal.
 export function reliefNormal(nx:number,ny:number,nz:number,tangent:readonly number[]):readonly number[]{
@@ -19,17 +24,19 @@ export function reliefNormal(nx:number,ny:number,nz:number,tangent:readonly numb
  return [x/length,y/length,z/length];
 }
 export function bakeMaterial(ctx:CanvasRenderingContext2D,size:number,biome:Biome,map:SurfaceMap,clouds:SurfaceMap,warm:readonly number[],intensity:number,detail:SurfaceMap=map){
- const image=ctx.createImageData(size,size),rim=atmosphere(biome),data=image.data;
+ const image=ctx.createImageData(size,size),rim=atmosphere(biome),data=image.data,surfaceValues=[0,0,0,0],detailValues=[0,0,0,0],cloudValues=[0,0,0,0];
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const nx=(x/size*2-1)*1.075,ny=(y/size*2-1)*1.075,r2=nx*nx+ny*ny,o=(y*size+x)*4;if(r2>1.075**2)continue;
   if(r2>1){const a=biome==='moon'?0:(1-(Math.sqrt(r2)-1)/.075)**2*(biome==='ice'?.07:.16);for(let c=0;c<3;c++)data[o+c]=rim[c]*255;data[o+3]=a*255;continue;}
-  const nz=Math.sqrt(1-r2),u=.5+Math.atan2(nx,nz)/(2*Math.PI),v=.5+Math.asin(ny)/Math.PI,i=texel(map,u,v),di=texel(detail,u,v);
+  const nz=Math.sqrt(1-r2),u=.5+Math.atan2(nx,nz)/(2*Math.PI),v=.5+Math.asin(ny)/Math.PI;
+  sampleSurfaceLinear(map,u,v,surfaceValues);if(biome==='moon'||biome==='volcanic')sampleSurfaceLinear(detail,u,v,detailValues);
   let lx=nx,ly=ny,lz=nz;
-  if(biome==='moon'){const n=reliefNormal(nx,ny,nz,[detail.data[di]/255*2-1,detail.data[di+1]/255*2-1,detail.data[di+2]/255*2-1]);lx=n[0];ly=n[1];lz=n[2];}
+  if(biome==='moon'){const n=reliefNormal(nx,ny,nz,[detailValues[0]*2-1,detailValues[1]*2-1,detailValues[2]*2-1]);lx=n[0];ly=n[1];lz=n[2];}
   const cool=Math.max(0,-lx*.65-ly*.42+lz*.63)*(1-.7*intensity),hot=Math.max(0,lx*warm[0]+ly*warm[1]+lz*warm[2])*intensity;
-  const cloud=biome==='terrestrial'?clouds.data[texel(clouds,u,v)+3]/255*.8:0,emission=biome==='volcanic'?detail.data[di]/255:0;
+  if(biome==='terrestrial')sampleSurfaceLinear(clouds,u,v,cloudValues);
+  const cloud=biome==='terrestrial'?cloudValues[3]*.8:0,emission=biome==='volcanic'?detailValues[0]:0;
   for(let c=0;c<3;c++){
-   const light=.055+cool*.78+hot*[.85,.58,.30][c],surface=map.data[i+c]/255*(1-cloud)+.9*cloud;
+   const light=.055+cool*.78+hot*[.85,.58,.30][c],surface=surfaceValues[c]*(1-cloud)+.9*cloud;
    // Smooth exposure compression keeps ice/cloud detail instead of hard clipping.
    const linear=surface*light+rim[c]*(1-nz)**4*(biome==='ice'?.035:.09)+emission*[.72,.20,.01][c];
    data[o+c]=linear/(1+linear*.65)*255;
