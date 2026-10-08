@@ -20,7 +20,10 @@ export class DeepSpace {
     this.make('void',1024,0,ctx=>{ctx.fillStyle='#040810';ctx.fillRect(0,0,1024,1024);},-30);
     this.make('stars',SKY_SPAN,PARALLAX.stars,ctx=>{
       this.starPoints=generateStars();
-      for(const p of this.starPoints){ctx.globalAlpha=p.alpha;ctx.fillStyle=`#${STAR_COLORS[p.color??0].toString(16)}`;ctx.fillRect(p.x,p.y,p.size,p.size);}ctx.globalAlpha=1;
+      for(const p of this.starPoints){ctx.globalAlpha=p.alpha;ctx.fillStyle=`#${STAR_COLORS[p.color??0].toString(16)}`;ctx.fillRect(Math.round(p.x),Math.round(p.y),p.size,p.size);}ctx.globalAlpha=1;
+    },-29);
+    this.make('stars-low',SKY_SPAN,PARALLAX.stars,ctx=>{
+      for(let i=0;i<this.starPoints.length;i+=4){const p=this.starPoints[i];ctx.globalAlpha=p.alpha;ctx.fillStyle=`#${STAR_COLORS[p.color??0].toString(16)}`;ctx.fillRect(Math.round(p.x),Math.round(p.y),p.size,p.size);}ctx.globalAlpha=1;
     },-29);
     // A small opaque bake replaces both navy uniformity and expensive transparent
     // fog copies. Low hides it; the logical period matches the stars for lens sampling.
@@ -54,7 +57,7 @@ export class DeepSpace {
             const bucket=buckets[bin],step=g.getData('detail')?1:4;
             for(let i=0;i<bucket.length;i+=step){const p=bucket[i];
               const x=(p.x-shiftX+span)%span,y=(p.y-shiftY+span)%span;
-              for(let sy=y;sy<h;sy+=span)for(let sx=x;sx<w;sx+=span)ctx.fillRect(sx,sy,p.size,depth===8?.6:p.size);
+              for(let sy=y;sy<h;sy+=span)for(let sx=x;sx<w;sx+=span)ctx.fillRect(Math.round(sx),Math.round(sy),p.size,depth===8?.6:p.size);
             }
           }
           ctx.restore();
@@ -74,6 +77,7 @@ export class DeepSpace {
       layer.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
       const factor=enabled ? layer.getData('parallax') as number : 0;
       const scale=layer.getData('tileScale') as number;layer.tilePositionX=camera.scrollX*factor/scale;layer.tilePositionY=camera.scrollY*factor/scale;
+      if(layer.depth===-29)layer.setVisible(layer.texture.key==='space-stars'?dust:!dust);
       if(layer.depth===8||(layer.depth===-29.5||layer.depth===-29.25))layer.setVisible(dust);
       if(this.canvasGeometry.length&&(layer.depth===-29||layer.depth===8))layer.setVisible(false);
     }

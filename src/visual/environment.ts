@@ -3,7 +3,7 @@ import {seededRandom} from './config';
 // The seams are periodic, but normal travel cannot reveal repeated clusters.
 export const SKY_SPAN=2048;
 export interface Star {x:number;y:number;size:number;alpha:number;color:number}
-export const STAR_COLORS=[0xb9c6d4,0xaebfd5,0xd0ccc2,0xbfb5a1] as const;
+export const STAR_COLORS=[0xf4f7ff,0xe0eaff,0xffffff,0xc9ddff] as const;
 export function skyDensity(x:number,y:number){
  const a=x/SKY_SPAN*Math.PI*2,b=y/SKY_SPAN*Math.PI*2;
  return Math.max(.06,.40+.27*Math.sin(a+.6*Math.sin(b))+.19*Math.cos(b*2-a));
@@ -12,13 +12,13 @@ export function generateStars(seed=3251):Star[]{
  const random=seededRandom(seed),stars:Star[]=[];
  for(let i=0;i<27000;i++){
   const x=random()*SKY_SPAN,y=random()*SKY_SPAN;if(random()>skyDensity(x,y))continue;
-  const rank=random(),alpha=.045+rank**5*.43,size=.55+rank**3*.7;
+  const rank=random(),alpha=.10+rank**5*.65,size=.75+rank**4*.5;
   stars.push({x,y,size,alpha,color:Math.floor(random()*STAR_COLORS.length)});
  }
  // Four localized, irregular stellar concentrations, separated by dark gaps.
  for(const [cx,cy]of [[430,260],[1400,800],[650,1500],[1780,1700]])for(let i=0;i<650;i++){
   const x=(cx+(random()+random()+random()-1.5)*115+SKY_SPAN)%SKY_SPAN,y=(cy+(random()+random()+random()-1.5)*75+SKY_SPAN)%SKY_SPAN;
-  stars.push({x,y,size:.45+random()*.55,alpha:.04+random()**4*.30,color:Math.floor(random()*4)});
+  stars.push({x,y,size:.7+random()*.4,alpha:.12+random()**3*.48,color:Math.floor(random()*4)});
  }
  // Twelve sparse bright anchors; six receive slow twinkling on a second depth.
  for(let i=0;i<12;i++)stars.push({x:random()*SKY_SPAN,y:random()*SKY_SPAN,size:1.45,alpha:.65,color:i%4});

@@ -24,7 +24,7 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
    sky.update(s.cameras.main,true,false,sky.animationOrigin+5250);return {active,lowVisible:sky.ambient.visible,lowCommands:sky.ambient.commandBuffer.length,lowDetail:sky.canvasGeometry[0].getData('detail')};
   });expect(motion.active).toBeGreaterThan(0);expect(motion.active).toBeLessThan(250);expect(motion.lowVisible).toBe(false);expect(motion.lowCommands).toBe(0);expect(motion.lowDetail).toBe(false);
   const countStars=()=>page.evaluate(()=>new Promise<number>(resolve=>{const g=(window as any).__HORIZON_GAME__,proto=CanvasRenderingContext2D.prototype,original=proto.fillRect;let points=0,frames=0;
-   proto.fillRect=function(...args:Parameters<typeof original>){if(['#b9c6d4','#aebfd5','#d0ccc2','#bfb5a1'].includes(this.fillStyle as string))points++;return original.apply(this,args);};
+   proto.fillRect=function(...args:Parameters<typeof original>){if(['#f4f7ff','#e0eaff','#ffffff','#c9ddff'].includes(this.fillStyle as string))points++;return original.apply(this,args);};
    const sample=()=>{if(++frames===6){g.events.off('postrender',sample);proto.fillRect=original;resolve(points);}};g.events.on('postrender',sample);
   }));
   const standardPoints=await countStars();await page.locator('#visual-quality').selectOption('low');await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].deepSpace.canvasGeometry[0].getData('detail'))).toBe(false);

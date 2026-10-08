@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {generateStars,SKY_SPAN,skyDensity,nebulaColor,parallaxOffset} from '../src/visual/environment';
 test('cached astronomical distribution is deterministic, bounded and dominated by faint stars',()=>{
  const stars=generateStars();assert.deepEqual(stars,generateStars());assert.ok(stars.length>12000&&stars.length<17000);
- assert.equal(stars.filter(s=>s.alpha>.5).length,12);assert.ok(stars.filter(s=>s.alpha<.15).length>stars.length*.65);
+ assert.ok(stars.filter(s=>s.alpha>.5).length>100);assert.ok(stars.filter(s=>s.alpha<.24).length>stars.length*.65);
  for(const s of stars)assert.ok(s.x>=0&&s.x<SKY_SPAN&&s.y>=0&&s.y<SKY_SPAN&&s.color<4&&s.size<1.5);
  assert.ok(Math.abs(skyDensity(0,0)-skyDensity(1024,1024))>.2);
 });
