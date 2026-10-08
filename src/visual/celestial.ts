@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { advancedEnabled } from './intensity';
 import { horizonDirection,shadeNormal,visibleCircle, type Point } from './lighting';
 import { PARALLAX } from './config';
 import { PLANET_FRAGMENT } from './shaders';
@@ -25,23 +26,23 @@ export class CelestialWorld {
   readonly distant:Phaser.GameObjects.Image[]=[];
   enabled=true;
   quality:'standard'|'low'='standard';
-  private intensityKey='';private lastBake=-Infinity;
+  private intensityKey='0';private lastBake=-Infinity;
   constructor(private scene:Phaser.Scene){
    const texture=scene.textures.createCanvas('ice-prototype',384,384)!;bakeSphere(texture.context,384);texture.refresh();
    this.fallback=scene.add.image(this.planet.x,this.planet.y,'ice-prototype').setDisplaySize(817,817).setDepth(-12);
    this.shader=optionalShader(scene,'ice-sphere',PLANET_FRAGMENT,this.planet.x,this.planet.y,817,817,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]}})?.setDepth(-12)??null;
    for(const [i,size] of [512,128].entries()){
      const key=`distant-body-${i}`,tex=scene.textures.createCanvas(key,size,size)!;bakeSphere(tex.context,size,[1,0,.48],0,true);tex.refresh();
-     this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.36:.45));
+     this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.28:.30));
    }
   }
   update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
-    const visible=this.enabled&&visibleCircle(camera.worldView,this.planet,this.planet.radius*1.08),live=!!this.shader&&this.quality==='standard';
+    const visible=this.enabled&&visibleCircle(camera.worldView,this.planet,this.planet.radius*1.08),live=advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!this.shader,this.quality);
     this.fallback.setVisible(visible&&!live).setPosition(this.planet.x,this.planet.y);
     const warm=horizonDirection(this.planet,horizon);
     if(this.shader){this.shader.setVisible(visible&&live).setPosition(this.planet.x,this.planet.y);if(visible&&live){this.shader.setUniform('intensity.value',intensity);this.shader.setUniform('warmDirection.value',warm);}}
     // Only rebake on a visible, changed light direction/intensity, at most 4Hz.
-    const key=`${Math.round(intensity*10)}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
+    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
     if(visible&&!live&&key!==this.intensityKey&&now-this.lastBake>=250){this.lastBake=now;this.intensityKey=key;const tex=this.scene.textures.get('ice-prototype') as Phaser.Textures.CanvasTexture;bakeSphere(tex.context,384,warm,intensity);tex.refresh();}
     const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height,px=camera.scrollX*PARALLAX.bodies,py=camera.scrollY*PARALLAX.bodies;
     this.distant[0].setDisplaySize(1320/z,1320/z).setPosition(w*.5+(w*.9-px-w*.5)/z,h*.5+(160-py*.4-h*.5)/z);

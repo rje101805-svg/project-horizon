@@ -3,7 +3,7 @@ import type { Composition } from './visual/debug';
 import { VisualIntensity } from './visual/intensity';
 import { CelestialWorld } from './visual/celestial';
 import { DeepSpace } from './visual/space';
-import { cameraTarget, easeZoom } from './visual/config';
+import { cameraTarget, easeZoom, defaultVisualQuality } from './visual/config';
 import { TRACTOR_RANGE, TRACTOR_CONE_ANGLE, TRACTOR_KILL_LOCK_MS, TRACTOR_PULL_STRENGTH, TRACTOR_MAX_DURATION_MS, inTractorCone } from '../shared/tractor';
 import { ALIEN_COLOR, ALIEN_OPACITY } from '../shared/alien';
 import { ShipCombatHud } from './ship-combat-hud';
@@ -66,6 +66,9 @@ class Horizon extends Phaser.Scene {
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
   create() {
+    const webgl=this.game.renderer.type===Phaser.WEBGL;
+    this.visualIntensity.quality=defaultVisualQuality(webgl);
+    this.visualIntensity.camera=webgl;
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     this.celestial = new CelestialWorld(this);
@@ -122,9 +125,12 @@ class Horizon extends Phaser.Scene {
     hull.clear();
     if (alien) {
       // Round ghost silhouette and lavender tint, distinct from human triangles.
+      hull.lineStyle(4,0x02050d,1).strokeCircle(0,-2,15).strokeTriangle(-14,0,-24,13,12,11);
       hull.fillStyle(ALIEN_COLOR).fillCircle(0,-2,15).fillTriangle(-14,0,-24,13,12,11);
+      hull.lineStyle(1.5,0xe8eaff,.9).strokeCircle(0,-2,15).strokeTriangle(-14,0,-24,13,12,11);
       hull.fillStyle(0x080e1e).fillCircle(5,-6,3).fillCircle(5,3,3);
     } else {
+      hull.lineStyle(3,0x02050d).strokeTriangle(22,0,-13,-12,-8,0).strokeTriangle(22,0,-8,0,-13,12);
       hull.fillStyle(color).fillTriangle(22, 0, -13, -12, -8, 0).fillTriangle(22, 0, -8, 0, -13, 12);
       hull.fillStyle(0xffffff).fillCircle(2, 0, 4);
     }
@@ -258,7 +264,7 @@ class Horizon extends Phaser.Scene {
       const x=body.x+Math.cos(angle)*nose,y=body.y+Math.sin(angle)*nose;
       this.tractorGraphics.fillStyle(0x70ffdc,.18).lineStyle(1,0x9cffe9,.65).beginPath().moveTo(x,y);
       for(let i=0;i<=8;i++){const a=angle-half+TRACTOR_CONE_ANGLE*i/8;this.tractorGraphics.lineTo(body.x+Math.cos(a)*TRACTOR_RANGE,body.y+Math.sin(a)*TRACTOR_RANGE);}
-      this.tractorGraphics.closePath().fillPath().strokePath();
+      this.tractorGraphics.closePath().fillPath().lineStyle(3,0x031015,.85).strokePath().lineStyle(1,0x9cffe9,.9).strokePath();
     }
     if(now-this.lastDebug<20 && local){const attacker=local.tractor.attackerId ? snapshot.players.find(p=>p.id===local.tractor.attackerId) : local,target=attacker?.tractor.targetId ? snapshot.players.find(p=>p.id===attacker.tractor.targetId) : null;
       el('debug-tractor').textContent=`Tractor ${label || 'unavailable'} · attacker ${attacker?.tractor.targetId?attacker.id:'—'} · target ${target?.id??'—'} · range ${TRACTOR_RANGE} · cone ${attacker&&target?inTractorCone(attacker,target):'—'} · LOS ${target?'clear (server validated)':'—'} · pull ${TRACTOR_PULL_STRENGTH} · elapsed ${attacker?.tractor.targetId?((TRACTOR_MAX_DURATION_MS-attacker.tractor.remainingMs)/1000).toFixed(2):'—'}/5s · lock ${attacker?.tractor.lockElapsedMs??0}/${TRACTOR_KILL_LOCK_MS}ms · predicted pull ${!!this.connection.prediction.state?.tractor.attackerId}`;
@@ -280,7 +286,7 @@ class Horizon extends Phaser.Scene {
     this.updateSpectatorCamera();
     this.drawTractors(now);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
-    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) this.projectileGraphics.fillCircle(p.x, p.y, BASIC_BLASTER.projectileRadius);
+    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) {this.projectileGraphics.fillStyle(0x030912).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius+1);this.projectileGraphics.fillStyle(0xffe08a).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius);}
     this.localHud.render(this.rocket.x, this.rocket.y, now);
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
@@ -293,6 +299,7 @@ class Horizon extends Phaser.Scene {
     if(import.meta.env.DEV){
       const c=this.composition,study=c==='horizon'||c==='combat';
       this.celestial.enabled=c!=='open'&&c!=='horizon';
+      this.celestial.distant[0].setVisible(c!=='horizon');
       this.celestial.planet.x=c==='auto'?650:this.rocket.x+(c==='dark'?-240:240);
       this.celestial.planet.y=c==='auto'?1500:this.rocket.y+35;
       const preview=study?{x:this.rocket.x+285,y:this.rocket.y-40,eventHorizonRadius:105,influenceRadius:500}:null;

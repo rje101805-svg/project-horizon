@@ -2,7 +2,8 @@ import { clamp01 } from './config';
 export type Point={x:number;y:number};
 export const COOL_KEY=[-.65,-.42,.63] as const;
 export function horizonDirection(body:Point,horizon:Point):[number,number,number] {
-  const x=horizon.x-body.x,y=horizon.y-body.y,length=Math.hypot(x,y)||1;
+  const x=horizon.x-body.x,y=horizon.y-body.y,length=Math.hypot(x,y);
+  if(length<.001)return [0,0,1];
   const z=.48,n=Math.sqrt(1+z*z);return [x/length/n,y/length/n,z/n];
 }
 export function shadeNormal(normal:readonly number[],warmDirection:readonly number[],intensity:number,surface=1):[number,number,number] {

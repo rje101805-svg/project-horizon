@@ -11,4 +11,5 @@ export function easeZoom(current:number,target:number,elapsedMs:number) {
 }
 export function seededRandom(seed=1907) {return ()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};}
 export type VisualQuality = 'standard' | 'low';
-export const VISUAL_PRESETS = { open:{x:1800,y:1750}, planet:{x:650,y:1500}, horizon:{x:1200,y:850}, combat:{x:1370,y:1200} } as const;
+
+export const defaultVisualQuality=(webgl:boolean):VisualQuality=>webgl?'standard':'low';

@@ -39,3 +39,9 @@
 .tractor-hud { position:absolute; z-index:20; top:14px; left:14px; max-width:calc(100% - 190px); padding:4px 6px; border:1px solid #397467; border-radius:6px; background:rgba(8,14,30,.92); pointer-events:none; }
 
 #debug-bots{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;margin:4px 0}
+/* Developer study controls live inside F3, outside the normal player HUD. */
+#visual-controls { margin-top: 12px; border: 1px solid #34435e; }
+#visual-controls p { max-width: 85ch; color: #a8b4c6; }
+#visual-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 8px 14px 8px 0; }
+#visual-controls input[type=range] { width: 150px; }
+#visual-controls output { display: block; color: #72eee0; }

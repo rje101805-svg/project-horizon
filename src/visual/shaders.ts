@@ -21,8 +21,8 @@ void main(){
  vec3 col=(vec3(.024,.035,.05)+vec3(.29,.38,.44)*cool+vec3(.44,.30,.16)*warm)*ice;
  float rim=pow(1.-z,3.)*(.06+cool*.12+warm*.13);
  col+=mix(vec3(.06,.17,.25),vec3(.30,.18,.07),intensity)*rim;
- if(r>1.){float a=pow(max(0.,1.-(r-1.)/.075),2.)*.16;gl_FragColor=vec4(mix(vec3(.13,.25,.34),vec3(.40,.23,.08),intensity),a);}
- else{gl_FragColor=vec4(min(col,vec3(.55)),1.-smoothstep(.997,1.,r));}
+ if(r>1.){float a=pow(max(0.,1.-(r-1.)/.075),2.)*.16;gl_FragColor=vec4(mix(vec3(.13,.25,.34),vec3(.40,.23,.08),intensity)*a,a);}
+ else{float a=1.-smoothstep(.997,1.,r);gl_FragColor=vec4(min(col,vec3(.55))*a,a);}
 }`;
 
 // Samples the exact cached sky textures with their original parallax coordinates.
@@ -55,9 +55,9 @@ void main(){
  vec4 s=texture2D(iChannel1,stars);base=base*(1.-s.a)+s.rgb;
  vec2 haze=fract((screen+scroll*.10*parallax)/1024.);
  vec4 h=texture2D(iChannel2,haze);base=base*(1.-h.a)+h.rgb;
- float arc=exp(-pow((r-1.30)/.07,2.))*(.008+.018*intensity);
+ float arcDistance=(r-1.30)/.07;float arc=exp(-arcDistance*arcDistance)*(.008+.018*intensity);
  base+=vec3(.35,.23,.10)*arc;
- gl_FragColor=vec4(base,1.);
+ gl_FragColor=vec4(base*envelope,envelope);
 }`;
 export const DISK_FRAGMENT=`
 precision mediump float;
@@ -67,10 +67,17 @@ uniform float time;
 uniform float intensity;
 varying vec2 fragCoord;
 void main(){
- vec2 p=fragCoord/resolution*2.-1.;p.y*=3.62;
+ vec2 screen=fragCoord/resolution*2.-1.,p=screen;p.y*=3.62;
  float a=time*.026;mat2 rot=mat2(cos(a),-sin(a),sin(a),cos(a));
- vec2 uv=(rot*p)*.5+.5;
- if(any(lessThan(uv,vec2(0.)))||any(greaterThan(uv,vec2(1.)))){gl_FragColor=vec4(0.);return;}
- vec4 c=texture2D(iChannel0,uv);float asym=.65+.35*(.5+.5*p.x);
- gl_FragColor=c*asym*(.85+.15*intensity);
+ vec2 uv=(rot*p)*.5+.5;vec4 c=vec4(0.);
+ if(all(greaterThanEqual(uv,vec2(0.)))&&all(lessThanEqual(uv,vec2(1.))))c=texture2D(iChannel0,uv);
+ float asym=.62+.38*(.5+.5*screen.x);
+ // Far-side material is hidden by the center, then reappears above it as a lensed arc.
+ if(screen.y>0.&&length(screen)<.4)c=vec4(0.);
+ float arcDistance=(length(screen)-.445)/.018;float arc=exp(-arcDistance*arcDistance)*smoothstep(-.05,.13,screen.y);
+ float filaments=.55+.25*sin(atan(screen.y,screen.x)*65.+time*.7)+.20*sin(atan(screen.y,screen.x)*111.-time*.4);
+ vec3 heat=mix(vec3(.58,.26,.06),vec3(1.,.92,.72),.5+.5*screen.x);
+ float alpha=arc*filaments*.85;
+ gl_FragColor=c*asym*(.95+.05*intensity)+vec4(heat*alpha,alpha);
+
 }`;
