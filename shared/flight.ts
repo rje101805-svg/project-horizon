@@ -16,6 +16,7 @@ export interface PlayerInput {
 }
 export interface FlightState { x: number; y: number; vx: number; vy: number; rotation: number }
 export const idleInput = (): PlayerInput => ({ up: false, down: false, left: false, right: false, boost: false, aim: 0 });
+// Temporary clustered combat origin, independent of the expanded map center.
 export const spawnFlight = (): FlightState => ({ x: 1370, y: 1200, vx: 0, vy: 0, rotation: 0 });
 // Strictly select input fields: client positions, velocities and speeds are never used.
 export function parseInput(value: unknown): PlayerInput | null {

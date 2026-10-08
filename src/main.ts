@@ -313,7 +313,7 @@ class Horizon extends Phaser.Scene {
     this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
-    if(import.meta.env.DEV&&this.inspectionPoint){this.connection.release();return;}
+    if(import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;

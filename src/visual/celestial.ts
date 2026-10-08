@@ -41,7 +41,7 @@ export class CelestialWorld {
    const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
    this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
   }
-  const random=seededRandom(3203);for(const p of LANDMARKS){const g=scene.add.graphics().setPosition(p.x,p.y).setDepth(-11);for(let i=0;i<9;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=6+random()*12;g.fillStyle(0x48505c,.6).fillEllipse(x,y,r*2,r*1.4);g.lineStyle(1,0x87929d,.5).strokeEllipse(x,y,r*2,r*1.4);}this.decorations.push(g);}
+  const random=seededRandom(3203);for(const p of LANDMARKS){const g=scene.add.graphics().setPosition(p.x,p.y).setDepth(-11);for(let i=0;i<p.count;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=6+random()*12;g.fillStyle(0x48505c,.6).fillEllipse(x,y,r*2,r*1.4);g.lineStyle(1,0x87929d,.5).strokeEllipse(x,y,r*2,r*1.4);}this.decorations.push(g);}
   for(const [i,size]of [512,128].entries()){const key=`distant-body-${i}`,tex=scene.textures.createCanvas(key,size,size)!;bakeSphere(tex.context,size,[1,0,.48],0,true);tex.refresh();this.distant.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-25).setAlpha(i?.28:.30));}
  }
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){

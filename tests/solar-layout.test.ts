@@ -5,6 +5,7 @@ test('deterministic four biome regions fit separate corners with open corridors'
  for(const p of PLANET_REGIONS){assert.ok(p.x-p.radius>0&&p.y-p.radius>0&&p.x+p.radius<WORLD&&p.y+p.radius<WORLD);assert.ok(Math.hypot(p.x-WORLD/2,p.y-WORLD/2)>p.radius+1000);}
  for(const [i,a]of PLANET_REGIONS.entries())for(const b of PLANET_REGIONS.slice(i+1))assert.ok(Math.hypot(a.x-b.x,a.y-b.y)>a.radius+b.radius+1000);
  assert.ok(PLANET_REGIONS.find(p=>p.biome==='moon')!.radius<Math.min(...PLANET_REGIONS.filter(p=>p.biome!=='moon').map(p=>p.radius)));
+ for(const x of [0,WORLD])for(const y of [0,WORLD])assert.ok(LANDMARKS.some(p=>Math.hypot(p.x-x,p.y-y)<1500));
  for(const p of LANDMARKS)assert.ok(p.x>0&&p.y>0&&p.x<WORLD&&p.y<WORLD);
 });
 test('minimap mapping is accurate at center, each boundary and planetary landmarks',()=>{
