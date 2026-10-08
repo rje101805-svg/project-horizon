@@ -1,3 +1,4 @@
+import {COSMIC_CLUSTERS} from './cosmos';
 import {bakeRock} from './debris';
 import {DISTANT_BODIES,bakeDistant} from './distant';
 import Phaser from 'phaser';
@@ -29,6 +30,8 @@ export class CelestialWorld {
  readonly bodies:Body[]=[];
  get planet(){return this.bodies[0].planet;}get fallback(){return this.bodies[0].fallback;}get shader(){return this.bodies[0].shader;}
  readonly distant:Phaser.GameObjects.Image[]=[];
+ readonly cosmicClusters:Phaser.GameObjects.Container[]=[];
+ private visualOrigin=performance.now();
  readonly decorations:Phaser.GameObjects.Container[]=[];study=false;
  enabled=true;quality:'standard'|'low'='standard';studyBiome:Biome='ice';
  private clouds:SurfaceMap;
@@ -49,16 +52,27 @@ export class CelestialWorld {
   for(const p of LANDMARKS){const group=scene.add.container(p.x,p.y).setDepth(-11);
    for(let i=0;i<p.count;i++){const x=(random()-.5)*280,y=(random()-.5)*180,r=12+random()*22;
     group.add(scene.add.image(x,y,'debris-atlas',String(Math.floor(random()*8))).setDisplaySize(r,r*(.65+random()*.4)).setRotation(random()*Math.PI*2).setAlpha(.72));
-   }this.decorations.push(group);
+   }for(const child of group.list){const rock=child as Phaser.GameObjects.Image;rock.setData('baseRotation',rock.rotation);}this.decorations.push(group);
   }
-  // Two shared atlases, five images, no per-frame sphere generation.
-  const atlas=scene.textures.createCanvas('distant-body-0',512,512)!;
+  for(const cluster of COSMIC_CLUSTERS){const group=scene.add.container(0,0).setScrollFactor(0).setDepth(-19);
+   for(let i=0;i<cluster.count;i++){const size=i>=8?4+random()*4:15+random()*27,angle=random()*Math.PI*2;
+    const rock=scene.add.image((random()-.5)*280,(random()-.5)*150,'debris-atlas',String(Math.floor(random()*8))).setDisplaySize(size,size*(.6+random()*.4)).setRotation(angle).setScrollFactor(0).setAlpha(i>=8?.45:.85).setTint(cluster.tint);
+    rock.setData('baseY',rock.y).setData('baseRotation',angle);group.add(rock);
+   }this.cosmicClusters.push(group);
+  }
+  // Two shared atlases, eleven images; no per-frame sphere generation.
+  const atlas=scene.textures.createCanvas('distant-body-0',1024,1024)!;
   const scratch=document.createElement('canvas');scratch.width=scratch.height=256;const ctx=scratch.getContext('2d')!;
-  for(let i=0;i<4;i++){bakeDistant(ctx,256,DISTANT_BODIES[i].kind);const x=(i%2)*256,y=Math.floor(i/2)*256;atlas.context.drawImage(scratch,x,y);atlas.add(String(i),0,x,y,256,256);}atlas.refresh();
-  const ring=scene.textures.createCanvas('distant-body-1',512,256)!,rc=ring.context;
-  rc.save();rc.translate(256,128);rc.rotate(-.25);rc.strokeStyle='rgba(101,108,119,.5)';rc.lineWidth=14;rc.beginPath();rc.ellipse(0,0,215,38,0,0,Math.PI*2);rc.stroke();rc.restore();
-  bakeDistant(ctx,256,'ringed');rc.drawImage(scratch,176,48,160,160);ring.refresh();
-  for(const [i,p]of DISTANT_BODIES.entries())this.distant.push(scene.add.image(0,0,i<4?'distant-body-0':'distant-body-1',i<4?String(i):undefined).setScrollFactor(0).setDepth(-25).setAlpha(p.alpha));
+  const ring=scene.textures.createCanvas('distant-body-1',512,512)!;let ringRow=0;
+  for(const [i,p]of DISTANT_BODIES.entries()){
+   if(p.kind.startsWith('ringed')){
+    const rc=ring.context,y=ringRow*256;rc.save();rc.translate(256,y+128);rc.rotate(-.25);
+    rc.strokeStyle=p.kind==='ringedblue'?'rgba(105,147,164,.5)':'rgba(151,133,154,.5)';rc.lineWidth=14;rc.beginPath();rc.ellipse(0,0,215,38,0,0,Math.PI*2);rc.stroke();rc.restore();
+    bakeDistant(ctx,256,p.kind);rc.drawImage(scratch,176,y+48,160,160);ring.add(String(i),0,0,y,512,256);ringRow++;
+   }else{bakeDistant(ctx,256,p.kind);const x=(i%4)*256,y=Math.floor(i/4)*256;atlas.context.drawImage(scratch,x,y);atlas.add(String(i),0,x,y,256,256);}
+   this.distant.push(scene.add.image(0,0,p.kind.startsWith('ringed')?'distant-body-1':'distant-body-0',String(i)).setScrollFactor(0).setDepth(-25).setAlpha(p.alpha));
+  }atlas.refresh();ring.refresh();
+
 
  }
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
@@ -70,15 +84,24 @@ export class CelestialWorld {
    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
    if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,768,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
-  for(let i=0;i<this.decorations.length;i++)this.decorations[i].setVisible(!this.study&&visibleCircle(camera.worldView,LANDMARKS[i],200));
+  const elapsed=Math.max(0,now-this.visualOrigin),animated=this.quality==='standard';
+  for(let i=0;i<this.decorations.length;i++){const group=this.decorations[i];group.setVisible(!this.study&&visibleCircle(camera.worldView,LANDMARKS[i],200));if(group.visible&&animated)for(let j=0;j<group.length;j++){const rock=group.list[j] as Phaser.GameObjects.Image;rock.rotation=Number(rock.getData('baseRotation'))+elapsed*.000012*(j%2?1:-1);}}
+
   const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
   for(const [i,d]of this.distant.entries()){
    const p=DISTANT_BODIES[i],x=p.x-camera.scrollX*p.parallax,y=p.y-camera.scrollY*p.parallax;
-   const height=p.kind==='ringed'?p.size*.5:p.size;
+   const height=p.kind.startsWith('ringed')?p.size*.5:p.size;
    d.setDisplaySize(p.size/z,height/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z);
-   d.setVisible(x+p.size/2>0&&x-p.size/2<w&&y+height/2>0&&y-height/2<h);
+   d.setVisible((animated||i<5)&&x+p.size/2>0&&x-p.size/2<w&&y+height/2>0&&y-height/2<h);
+  }
+  for(const [i,group]of this.cosmicClusters.entries()){
+   const p=COSMIC_CLUSTERS[i],x=p.x-camera.scrollX*p.parallax,y=p.y-camera.scrollY*p.parallax;
+   group.setScale(1/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z).setVisible((animated||i%2===0)&&x+180>0&&x-180<w&&y+110>0&&y-110<h);
+   if(group.visible&&animated)for(let j=0;j<group.length;j++){const rock=group.list[j] as Phaser.GameObjects.Image;rock.rotation=Number(rock.getData('baseRotation'))+elapsed*.000012*(j%2?1:-1);if(j>=8)rock.y=Number(rock.getData('baseY'))+Math.sin(elapsed*.00016+j)*3;}
+
   }
 
+
  }
- destroy(){this.scene.textures.remove('debris-atlas');for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
+ destroy(){for(const g of this.cosmicClusters)g.destroy();this.scene.textures.remove('debris-atlas');for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
 }

@@ -8,7 +8,7 @@ import {PLANET_REGIONS,ENVIRONMENT_VIEWS} from '../src/visual/solar-layout';
 import {ALIEN_OPACITY} from '../shared/alien';
 test('F3 environment inspection, eight-player readability and scene cleanup preserve authority',async({page})=>{
  test.setTimeout(90000);const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const address=server.http.address();if(!address||typeof address==='string')throw Error('port');let tick=0,sequence=2000;const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- const frame=async()=>{server.step();await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__?.latest?.tick)).toBe(++tick);};
+ const frame=async()=>{await page.evaluate(()=>new Promise<void>(resolve=>(window as any).__HORIZON_FLIGHT__.socket.emit('latencyProbe',resolve)));server.step();await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__?.latest?.tick)).toBe(++tick);};
  try{
   await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
   await expect(page.locator('#debug-fps')).toBeHidden();await page.keyboard.press('F3');await expect(page.locator('#debug-fps')).toHaveText(/FPS: \d+ \(3s avg\)/);await expect(page.locator('#visual-rendering')).toContainText('Canvas · low');
@@ -18,7 +18,7 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
    sky.update(s.cameras.main,true,false,sky.animationOrigin+5250);return {active,lowVisible:sky.ambient.visible,lowCommands:sky.ambient.commandBuffer.length,lowDetail:sky.canvasGeometry[0].getData('detail')};
   });expect(motion.active).toBeGreaterThan(0);expect(motion.active).toBeLessThan(250);expect(motion.lowVisible).toBe(false);expect(motion.lowCommands).toBe(0);expect(motion.lowDetail).toBe(false);
   const baseline=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return {children:s.children.length,stars:s.deepSpace.starCount,rocks:s.celestial.decorations.reduce((n:number,g:any)=>n+g.length,0),bodies:s.celestial.distant.length,keys:Object.keys(s.textures.list).filter(k=>/^(space-|surface-|planet-|ice-|distant-|debris-)/.test(k)).sort()};});
-  expect(baseline.stars).toBeGreaterThan(6000);expect(baseline.rocks).toBe(47);expect(baseline.bodies).toBe(5);
+  expect(baseline.stars).toBeGreaterThan(6000);expect(baseline.rocks).toBe(47);expect(baseline.bodies).toBe(11);
   const room=[...store.rooms.values()][0],initial=structuredClone([...room.players.values()][0].state);
   for(const index of [9,10,11,12,13]){
    await page.locator('#visual-view').selectOption(String(index));await expect.poll(()=>page.evaluate(p=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],v=s.cameras.main.worldView;return Math.hypot(v.centerX-p.x,v.centerY-p.y);},ENVIRONMENT_VIEWS[index-9])).toBeLessThan(2);

@@ -15,8 +15,8 @@ test('parallax fields wrap continuously and cached nebulae retain vivid color, d
 });
 import {DISTANT_BODIES,distantSurface,bakeDistant} from '../src/visual/distant';
 test('distant scenery is a restrained, varied client-only set with directional sphere shading',()=>{
- assert.equal(DISTANT_BODIES.length,5);assert.equal(new Set(DISTANT_BODIES.map(b=>b.kind)).size,5);
- assert.ok(DISTANT_BODIES.every(b=>b.parallax<.2&&b.alpha<=.5&&b.size<=180));
+ assert.equal(DISTANT_BODIES.length,11);assert.equal(new Set(DISTANT_BODIES.map(b=>b.kind)).size,11);
+ assert.ok(DISTANT_BODIES.every(b=>b.parallax<.2&&b.alpha<=.9&&b.size<=210));
  assert.notDeepEqual(distantSurface('gas',.1,.2,.97),distantSurface('ice',.1,.2,.97));
  let output=new Uint8ClampedArray();const ctx={createImageData:(w:number,h:number)=>({data:new Uint8ClampedArray(w*h*4)}),putImageData:(i:any)=>output=i.data};bakeDistant(ctx as unknown as CanvasRenderingContext2D,64,'rock');
  const pixel=(x:number,y:number)=>output[(y*64+x)*4];assert.ok(pixel(20,20)>pixel(44,44));assert.equal(output[3],0);
@@ -38,4 +38,9 @@ test('rare shooting stars have a bounded short life, directional trail, fade and
  const out:MeteorFrame={x:0,y:0,tailX:0,tailY:0,alpha:0,color:0};
  assert.equal(sampleMeteor(4999,1100,600,out),false);assert.equal(sampleMeteor(5250,1100,600,out),true);assert.ok(out.alpha>0&&out.alpha<=.52);assert.ok(Math.hypot(out.x-out.tailX,out.y-out.tailY)<=35);
  assert.equal(sampleMeteor(5550,1100,600,out),false);assert.equal(sampleMeteor(22999,1100,600,out),false);assert.equal(sampleMeteor(23250,550,300,out),true);assert.ok(out.x>=0&&out.x<=550&&out.y>=0&&out.y<=300);assert.equal(sampleMeteor(NaN,1100,600,out),false);
+});
+
+import {COSMIC_CLUSTERS} from '../src/visual/cosmos';
+test('four new asteroid groups remain small, localized and on decorative depths',()=>{
+ assert.equal(COSMIC_CLUSTERS.length,4);assert.equal(COSMIC_CLUSTERS.reduce((n,g)=>n+g.count,0),44);assert.ok(COSMIC_CLUSTERS.every(g=>g.parallax>0&&g.parallax<.3));
 });

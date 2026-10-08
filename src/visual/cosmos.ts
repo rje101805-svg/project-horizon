@@ -25,3 +25,11 @@ export function paintGalaxies(ctx:CanvasRenderingContext2D,size:number){
   for(const p of galaxyPoints(i)){ctx.fillStyle=`rgba(160,188,255,${p.alpha})`;ctx.fillRect(p.x,p.y,p.size,p.size);}
  }ctx.restore();
 }
+
+// Four localized background asteroid groups. No gameplay coordinates/minimap entries.
+export const COSMIC_CLUSTERS=[
+ {x:250,y:360,count:11,parallax:.18,tint:0xb7a8ce},
+ {x:1130,y:820,count:11,parallax:.15,tint:0x9fc2cd},
+ {x:2240,y:450,count:11,parallax:.20,tint:0x9b9cae},
+ {x:3380,y:1280,count:11,parallax:.24,tint:0xb6a8a0},
+] as const;
