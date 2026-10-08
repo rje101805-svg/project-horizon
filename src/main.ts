@@ -305,7 +305,7 @@ class Horizon extends Phaser.Scene {
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
     camera.setZoom(easeZoom(camera.zoom,this.visualIntensity.camera?cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat):1,elapsed));
     const intensity=this.visualIntensity.update(elapsed),hole=this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
-    this.deepSpace.update(camera,this.visualIntensity.parallax,this.visualIntensity.quality==='standard');
+    this.deepSpace.update(camera,this.visualIntensity.parallax,this.visualIntensity.quality==='standard',now);
     this.celestial.quality=this.visualIntensity.quality;
     let light=hole??{x:1200,y:450};
     if(import.meta.env.DEV){

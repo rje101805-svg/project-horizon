@@ -1,3 +1,4 @@
+import {sampleMeteor,type MeteorFrame} from './stellar-motion';
 import {paintGalaxies,GALAXY_SPAN} from './cosmos';
 import {generateStars,STAR_COLORS,SKY_SPAN,nebulaColor,parallaxOffset} from './environment';
 import Phaser from 'phaser';
@@ -9,6 +10,10 @@ export class DeepSpace {
   private canvasGeometry:Phaser.GameObjects.Graphics[]=[];
   private starPoints:{x:number;y:number;size:number;alpha:number;color?:number}[]=[];
   private dustPoints:{x:number;y:number;size:number;alpha:number;color?:number}[]=[];
+  private ambient!:Phaser.GameObjects.Graphics;
+  private animationOrigin=performance.now();
+  private twinkles:{x:number;y:number}[]=[];
+  private meteor:MeteorFrame={x:0,y:0,tailX:0,tailY:0,alpha:0,color:0};
   get starCount(){return this.starPoints.length;}
   constructor(private scene:Phaser.Scene) {
     const rng=seededRandom();
@@ -26,6 +31,8 @@ export class DeepSpace {
       for(let i=0;i<7500;i++){const x=dustRandom()*1024,y=dustRandom()*1024,rgb=nebulaColor(x/1024,y/1024+.3);if(Math.max(...rgb)<65)continue;ctx.globalAlpha=.12+dustRandom()*.35;ctx.fillStyle=i%3?'#ec86ee':'#53dce9';ctx.fillRect(x,y,.35+dustRandom()*.55,.35+dustRandom()*.55);}ctx.globalAlpha=1;
     },-29.5,2);
     this.make('galaxies',1024,.012,ctx=>paintGalaxies(ctx,1024),-29.25,GALAXY_SPAN/1024);
+    this.twinkles=this.starPoints.slice(-6);
+    this.ambient=scene.add.graphics().setScrollFactor(0).setDepth(-26);
     this.make('dust',1024,PARALLAX.dust,ctx=>{for(let i=0;i<34;i++){const alpha=.035+rng()*.055,x=rng()*1024,y=rng()*1024;this.dustPoints.push({x,y,size:1.3,alpha});ctx.fillStyle=`rgba(160,185,191,${alpha})`;ctx.fillRect(x,y,1.3,.6);}},8);
     // Phaser Canvas copies transparent TileSprite canvases into the main canvas.
     // Profiling showed these sparse star/dust copies dominate draw time. Cache
@@ -61,7 +68,7 @@ export class DeepSpace {
     const layer=this.scene.add.tileSprite(0,0,this.scene.scale.width,this.scene.scale.height,key).setOrigin(0).setScrollFactor(0).setDepth(depth);
     layer.tileScaleX=layer.tileScaleY=tileScale;layer.setData('tileScale',tileScale);layer.setData('parallax',factor);this.layers.push(layer);
   }
-  update(camera:Phaser.Cameras.Scene2D.Camera,enabled=true,dust=true){
+  update(camera:Phaser.Cameras.Scene2D.Camera,enabled=true,dust=true,now=performance.now()){
     const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
     for(const layer of this.layers){
       layer.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
@@ -76,6 +83,17 @@ export class DeepSpace {
       g.setData('shiftX',x).setData('shiftY',y).setData('detail',dust);
       if(g.depth===8)g.setVisible(dust);
     }
+    this.ambient.clear().setVisible(dust);
+    if(dust){
+      const elapsed=Math.max(0,now-this.animationOrigin),factor=enabled?.065:0;
+      for(let i=0;i<this.twinkles.length;i++){
+        const p=this.twinkles[i],x=(p.x-parallaxOffset(camera.scrollX,factor)+SKY_SPAN)%SKY_SPAN,y=(p.y-parallaxOffset(camera.scrollY,factor)+SKY_SPAN)%SKY_SPAN;
+        if(x>w||y>h)continue;const alpha=.12+.10*Math.sin(elapsed*.0007+i*2.3);
+        this.ambient.fillStyle(0xc7c4ed,alpha*.4).fillCircle(x,y,2.5).fillStyle(0xdbdef4,alpha).fillCircle(x,y,.8);
+      }
+      if(sampleMeteor(elapsed,w,h,this.meteor)){const m=this.meteor;this.ambient.lineStyle(1,m.color,m.alpha*.22).lineBetween(m.tailX,m.tailY,m.x,m.y).lineStyle(.6,m.color,m.alpha).lineBetween(m.tailX+(m.x-m.tailX)*.65,m.tailY+(m.y-m.tailY)*.65,m.x,m.y);}
+    }
+
   }
-  destroy(){for(const g of this.canvasGeometry)g.destroy();for(const l of this.layers)l.destroy();for(const k of this.keys)this.scene.textures.remove(k);}
+  destroy(){this.ambient.destroy();for(const g of this.canvasGeometry)g.destroy();for(const l of this.layers)l.destroy();for(const k of this.keys)this.scene.textures.remove(k);}
 }

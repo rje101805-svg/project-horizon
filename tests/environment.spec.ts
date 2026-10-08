@@ -13,6 +13,10 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
   await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
   await expect(page.locator('#debug-fps')).toBeHidden();await page.keyboard.press('F3');await expect(page.locator('#debug-fps')).toHaveText(/FPS: \d+ \(3s avg\)/);await expect(page.locator('#visual-rendering')).toContainText('Canvas · low');
   await page.locator('#visual-quality').selectOption('standard');await expect(page.locator('#visual-rendering')).toContainText('Canvas · standard');
+  const motion=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],sky=s.deepSpace;
+   sky.update(s.cameras.main,true,true,sky.animationOrigin+5250);const active=sky.ambient.commandBuffer.length;
+   sky.update(s.cameras.main,true,false,sky.animationOrigin+5250);return {active,lowVisible:sky.ambient.visible,lowCommands:sky.ambient.commandBuffer.length,lowDetail:sky.canvasGeometry[0].getData('detail')};
+  });expect(motion.active).toBeGreaterThan(0);expect(motion.active).toBeLessThan(250);expect(motion.lowVisible).toBe(false);expect(motion.lowCommands).toBe(0);expect(motion.lowDetail).toBe(false);
   const baseline=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return {children:s.children.length,stars:s.deepSpace.starCount,rocks:s.celestial.decorations.reduce((n:number,g:any)=>n+g.length,0),bodies:s.celestial.distant.length,keys:Object.keys(s.textures.list).filter(k=>/^(space-|surface-|planet-|ice-|distant-|debris-)/.test(k)).sort()};});
   expect(baseline.stars).toBeGreaterThan(6000);expect(baseline.rocks).toBe(47);expect(baseline.bodies).toBe(5);
   const room=[...store.rooms.values()][0],initial=structuredClone([...room.players.values()][0].state);
