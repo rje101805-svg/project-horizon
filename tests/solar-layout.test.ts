@@ -11,3 +11,9 @@ test('deterministic four biome regions fit separate corners with open corridors'
 test('minimap mapping is accurate at center, each boundary and planetary landmarks',()=>{
  assert.deepEqual(mapPoint(0,0,WORLD),{x:0,y:0});assert.deepEqual(mapPoint(WORLD,WORLD,WORLD),{x:150,y:150});assert.deepEqual(mapPoint(WORLD/2,WORLD/2,WORLD),{x:75,y:75});assert.deepEqual(mapPoint(-1,WORLD+1,WORLD),{x:0,y:150});for(const p of PLANET_REGIONS)assert.equal(mapPoint(p.x,p.y,WORLD).x,p.x/WORLD*150);
 });
+
+test('P3S2.6 main planets shrink within the authorized range without background parallax or moved centers',()=>{
+ const old=[1100,980,1300,720],centers=[[2400,2900],[9000,2400],[8400,8900],[2200,9200]];
+ for(const [i,p]of PLANET_REGIONS.entries()){const shrink=1-p.radius/old[i];assert.ok(shrink>=.15&&shrink<=.35);assert.deepEqual([p.x,p.y],centers[i]);}
+ assert.ok(Math.max(...PLANET_REGIONS.map(p=>p.radius))/Math.min(...PLANET_REGIONS.map(p=>p.radius))>2);
+});

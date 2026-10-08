@@ -7,6 +7,7 @@ test('four cached biome materials render and clean up in WebGL and Canvas',async
  try{for(const [p,webgl]of [[page,false],[gpu,true]] as const){
  const errors:string[]=[];p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:5175');await p.locator('#server-url').fill('http://127.0.0.1:3002');const started=Date.now();await p.locator('#create').click();await expect(p.locator('canvas')).toBeVisible({timeout:15000});console.log('P3S2.5 cold scene readiness ms',webgl?'SwiftShader':'Canvas',Date.now()-started);
  await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].celestial?.bodies.length)).toBe(4);
+ if(webgl)await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.celestial.bodies.every((b:any)=>b.shader?.uniforms.atmospherePulse.value>=.97&&b.shader.uniforms.atmospherePulse.value<=1);})).toBe(true);
  await p.keyboard.press('F3');await p.locator('#visual-planet').click();
  for(const biome of ['ice','volcanic','terrestrial','moon']){
  await p.locator('#visual-biome').selectOption(biome);

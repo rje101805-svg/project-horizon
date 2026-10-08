@@ -46,13 +46,13 @@ export function bakeMaterial(ctx:CanvasRenderingContext2D,size:number,biome:Biom
 export const MATERIAL_FRAGMENT=`
 precision mediump float;
 uniform vec2 resolution;uniform float time;uniform float intensity;uniform vec3 warmDirection;
-uniform float biome;uniform sampler2D iChannel0;uniform sampler2D iChannel1;uniform sampler2D iChannel2;
+uniform float atmospherePulse;uniform float biome;uniform sampler2D iChannel0;uniform sampler2D iChannel1;uniform sampler2D iChannel2;
 varying vec2 fragCoord;
 void main(){
  vec2 p=(fragCoord/resolution*2.-1.)*1.075;p.y=-p.y;float r=length(p);if(r>1.075){gl_FragColor=vec4(0.);return;}
  float z=sqrt(max(0.,1.-dot(p,p)));vec3 n=vec3(p,z);
  vec3 rim=biome<.5?vec3(.12,.45,.68):biome<1.5?vec3(.8,.16,.025):biome<2.5?vec3(.07,.30,.65):vec3(0.);
- if(r>1.){float a=biome>2.5?0.:pow(max(0.,1.-(r-1.)/.075),2.)*(biome<.5?.07:.16);gl_FragColor=vec4(rim*a,a);return;}
+ if(r>1.){float a=biome>2.5?0.:pow(max(0.,1.-(r-1.)/.075),2.)*(biome<.5?.07:.16);a*=atmospherePulse;gl_FragColor=vec4(rim*a,a);return;}
  vec2 uv=vec2(fract(.5+atan(n.x,max(.0001,n.z))/6.283185+time*.00065),.5+asin(clamp(n.y,-1.,1.))/3.141593);
  vec4 material=texture2D(iChannel0,uv);float cloud=0.;if(biome>1.5&&biome<2.5)cloud=texture2D(iChannel1,vec2(fract(uv.x+time*.00028),uv.y)).a*.8;
  vec3 surface=mix(material.rgb,vec3(.9),cloud);
@@ -63,7 +63,7 @@ void main(){
   lightingNormal=normalize(east*tangent.x+north*tangent.y+n*tangent.z);
  }
  float cool=max(0.,dot(lightingNormal,vec3(-.65,-.42,.63)))*(1.-.7*intensity),hot=max(0.,dot(lightingNormal,warmDirection))*intensity;
- vec3 col=surface*(vec3(.055)+vec3(.78)*cool+vec3(.85,.58,.30)*hot)+rim*pow(1.-z,4.)*(biome<.5?.035:.09);
+ vec3 col=surface*(vec3(.055)+vec3(.78)*cool+vec3(.85,.58,.30)*hot)+rim*pow(1.-z,4.)*(biome<.5?.035:.09)*atmospherePulse;
  if(biome>.5&&biome<1.5)col+=texture2D(iChannel2,uv).r*vec3(.72,.20,.01);
  float a=1.-smoothstep(.997,1.,r);gl_FragColor=vec4((col/(vec3(1.)+col*.65))*a,a);
 }`;

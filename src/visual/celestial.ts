@@ -42,7 +42,7 @@ export class CelestialWorld {
    const planet={...PLANET_REGIONS[i]},key=i===0?'ice-prototype':`planet-${biome}-bake`,map=read(`surface-${biome}`),detail=read(`surface-${biome}-detail`);
    const texture=scene.textures.createCanvas(key,768,768)!;bakeMaterial(texture.context,768,biome,map,this.clouds,[1,0,.48],0,detail);texture.refresh();
    const fallback=scene.add.image(planet.x,planet.y,key).setDisplaySize(planet.radius*2.15,planet.radius*2.15).setDepth(-12);
-   const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
+   const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{atmospherePulse:{type:'1f',value:1},intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
    this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
   }
   const rocks=scene.textures.createCanvas('debris-atlas',256,128)!;
@@ -76,11 +76,12 @@ export class CelestialWorld {
 
  }
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
+  const pulse=.985+.015*Math.sin(now*.00012);
   for(const body of this.bodies){
    const p=body.planet,visible=this.enabled&&(!this.study||body.biome===this.studyBiome)&&visibleCircle(camera.worldView,p,p.radius*1.075),live=advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
    body.fallback.setVisible(visible&&!live).setPosition(p.x,p.y).setDisplaySize(p.radius*2.15,p.radius*2.15);
    const warm=horizonDirection(p,horizon);
-   if(body.shader){const size=p.radius*2.15;if(body.shader.width!==size){body.shader.setSize(size,size);body.shader.updateDisplayOrigin();}body.shader.setVisible(visible&&live).setPosition(p.x,p.y);if(visible&&live){body.shader.setUniform('intensity.value',intensity);body.shader.setUniform('warmDirection.value',warm);}}
+   if(body.shader){const size=p.radius*2.15;if(body.shader.width!==size){body.shader.setSize(size,size);body.shader.updateDisplayOrigin();}body.shader.setVisible(visible&&live).setPosition(p.x,p.y);if(visible&&live){body.shader.setUniform('atmospherePulse.value',pulse);body.shader.setUniform('intensity.value',intensity);body.shader.setUniform('warmDirection.value',warm);}}
    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
    if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,768,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
@@ -92,6 +93,7 @@ export class CelestialWorld {
    const p=DISTANT_BODIES[i],x=p.x-camera.scrollX*p.parallax,y=p.y-camera.scrollY*p.parallax;
    const height=p.kind.startsWith('ringed')?p.size*.5:p.size;
    d.setDisplaySize(p.size/z,height/z).setPosition(w*.5+(x-w*.5)/z,h*.5+(y-h*.5)/z);
+   if(p.kind.startsWith('ringed'))d.setRotation(animated?.018*Math.sin(elapsed*.000045+i):0);
    d.setVisible((animated||i<5)&&x+p.size/2>0&&x-p.size/2<w&&y+height/2>0&&y-height/2<h);
   }
   for(const [i,group]of this.cosmicClusters.entries()){
