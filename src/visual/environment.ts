@@ -24,15 +24,4 @@ export function generateStars(seed=3251):Star[]{
  for(let i=0;i<12;i++)stars.push({x:random()*SKY_SPAN,y:random()*SKY_SPAN,size:1.45,alpha:.65,color:i%4});
  return stars;
 }
-// Periodic warped multiscale fields, baked once. No runtime animated noise.
-export function nebulaColor(u:number,v:number):readonly number[]{
- const a=u*Math.PI*2,b=v*Math.PI*2;
- const warp=Math.sin(a*2+b)*.75+Math.cos(b*3-a)*.45;
- const field=Math.sin(a+warp)+.5*Math.cos(b*2-a)+.3*Math.sin(a*3+b*3)+.2*Math.cos(a*5-b*4);
- const gas=Math.max(0,Math.min(1,(field-.30)*1.25));
- const filament=.58+.18*Math.sin(a*11+b*7+warp*4)+.12*Math.cos(a*7-b*13+Math.sin(b*5)*3)+.10*Math.sin(a*23+b*17+Math.sin(a*9-b*11)*3);
- const blue=.5+.5*Math.sin(b-a),pink=.5+.5*Math.cos(a+b*2);
- const cyan=Math.max(0,Math.sin(a*3-b*2+warp)-.55)*gas;
- return [4+gas*(85+pink*100-blue*45)*filament+cyan*15,7+gas*(18+blue*55)*filament+cyan*130,14+gas*(150+blue*70)*filament+cyan*80];
-}
 export function parallaxOffset(scroll:number,factor:number,span=SKY_SPAN){return ((scroll*factor)%span+span)%span;}

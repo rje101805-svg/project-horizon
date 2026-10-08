@@ -1,9 +1,9 @@
 import {sampleMeteor,type MeteorFrame} from './stellar-motion';
 import {CosmicImages} from './cosmic-images';
-import {generateStars,STAR_COLORS,SKY_SPAN,nebulaColor,parallaxOffset} from './environment';
+import {generateStars,STAR_COLORS,SKY_SPAN,parallaxOffset} from './environment';
 import Phaser from 'phaser';
 import { PARALLAX, seededRandom } from './config';
-// Five cached tile layers. No per-star objects, randomization, or particle emitters at runtime.
+// Cached star layers and sparse full-resolution cosmic images. No per-star objects, randomization, or particle emitters at runtime.
 export class DeepSpace {
   readonly cosmic:CosmicImages;
   readonly layers:Phaser.GameObjects.TileSprite[]=[];
@@ -18,7 +18,7 @@ export class DeepSpace {
   get starCount(){return this.starPoints.length;}
   constructor(private scene:Phaser.Scene) {
     const rng=seededRandom();
-    this.make('void',1024,0,ctx=>{ctx.fillStyle='#040810';ctx.fillRect(0,0,1024,1024);},-30);
+    this.make('void',1024,0,ctx=>{ctx.fillStyle='#02040a';ctx.fillRect(0,0,1024,1024);},-30);
     this.make('stars',SKY_SPAN,PARALLAX.stars,ctx=>{
       this.starPoints=generateStars();
       for(const p of this.starPoints){ctx.globalAlpha=p.alpha;ctx.fillStyle=`#${STAR_COLORS[p.color??0].toString(16)}`;ctx.fillRect(Math.round(p.x),Math.round(p.y),p.size,p.size);}ctx.globalAlpha=1;
@@ -26,14 +26,6 @@ export class DeepSpace {
     this.make('stars-low',SKY_SPAN,PARALLAX.stars,ctx=>{
       for(let i=0;i<this.starPoints.length;i+=4){const p=this.starPoints[i];ctx.globalAlpha=p.alpha;ctx.fillStyle=`#${STAR_COLORS[p.color??0].toString(16)}`;ctx.fillRect(Math.round(p.x),Math.round(p.y),p.size,p.size);}ctx.globalAlpha=1;
     },-29);
-    // A small opaque bake replaces both navy uniformity and expensive transparent
-    // fog copies. Low hides it; the logical period matches the stars for lens sampling.
-    this.make('haze',1024,PARALLAX.haze,ctx=>{
-      const image=ctx.createImageData(1024,1024);
-      for(let y=0;y<1024;y++)for(let x=0;x<1024;x++){const rgb=nebulaColor(x/1024,y/1024+.3),o=(y*1024+x)*4;for(let c=0;c<3;c++)image.data[o+c]=rgb[c];image.data[o+3]=255;}ctx.putImageData(image,0,0);
-          const dustRandom=seededRandom(32611);
-      for(let i=0;i<7500;i++){const x=dustRandom()*1024,y=dustRandom()*1024,rgb=nebulaColor(x/1024,y/1024+.3);if(Math.max(...rgb)<65)continue;ctx.globalAlpha=.12+dustRandom()*.35;ctx.fillStyle=i%3?'#ec86ee':'#53dce9';ctx.fillRect(x,y,.35+dustRandom()*.55,.35+dustRandom()*.55);}ctx.globalAlpha=1;
-    },-29.5,2);
     this.cosmic=new CosmicImages(scene);
     this.twinkles=this.starPoints.slice(-6);
     this.ambient=scene.add.graphics().setScrollFactor(0).setDepth(-26);
@@ -73,14 +65,14 @@ export class DeepSpace {
     layer.tileScaleX=layer.tileScaleY=tileScale;layer.setData('tileScale',tileScale);layer.setData('parallax',factor);this.layers.push(layer);
   }
   update(camera:Phaser.Cameras.Scene2D.Camera,enabled=true,dust=true,now=performance.now()){
-    this.cosmic.update(camera,enabled,dust);
+    this.cosmic.update(camera,enabled);
     const z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
     for(const layer of this.layers){
       layer.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
       const factor=enabled ? layer.getData('parallax') as number : 0;
       const scale=layer.getData('tileScale') as number;layer.tilePositionX=camera.scrollX*factor/scale;layer.tilePositionY=camera.scrollY*factor/scale;
       if(layer.depth===-29)layer.setVisible(layer.texture.key==='space-stars'?dust:!dust);
-      if(layer.depth===8||(layer.depth===-29.5||layer.depth===-29.25))layer.setVisible(dust);
+      if(layer.depth===8)layer.setVisible(dust);
       if(this.canvasGeometry.length&&(layer.depth===-29||layer.depth===8))layer.setVisible(false);
     }
     for(const g of this.canvasGeometry){

@@ -1,9 +1,13 @@
 // Original production PNGs, sampled at full source resolution. No tiling or regeneration.
 export const COSMIC_IMAGES = [
   {file:'Edge-On Galaxy in Deep Space.png',kind:'galaxy',x:260,y:170,width:290,angle:-.12,alpha:.72,parallax:.028},
-  {file:'Majestic Colorful Spiral Galaxy.png',kind:'galaxy',x:1170,y:420,width:235,angle:.45,alpha:.62,parallax:.042},
-  {file:'Majestic Golden Spiral Galaxy.png',kind:'galaxy',x:690,y:950,width:285,angle:-.3,alpha:.78,parallax:.052},
-  {file:'Tilted Golden Spiral Galaxy.png',kind:'galaxy',x:1520,y:1100,width:245,angle:.2,alpha:.65,parallax:.07},
+  {file:'Majestic Colorful Spiral Galaxy.png',kind:'galaxy',x:1470,y:420,width:235,angle:.45,alpha:.62,parallax:.042},
+  {file:'Majestic Golden Spiral Galaxy.png',kind:'galaxy',x:250,y:900,width:285,angle:-.3,alpha:.78,parallax:.052},
+  {file:'Tilted Golden Spiral Galaxy.png',kind:'galaxy',x:1600,y:950,width:245,angle:.2,alpha:.65,parallax:.07},
+  {file:'Isolated Magenta Nebula in Deep Space.png',kind:'nebula',x:590,y:570,width:500,angle:-.15,alpha:.76,parallax:.09},
+  {file:'Electric Blue Nebula Cloud.png',kind:'nebula',x:1550,y:430,width:480,angle:.22,alpha:.72,parallax:.10},
+  {file:'Luminous Purple and Teal Nebula.png',kind:'nebula',x:1500,y:1450,width:490,angle:-.25,alpha:.68,parallax:.095},
+  {file:'Magenta Nebula in the Void.png',kind:'nebula',x:220,y:1530,width:460,angle:.12,alpha:.68,parallax:.09},
 ] as const;
 
 // Remove the near-black pedestal, then unpremultiply before Phaser premultiplies

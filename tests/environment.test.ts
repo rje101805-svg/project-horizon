@@ -1,17 +1,15 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {generateStars,SKY_SPAN,skyDensity,nebulaColor,parallaxOffset} from '../src/visual/environment';
+import {generateStars,SKY_SPAN,skyDensity,parallaxOffset} from '../src/visual/environment';
 test('cached astronomical distribution is deterministic, bounded and dominated by faint stars',()=>{
  const stars=generateStars();assert.deepEqual(stars,generateStars());assert.ok(stars.length>12000&&stars.length<17000);
  assert.ok(stars.filter(s=>s.alpha>.5).length>100);assert.ok(stars.filter(s=>s.alpha<.24).length>stars.length*.65);
  for(const s of stars)assert.ok(s.x>=0&&s.x<SKY_SPAN&&s.y>=0&&s.y<SKY_SPAN&&s.color<4&&s.size<1.5);
  assert.ok(Math.abs(skyDensity(0,0)-skyDensity(1024,1024))>.2);
 });
-test('parallax fields wrap continuously and cached nebulae retain vivid color, dark gaps and seam continuity',()=>{
+test('distant parallax fields wrap continuously through negative and positive travel',()=>{
  assert.equal(parallaxOffset(12000,.035),420);assert.equal(parallaxOffset(-100,.1),SKY_SPAN-10);
- for(let i=0;i<20;i++){const u=i/20;for(let c=0;c<3;c++){assert.ok(Math.abs(nebulaColor(0,u)[c]-nebulaColor(1,u)[c])<1e-8);}}
- for(let y=0;y<20;y++)for(let x=0;x<20;x++)for(const c of nebulaColor(x/20,y/20))assert.ok(c>=0&&c<256);
- const samples=Array.from({length:2500},(_,i)=>Math.max(...nebulaColor(i%50/50,Math.floor(i/50)/50)));assert.ok(samples.filter(c=>c>45).length>samples.length*.25);assert.ok(samples.filter(c=>c<25).length>samples.length*.55);
+ assert.equal(parallaxOffset(SKY_SPAN/.035,.035),0);
 });
 import {DISTANT_BODIES,distantSurface,bakeDistant} from '../src/visual/distant';
 test('distant scenery is a restrained, varied client-only set with directional sphere shading',()=>{
@@ -29,8 +27,10 @@ test('rock atlases have bounded irregular silhouettes with deterministic shape v
 
 import {COSMIC_IMAGES,maskCosmicPixels} from '../src/visual/cosmos';
 test('production galaxies are unique, small, separated and keep source radiance without black rectangles',()=>{
- assert.equal(COSMIC_IMAGES.length,4);assert.equal(new Set(COSMIC_IMAGES.map(p=>p.file)).size,4);
- assert.ok(COSMIC_IMAGES.every(p=>p.width<=290&&p.parallax<=.07&&p.alpha<.8));
+ assert.equal(COSMIC_IMAGES.length,8);assert.equal(new Set(COSMIC_IMAGES.map(p=>p.file)).size,8);
+ assert.equal(COSMIC_IMAGES.filter(p=>p.kind==='nebula').length,4);
+ assert.ok(COSMIC_IMAGES.filter(p=>p.kind==='galaxy').every(p=>p.width<=290&&p.parallax<=.07&&p.alpha<.8));
+ assert.ok(COSMIC_IMAGES.filter(p=>p.kind==='nebula').every(p=>p.width<=500&&p.parallax<=.10));
  const pixels=new Uint8ClampedArray([1,2,1,255,100,50,20,255,255,200,150,255]);maskCosmicPixels(pixels);
  assert.deepEqual([...pixels.slice(0,4)],[0,0,0,0]);
  for(const [i,original]of [[4,[100,50,20]],[8,[255,200,150]]] as const)

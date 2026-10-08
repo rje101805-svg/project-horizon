@@ -19,7 +19,7 @@ export class CosmicImages {
       this.images.push(scene.add.image(0,0,key).setScrollFactor(0).setDepth(-29.2).setBlendMode(Phaser.BlendModes.ADD).setAlpha(p.alpha).setRotation(p.angle));
     }
   }
-  update(camera:Phaser.Cameras.Scene2D.Camera,parallax:boolean,standard:boolean){
+  update(camera:Phaser.Cameras.Scene2D.Camera,parallax:boolean){
     const w=this.scene.scale.width,h=this.scene.scale.height,z=camera.zoom;
     // Keep formations small even on narrow viewports; source pixels are never magnified.
     const fit=Math.min(1,Math.sqrt(w*h/(1100*600)));
