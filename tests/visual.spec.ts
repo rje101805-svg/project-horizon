@@ -30,7 +30,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
    expect(result.copies).toBe(0);expect(result.geometry).toBe(2);expect(result.specks).toBeGreaterThan(0);expect(result.bakes).toBe(0);
   }
   await p.keyboard.press('F3');await expect(p.locator('#visual-controls')).toBeVisible();await p.locator('#visual-planet').click();
-  await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.celestial.shader?.visible??s.celestial.fallback.visible;})).toBe(true);
+  await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.celestial.shader?.visible||s.celestial.fallback.visible;})).toBe(true);
   if(webgl)await p.locator('canvas').screenshot({path:'/tmp/p3s1-planet.png'});
   await p.locator('#visual-horizon').click();
   await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return !!s.previewHorizon?.core.visible;})).toBe(true);

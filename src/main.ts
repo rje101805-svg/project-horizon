@@ -1,3 +1,4 @@
+import {preloadPlanetImages} from './visual/planet-images';
 import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
 import {SHIP_ART,shipArtForColor,type ShipArt} from './visual/ships';
 import {preloadCosmicImages} from './visual/cosmic-images';
@@ -70,7 +71,7 @@ class Horizon extends Phaser.Scene {
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
-  preload() { for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
+  preload() { preloadPlanetImages(this); for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
   create() {
     const webgl=this.game.renderer.type===Phaser.WEBGL;
     this.visualIntensity.quality=defaultVisualQuality(webgl);

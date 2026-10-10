@@ -1,3 +1,4 @@
+import {PLANET_IMAGES} from './planet-images';
 import {COSMIC_CLUSTERS} from './cosmos';
 import {bakeRock} from './debris';
 import {DISTANT_BODIES,bakeDistant} from './distant';
@@ -24,7 +25,7 @@ export function bakeSphere(ctx:CanvasRenderingContext2D,size:number,warm:readonl
  ctx.putImageData(image,0,0);
 }
 interface Body {
- planet:{x:number;y:number;radius:number};biome:Biome;fallback:Phaser.GameObjects.Image;shader:Phaser.GameObjects.Shader|null;key:string;lightKey:string;lastBake:number;map:SurfaceMap;detail:SurfaceMap;
+ planet:{x:number;y:number;radius:number};biome:Biome;fallback:Phaser.GameObjects.Image;shader:Phaser.GameObjects.Shader|null;key:string;lightKey:string;lastBake:number;custom:boolean;map:SurfaceMap;detail:SurfaceMap;
 }
 export class CelestialWorld {
  readonly bodies:Body[]=[];
@@ -41,9 +42,12 @@ export class CelestialWorld {
   for(const [i,biome]of BIOMES.entries()){
    const planet={...PLANET_REGIONS[i]},key=i===0?'ice-prototype':`planet-${biome}-bake`,map=read(`surface-${biome}`),detail=read(`surface-${biome}-detail`);
    const texture=scene.textures.createCanvas(key,768,768)!;bakeMaterial(texture.context,768,biome,map,this.clouds,[1,0,.48],0,detail);texture.refresh();
-   const fallback=scene.add.image(planet.x,planet.y,key).setDisplaySize(planet.radius*2.15,planet.radius*2.15).setDepth(-12);
+   const art=PLANET_IMAGES[biome],custom=scene.textures.exists(art.key);
+   const fallback=scene.add.image(planet.x,planet.y,custom?art.key:key).setDepth(-12);
+   if(custom)fallback.setOrigin(art.centerX/art.size,art.centerY/art.size).setScale(planet.radius/art.discRadius);
+   else fallback.setDisplaySize(planet.radius*2.15,planet.radius*2.15);
    const shader=optionalShader(scene,`sphere-${biome}`,MATERIAL_FRAGMENT,planet.x,planet.y,planet.radius*2.15,planet.radius*2.15,{atmospherePulse:{type:'1f',value:1},intensity:{type:'1f',value:0},warmDirection:{type:'3fv',value:[1,0,.48]},biome:{type:'1f',value:i}},[`surface-${biome}`,'surface-clouds',`surface-${biome}-detail`])?.setDepth(-12)??null;
-   this.bodies.push({planet,biome,fallback,shader,key,map,detail,lightKey:'0',lastBake:-Infinity});
+   this.bodies.push({planet,biome,fallback,shader,key,custom,map,detail,lightKey:'0',lastBake:-Infinity});
   }
   const rocks=scene.textures.createCanvas('debris-atlas',256,128)!;
   const rockCanvas=document.createElement('canvas');rockCanvas.width=rockCanvas.height=64;const rockContext=rockCanvas.getContext('2d')!;
@@ -78,12 +82,14 @@ export class CelestialWorld {
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
   const pulse=.985+.015*Math.sin(now*.00012);
   for(const body of this.bodies){
-   const p=body.planet,visible=this.enabled&&(!this.study||body.biome===this.studyBiome)&&visibleCircle(camera.worldView,p,p.radius*1.075),live=advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
-   body.fallback.setVisible(visible&&!live).setPosition(p.x,p.y).setDisplaySize(p.radius*2.15,p.radius*2.15);
+   const p=body.planet,visible=this.enabled&&(!this.study||body.biome===this.studyBiome)&&visibleCircle(camera.worldView,p,p.radius*1.075),live=!body.custom&&advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
+   body.fallback.setVisible(visible&&!live).setPosition(p.x,p.y);
+   if(body.custom){const art=PLANET_IMAGES[body.biome];body.fallback.setScale(p.radius/art.discRadius);}
+   else body.fallback.setDisplaySize(p.radius*2.15,p.radius*2.15);
    const warm=horizonDirection(p,horizon);
    if(body.shader){const size=p.radius*2.15;if(body.shader.width!==size){body.shader.setSize(size,size);body.shader.updateDisplayOrigin();}body.shader.setVisible(visible&&live).setPosition(p.x,p.y);if(visible&&live){body.shader.setUniform('atmospherePulse.value',pulse);body.shader.setUniform('intensity.value',intensity);body.shader.setUniform('warmDirection.value',warm);}}
    const level=Math.round(intensity*10),key=level===0?'0':`${level}:${Math.round(warm[0]*8)}:${Math.round(warm[1]*8)}`;
-   if(visible&&!live&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,768,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
+   if(visible&&!live&&!body.custom&&body.lightKey!==key&&now-body.lastBake>=250){body.lastBake=now;body.lightKey=key;const tex=this.scene.textures.get(body.key) as Phaser.Textures.CanvasTexture;bakeMaterial(tex.context,768,body.biome,body.map,this.clouds,warm,intensity,body.detail);tex.refresh();}
   }
   const elapsed=Math.max(0,now-this.visualOrigin),animated=this.quality==='standard';
   for(let i=0;i<this.decorations.length;i++){const group=this.decorations[i];group.setVisible(!this.study&&visibleCircle(camera.worldView,LANDMARKS[i],200));if(group.visible&&animated)for(let j=0;j<group.length;j++){const rock=group.list[j] as Phaser.GameObjects.Image;rock.rotation=Number(rock.getData('baseRotation'))+elapsed*.000012*(j%2?1:-1);}}
@@ -108,5 +114,5 @@ export class CelestialWorld {
 
 
  }
- destroy(){for(const g of this.cosmicClusters)g.destroy();this.scene.textures.remove('debris-atlas');for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
+ destroy(){for(const g of this.cosmicClusters)g.destroy();this.scene.textures.remove('debris-atlas');for(const g of this.decorations)g.destroy();for(const b of this.bodies){b.shader?.destroy();b.fallback.destroy();this.scene.textures.remove(b.key);this.scene.textures.remove(PLANET_IMAGES[b.biome].key);}for(const d of this.distant)d.destroy();for(const key of ['distant-body-0','distant-body-1'])this.scene.textures.remove(key);for(const b of [...BIOMES,'clouds',...BIOMES.map(b=>`${b}-detail`)])this.scene.textures.remove(`surface-${b}`);}
 }
