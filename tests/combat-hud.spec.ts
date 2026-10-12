@@ -53,10 +53,10 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
       await frame();await expect.poll(()=>visual(page).then(v=>v.numbers.length)).toBeGreaterThan(0);
     };
     await tap(1);
-    expect(b.state.shield).toBe(9.5);expect(b.state.health).toBe(100);
+    expect(b.state.shield).toBe(59.5);expect(b.state.health).toBe(100);
     let v=await visual(page);expect(v.numbers).toHaveLength(1);expect(v.numbers[0].text).toBe('40.5');expect(v.numbers[0].color).toBe('#65d9ff');
     for(const p of [peer,spectator])expect((await visual(p)).numbers).toHaveLength(0);
-    await expect.poll(()=>visual(peer).then(v=>v.presentation!.shield)).toBe(.19);
+    await expect.poll(()=>visual(peer).then(v=>v.presentation!.shield)).toBe(.595);
     await advance(5);await frame(); // Restore cooldown; keep each hit independent.
     b.state.shield=10;await page.waitForTimeout(220);await tap(2);
     expect(b.state.shield).toBe(0);expect(b.state.health).toBe(69.5);

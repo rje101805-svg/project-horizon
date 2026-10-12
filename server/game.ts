@@ -1,3 +1,4 @@
+import {triggerIntent} from './galaxy';
 import {inventoryCommand,advanceLoot,lootSnapshot} from './inventory';
 import {advanceObjectives,objectivesSnapshot} from './objectives';
 import { advanceBots, advanceBotActions } from './bots';
@@ -31,6 +32,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   const debugAuthorized = combatDebugEnabled(options.combatDebug);
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('trigger',request=>{const room=store.roomFor(socket.id);triggerIntent(room,room?.players.get(socket.id),request);});
     socket.on('inventory',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id);reply(inventoryCommand(room,room?.players.get(socket.id),request));});
     socket.on('tractor',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id);reply(activateTractor(room,room?.players.get(socket.id),request));});
     socket.on('fire', (request, reply) => {

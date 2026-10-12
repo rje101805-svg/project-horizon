@@ -34,7 +34,7 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
         }
         assert.deepEqual(p.state, initial); assert.deepEqual(peer.state, peerInitial);
       } else {
-        assert.equal((await request('damage')).ok, true); assert.equal(p.state.shield, 15); assert.equal(p.state.health, 100);
+        assert.equal((await request('damage')).ok, true); assert.equal(p.state.shield, 65); assert.equal(p.state.health, 100);
         assert.equal((await request('ammo')).ok, true); assert.equal(p.state.ammo, 29);
         assert.equal((await request('reload')).ok, true); assert.equal(p.combatTimers.reload, 69);
         server.step(); assert.equal(p.combatTimers.reload, 68);
@@ -44,13 +44,13 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
         assert.deepEqual(peer.state, peerInitial); // Forged target is ignored: only own server socket ID is used.
         const snapshot = new Promise<Snapshot>(resolve => b.once('snapshot', resolve)); server.step();
         const state = (await snapshot).players.find(s => s.id === a.id)!;
-        assert.equal(state.shield, 15); assert.equal(state.ammo, 29); assert.equal(state.isReloading, true);
+        assert.equal(state.shield, 65); assert.equal(state.ammo, 29); assert.equal(state.isReloading, true);
         assert.equal(state.controllerType, 'HUMAN'); assert.equal(state.status, 'ALIVE');
         assert.equal(state.reloadRemainingMs, p.state.reloadRemainingMs);
         for (let i = 0; i < 67; i++) server.step();
         assert.equal(p.state.ammo, 30); assert.equal(p.state.isReloading, false); assert.equal(p.state.reloadProgress, 1);
         assert.equal(p.state.fireCooldownRemainingMs, 0);
-        for (let i = 0; i < 4; i++) await request('damage');
+        for (let i = 0; i < 5; i++) await request('damage');
         assert.equal(p.state.health, 0); assert.equal(p.state.status, 'ALIEN'); assert.equal(p.state.lifeState, 'dead');
         assert.equal(p.state.kills, 0); assert.equal(p.state.deathSequence, 1);
       }

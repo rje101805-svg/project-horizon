@@ -97,7 +97,7 @@ test('partial reload blocks fire without changing existing bullets, ammo or cool
   for (let n = 2; n < 20; n++) assert.equal(fire(room, p, shot(n), 0).ok, false);
   assert.deepEqual(projectileSnapshot(room), bullets); assert.deepEqual(p.combatTimers, timer); assert.equal(p.state.ammo, ammo);
   applyDamage(p, 60, { type: 'PLAYER', playerId: 'b' });
-  assert.equal(p.state.shield, 0); assert.equal(p.state.health, 90); assert.equal(p.combatTimers.reload, 69);
+  assert.equal(p.state.shield, 40); assert.equal(p.state.health, 100); assert.equal(p.combatTimers.reload, 69);
   const x = p.state.x; p.input = { ...idleInput(), right: true }; p.lastInput = 0;
   for (let n = 1; n < ticks; n++) simulatePlayer(p, room, n * TICK_MS, n * TICK_MS);
   assert.ok(p.state.x > x); assert.equal(p.state.isReloading, true); assert.equal(p.state.ammo, ammo);
@@ -117,7 +117,7 @@ test('final-round prediction hands off while reloading; stale rejection clears w
   const rejected = fire(room, p, shot(2), 1); assert.equal(rejected.ok, false);
   prediction.result(rejected, snapshot); assert.equal(prediction.count(20), 0);
   assert.equal(prediction.render(snapshot.projectiles, 20).length, 1);
-  assert.equal(p.state.ammo, 0); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 50);
+  assert.equal(p.state.ammo, 0); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 100);
 });
 
 test('room changes/disconnects cannot apply an old reload intent to a new membership', () => {

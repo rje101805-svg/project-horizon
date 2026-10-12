@@ -30,12 +30,12 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');b.state.ammo=29;await frame();
   if(lag)for(const p of pages){await p.bringToFront();await p.keyboard.press('F3');await p.locator('#fake-lag').check();await p.keyboard.press('F3');}
   await peer.bringToFront();await peer.keyboard.press('r');await expect.poll(()=>b.state.isReloading).toBe(true);await frame();
-  for(let seq=1;seq<=4;seq++){
+  for(let seq=1;seq<=5;seq++){
    await page.bringToFront();await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].fireAim=0);
    await page.keyboard.down('Space');await page.waitForTimeout(60);await page.keyboard.up('Space');await expect.poll(()=>a.lastFireSequence).toBe(seq);await frame();
-   if(seq===1){expect(b.state.shield).toBe(9.5);expect(b.state.health).toBe(100);}
-   if(seq===2){expect(b.state.shield).toBe(0);expect(b.state.health).toBe(69);}
-   if(seq<4){await advance(5);await frame();await page.waitForTimeout(220);}
+   if(seq===1){expect(b.state.shield).toBe(59.5);expect(b.state.health).toBe(100);}
+   if(seq===2){expect(b.state.shield).toBe(19);expect(b.state.health).toBe(100);}if(seq===3){expect(b.state.shield).toBe(0);expect(b.state.health).toBe(78.5);}
+   if(seq<5){await advance(5);await frame();await page.waitForTimeout(220);}
   }
   expect(b.state.status).toBe('ALIEN');expect(b.state.lifeState).toBe('dead');expect(b.state.isReloading).toBe(false);expect(b.combatTimers.reload).toBe(0);
   expect(room.players.size).toBe(3);expect(a.state.lifeState).toBe('active');
@@ -64,7 +64,7 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   // avoiding a wall-time hold that could legitimately eliminate the target.
   await peer.evaluate(()=>{const c=(window as unknown as DebugWindow).__HORIZON_FLIGHT__,fire=c as unknown as {attemptFire(now:number):void},now=performance.now();c.setFireIntent(true,0);fire.attemptFire(now);fire.attemptFire(now);c.setFireIntent(false,0);});
   await expect.poll(()=>b.lastFireSequence).toBe(102);expect(b.state.lastMeleeDamage).toBe(5);
-  expect(b.state.spawnInvulnerabilityRemainingMs).toBe(0);expect(a.state.shield).toBe(40);expect(room.projectiles.size).toBe(0);await frame();
+  expect(b.state.spawnInvulnerabilityRemainingMs).toBe(0);expect(a.state.shield).toBe(90);expect(room.projectiles.size).toBe(0);await frame();
   expect(await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
   await peer.keyboard.press('F3');await expect(peer.locator('#debug-weapon')).toContainText('damage 5 · last applied 5');await expect(peer.locator('#debug-cooldown')).toHaveText('Alien melee · no cooldown');await peer.keyboard.press('F3');
   expect(applyDamage(b,25,{type:'PLAYER',playerId:aid},tick*TICK_MS)!.healthDamage).toBe(25);await frame();await expect(peer.locator('#hud-alien')).toHaveText('ALIEN · HP 15 / 40');
@@ -72,7 +72,7 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   expect(b.state.lifeGeneration).toBe(2);expect(b.state.health).toBe(40);expect(b.state.spawnInvulnerabilityRemainingMs).toBeGreaterThanOrEqual(1900);
   await expect(peer.locator('#hud-alien')).toHaveText('ALIEN · HP 40 / 40');await expect(peer.locator('#hud-ammo')).toBeHidden();
   // Final elimination now ends the P2S7 round while retaining P2S6 alien status.
-  applyDamage(c,150,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();
+  applyDamage(c,200,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();
   for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 1');
   expect(room.match.state).toBe('ended');expect(room.match.result).toEqual({kind:'winner',winnerId:aid,winnerName:a.state.name});
   await expect(page.locator('#match-result')).toHaveText('VICTORY');

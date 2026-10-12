@@ -47,7 +47,7 @@ for (const mode of ['default', 'debug', 'production'] as const) test(`reload is 
     a.emit('resetFlight', 0);
     await new Promise<void>(resolve => a.emit('latencyProbe', resolve)); assert.equal(p.reset, mode === 'debug');
     server.step(); assert.equal(p.state.x, mode === 'debug' ? 1370 : 200);
-    assert.equal(p.state.ammo, 30); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 50);
+    assert.equal(p.state.ammo, 30); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 100);
     await new Promise<void>(resolve => a.emit('leaveRoom', resolve));
     await new Promise<RoomResult>(resolve => a.emit('joinRoom', { code: room.code, name: 'A' }, resolve));
     const rejoined = store.roomFor(a.id!)!.players.get(a.id!)!; rejoined.state.ammo = 3;

@@ -21,6 +21,7 @@ export function resetCombatState(player: RoomPlayer) {
   Object.assign(player.state, initialCombatState(), { controllerType, kills, reloadSession });
   if (!player.humanEliminated && status!=='ALIEN')initializeInventory(player);else clearInventory(player);
   if (player.humanEliminated || status === 'ALIEN') Object.assign(player.state, {status:'ALIEN', health:ALIEN_HEALTH, maxHealth:ALIEN_HEALTH, shield:0,maxShield:0,ammo:0,maxAmmo:0});
+  player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;player.recentPickups?.clear();
   player.invulnerableUntilMs = 0;
   player.combatTimers = { reload: 0, cooldown: 0, reloadCompleted: false }; syncTimers(player);
 }
@@ -42,7 +43,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs): boolean {
   const s=player.state;
   if(!player.gameplayEnabled || s.lifeState!=='active' || s.status==='OUT')return false;
-  player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=0;
+  player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
   s.health=0; s.lastDamageSource={...source};
   player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
   s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
@@ -80,7 +81,7 @@ export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   if (!['ALIVE', 'ALIEN', 'OUT'].includes(status)) return false;
   if ((player.humanEliminated || player.state.status === 'ALIEN') && status === 'ALIVE') return false;
   if (status === 'ALIEN') player.humanEliminated = true;
-  if(status!=='ALIVE'){player.dropRegular?.();player.dropGold?.();player.state.stunRemainingMs=player.state.stunImmunityRemainingMs=0;}
+  if(status!=='ALIVE'){player.dropRegular?.();player.dropGold?.();player.state.stunRemainingMs=player.state.stunImmunityRemainingMs=player.state.slowRemainingMs=player.state.burnRemainingMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;}
   player.state.status = status; if(status!=='ALIVE')player.cancelTractor?.(); return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {

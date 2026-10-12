@@ -56,7 +56,7 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
   for(let i=1;i<held.length;i++)expect(held[i].spawnTick-held[i-1].spawnTick).toBeGreaterThanOrEqual(5);
   expect(p.state.ammo).toBe(30-held.length);expect(new Set(all.requests.map(r=>r.sequence)).size).toBe(all.requests.length);
   assertFrames(all,true);expect(await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
-  expect(p.state.health).toBe(100);expect(p.state.shield).toBe(50);
+  expect(p.state.health).toBe(100);expect(p.state.shield).toBe(100);
   // All misses and temporary visuals disappear; no indefinite accumulation.
   await expect.poll(()=>room.projectiles.size,{timeout:4000}).toBe(0);
  }finally{await page.close();await server.close();}

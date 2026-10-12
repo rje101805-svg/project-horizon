@@ -2,7 +2,7 @@ import {WEAPONS,type WeaponInventory} from './weapons';
 // Central combat balance. Durations are milliseconds, quantized to fixed ticks
 // by the authoritative server; weapon configuration lives in shared/weapons.ts.
 export const MAX_HEALTH = 100;
-export const MAX_SHIELD = 50;
+export const MAX_SHIELD = 100;
 export const MAX_AMMO = WEAPONS.blaster.magazine;
 export const RELOAD_DURATION = WEAPONS.blaster.reloadMs;
 export const FIRE_COOLDOWN = 1000 / WEAPONS.blaster.rate;
@@ -12,6 +12,7 @@ export type DamageSource = { type: 'PLAYER'; playerId: string } | { type: 'TRACT
   { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
 export interface CombatState {
   inventory?:WeaponInventory; stunRemainingMs?:number; stunImmunityRemainingMs?:number;
+  galaxyType?:import('./weapons').GalaxyType|null; slowRemainingMs?:number; burnRemainingMs?:number; titanSpin?:number; titanSustainMs?:number;
   goldGunId?: string|null; // Server-owned premium equipment.
   spawnInvulnerabilityRemainingMs: number; lastMeleeDamage: number;
   reloadSession: string; // Server-issued membership identity; not a client authority token.
@@ -24,7 +25,7 @@ export interface CombatState {
   lastDamageSource: DamageSource | null;
 }
 export const initialCombatState = (): CombatState => ({
-  goldGunId:null, inventory:undefined, stunRemainingMs:0, stunImmunityRemainingMs:0, spawnInvulnerabilityRemainingMs: 0, lastMeleeDamage: 0, reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
+  galaxyType:null, slowRemainingMs:0, burnRemainingMs:0, titanSpin:0, titanSustainMs:0, goldGunId:null, inventory:undefined, stunRemainingMs:0, stunImmunityRemainingMs:0, spawnInvulnerabilityRemainingMs: 0, lastMeleeDamage: 0, reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
   ammo: MAX_AMMO, maxAmmo: MAX_AMMO, isReloading: false, reloadRemainingMs: 0, reloadProgress: 0,
   fireCooldownRemainingMs: 0, fireCooldownProgress: 1, status: 'ALIVE',
   controllerType: 'HUMAN', kills: 0, lastDamageSource: null,

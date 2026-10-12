@@ -24,7 +24,7 @@ for(const lag of [false,true])test(`round reset redraws former aliens as humans 
   if(lag)for(const p of pages){await p.bringToFront();await p.keyboard.press('F3');await p.locator('#fake-lag').check();await p.keyboard.press('F3');}
   for(const [winner,loser,loserPage] of [[a,b,peer],[b,a,page]] as const){
    // Central server damage supplies the same elimination path as accepted gun hits.
-   expect(applyDamage(loser,150,{type:'PLAYER',playerId:winner.state.id})?.depleted).toBe(true);await frame();
+   expect(applyDamage(loser,200,{type:'PLAYER',playerId:winner.state.id})?.depleted).toBe(true);await frame();
    expect(room.match.result).toEqual({kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});
    for(const p of pages)await expect.poll(async()=>{const s=(await ships(p)).find(s=>s.id===loser.state.id)!;return {alien:s.alien,alpha:s.alpha,tag:s.label.includes('ALIEN'),ghost:s.commands.toString()!==humanCommands.get(s.id)!.toString(),spriteVisible:s.spriteVisible};}).toEqual({alien:true,alpha:ALIEN_OPACITY,tag:true,ghost:true,spriteVisible:false});
    const round=room.match.round;
@@ -32,9 +32,9 @@ for(const lag of [false,true])test(`round reset redraws former aliens as humans 
    await frame();expect(room.match.round).toBe(round);expect(room.match.state).toBe('waiting');
    for(const p of pages){
     await expect.poll(async()=>(await ships(p)).map(s=>({id:s.id,alien:s.alien,alpha:s.alpha,hullAlpha:s.hullAlpha,tag:s.label.includes('ALIEN'),spriteVisible:s.spriteVisible,texture:s.texture,humanHull:JSON.stringify(s.commands)===JSON.stringify(humanCommands.get(s.id))}))).toEqual(originals.map(s=>({id:s.id,alien:false,alpha:1,hullAlpha:1,tag:false,spriteVisible:true,texture:s.texture,humanHull:true})));
-    expect(await p.locator('#alien-message').isHidden()).toBe(true);await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-health-value')).toHaveText('100 / 100');await expect(p.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
+    expect(await p.locator('#alien-message').isHidden()).toBe(true);await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-health-value')).toHaveText('100 / 100');await expect(p.locator('#hud-shield')).toHaveText('SHIELD 100 / 100');
    }
-   for(const player of [a,b]){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(50);expect(player.state.ammo).toBe(30);}
+   for(const player of [a,b]){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(100);expect(player.state.ammo).toBe(30);}
    await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();expect(room.match.round).toBe(round+1);
    // Send through the real client fire-intent/prediction/network pipeline once.
    const sequence=loser.lastFireSequence+1;

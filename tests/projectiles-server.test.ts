@@ -27,7 +27,7 @@ test('real sockets reject hit/state claims, enforce fire spam, replicate room pr
     Object.assign(pb.state,{x:1600,y:pa.state.y});
     assert.equal((await shot(a,1)).ok,true);
     for(let seq=2;seq<=100;seq++) assert.equal((await shot(a,seq)).ok,false);
-    assert.equal(room.projectiles.size,1);assert.equal(pa.state.ammo,29);assert.equal(pb.state.shield,50);
+    assert.equal(room.projectiles.size,1);assert.equal(pa.state.ammo,29);assert.equal(pb.state.shield,100);
     const snapshots=[a,b,isolated].map(s=>new Promise<Snapshot>(resolve=>s.once('snapshot',resolve)));server.step();
     const [sa,sb,si]=await Promise.all(snapshots);assert.deepEqual(sa.projectiles,sb.projectiles);
     assert.equal(sa.projectiles[0].ownerId,a.id);assert.equal(sa.projectiles[0].damage,40.5);assert.deepEqual(si.projectiles,[]);
@@ -35,10 +35,10 @@ test('real sockets reject hit/state claims, enforce fire spam, replicate room pr
     for(let n=0;n<6;n++) {server.step();await new Promise<void>(resolve=>setImmediate(resolve));}
     assert.equal((await shot(a,101)).ok,true);
     for(let n=0;n<20;n++){server.step();await new Promise<void>(resolve=>setImmediate(resolve));}
-    assert.equal(pb.state.shield,0);assert.equal(pb.state.health,69);assert.equal(room.projectiles.size,0);
+    assert.equal(pb.state.shield,19);assert.equal(pb.state.health,100);assert.equal(room.projectiles.size,0);
     // No handler accepts fabricated client hits.
     (a as unknown as {emit:(name:string,data:unknown)=>void}).emit('hit',{targetId:b.id,damage:99999});
-    await new Promise<void>(resolve=>a.emit('latencyProbe',resolve));assert.equal(pb.state.health,69);
+    await new Promise<void>(resolve=>a.emit('latencyProbe',resolve));assert.equal(pb.state.health,100);
     const result=await new Promise<{ok:boolean}>(resolve=>a.emit('combatDebug',{action:'refill',lifeGeneration:0,teleportSequence:0},resolve));
     assert.equal(result.ok,true);assert.equal(pa.state.ammo,30);
   } finally {sockets.forEach(s=>s.disconnect());await server.close();}

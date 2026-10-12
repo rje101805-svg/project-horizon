@@ -1,11 +1,11 @@
-import {activeWeapon,WEAPONS,GOLD_GUN} from '../shared/weapons';
+import {activeWeapon,WEAPONS,GALAXY_WEAPONS,GALAXY_CONFIG} from '../shared/weapons';
 import { BASIC_BLASTER, parseFire, type FireRequest, type FireResult, type ProjectileState } from '../shared/projectiles';
 import type { PlayerState, Snapshot } from '../shared/protocol';
 import { LOCAL_PROJECTILE_EXTRAPOLATION_MS } from './projectile-view';
-export interface BulletVisual { weapon?:ProjectileState['weapon']; id: string; x: number; y: number }
+export interface BulletVisual { heading?:number;galaxyType?:ProjectileState['galaxyType']; weapon?:ProjectileState['weapon']; id: string; x: number; y: number }
 export const PREDICTED_SHOT_TIMEOUT_MS = 1000;
 const CORRECTION_TIME_MS = 80;
-interface PendingVisual { weapon?:ProjectileState['weapon']; pellets?:{vx:number;vy:number;x:number;y:number}[]; request: FireRequest; ownerId: string; x: number; y: number; vx: number; vy: number; born: number;
+interface PendingVisual { heading?:number;galaxyType?:ProjectileState['galaxyType']; weapon?:ProjectileState['weapon']; pellets?:{vx:number;vy:number;x:number;y:number}[]; request: FireRequest; ownerId: string; x: number; y: number; vx: number; vy: number; born: number;
   accepted?: { id: string; spawnTick: number } }
 interface ConfirmedVisual { state: ProjectileState; arrival: number; offsetX: number; offsetY: number }
 const sameShot = (a: ProjectileState, b: ProjectileState) => a.ownerId === b.ownerId && a.shotSequence === b.shotSequence &&
@@ -39,8 +39,8 @@ export class ProjectilePrediction {
     if (!request || this.pending.has(request.sequence) || this.pending.size >= BASIC_BLASTER.maxActive ||
       player.lifeGeneration !== request.lifeGeneration || player.teleportSequence !== request.teleportSequence) return false;
     const gold=!!player.goldGunId&&player.status==='ALIVE',w=activeWeapon(player),d=WEAPONS[w?.class??'blaster'],pellets=[];
-    for(let i=0;i<(gold?1:d.pellets);i++){const spread=gold?0:d.pellets>1?(i-2)*d.spread/4:d.spread*Math.sin(request.sequence*2.399963),a=request.aim+spread,dx=Math.cos(a),dy=Math.sin(a),speed=gold?BASIC_BLASTER.muzzleSpeed:d.speed;pellets.push({x:player.x+dx*BASIC_BLASTER.muzzleOffset,y:player.y+dy*BASIC_BLASTER.muzzleOffset,vx:player.vx+dx*speed,vy:player.vy+dy*speed});}
-    this.pending.set(request.sequence,{...(gold?{weapon:'gold' as const}:w&&w.class!=='blaster'?{weapon:w.class}:{}),pellets,request,ownerId:player.id,born:now,...pellets[0]});
+    for(let i=0;i<(gold?1:d.pellets);i++){const spread=gold?player.galaxyType==='titan'?(GALAXY_CONFIG.spreadMin+(GALAXY_CONFIG.spreadMax-GALAXY_CONFIG.spreadMin)*Math.min(1,(player.titanSustainMs??0)/GALAXY_CONFIG.spreadRampMs))*Math.sin(request.sequence*2.399963):0:d.pellets>1?(i-2)*d.spread/4:d.spread*Math.sin(request.sequence*2.399963),a=request.aim+spread,dx=Math.cos(a),dy=Math.sin(a),speed=gold?GALAXY_WEAPONS[player.galaxyType??'cryo'].speed:d.speed;pellets.push({x:player.x+dx*BASIC_BLASTER.muzzleOffset,y:player.y+dy*BASIC_BLASTER.muzzleOffset,vx:player.vx+dx*speed,vy:player.vy+dy*speed});}
+    this.pending.set(request.sequence,{...(gold?{weapon:'gold' as const,galaxyType:player.galaxyType??'cryo',heading:Math.atan2(pellets[0].vy,pellets[0].vx)}:w&&w.class!=='blaster'?{weapon:w.class}:{}),pellets,request,ownerId:player.id,born:now,...pellets[0]});
     return true;
   }
   result(result: FireResult, latest: Snapshot | null) {
@@ -77,11 +77,11 @@ export class ProjectilePrediction {
     const visuals: BulletVisual[] = authoritative.map(p => {
       const cached = this.confirmed.get(p.id), confirmed = cached && sameShot(cached.state, p) ? cached : undefined, pending = this.pending.get(p.shotSequence);
       const position = confirmed ? confirmedPosition(confirmed, now) : pending && matches(p, pending) ? pendingPosition(pending, now,p.pellet??0) : p;
-      return { ...(p.weapon?{weapon:p.weapon}:{}), id: p.id, x: position.x, y: position.y };
+      return { ...(p.weapon?{weapon:p.weapon}:{}),...(p.galaxyType?{galaxyType:p.galaxyType,heading:p.heading}:{}), id: p.id, x: position.x, y: position.y };
     });
     for (const [seq, v] of this.pending) {
       if (authoritative.some(p => matches(p, v))) continue;
-      for(let pellet=0;pellet<(v.pellets?.length??1);pellet++)visuals.push({...(v.weapon?{weapon:v.weapon}:{}),id:`predicted:${v.ownerId}:${seq}${pellet?':'+pellet:''}`,...pendingPosition(v,now,pellet)});
+      for(let pellet=0;pellet<(v.pellets?.length??1);pellet++)visuals.push({...(v.weapon?{weapon:v.weapon}:{}),...(v.galaxyType?{galaxyType:v.galaxyType,heading:v.heading}:{}),id:`predicted:${v.ownerId}:${seq}${pellet?':'+pellet:''}`,...pendingPosition(v,now,pellet)});
     }
     return visuals;
   }

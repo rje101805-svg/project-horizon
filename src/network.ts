@@ -1,4 +1,5 @@
-import {hasGoldGun,GOLD_GUN,activeWeapon,WEAPONS,fireInterval} from '../shared/weapons';
+import type {InventoryCommand} from '../shared/loot';
+import {hasGoldGun,activeWeapon,WEAPONS,fireInterval} from '../shared/weapons';
 import { ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { ProjectilePrediction } from './projectile-prediction';
 import { BASIC_BLASTER, type FireRequest, type FireResult } from '../shared/projectiles';
@@ -20,7 +21,7 @@ export interface ConnectionCallbacks {
 export class FlightConnection {
   starting = false;
   private firing = false;
-  private triggerPending=false;private inventorySequence=0;
+  private triggerSequence=0;private lastTriggerAt=-Infinity;private triggerPending=false;private inventorySequence=0;
   private fireAim = 0;
   private nextFireAt = 0;
   private shotSequence = 0;
@@ -218,10 +219,10 @@ export class FlightConnection {
     if (this.lag) this.lag.schedule('input', guarded); else guarded();
   }
   triggerFire(aim:number){const local=this.latest?.players.find(p=>p.id===this.socket.id);if(local&&activeWeapon(local)?.class==='zapper'&&local.ammo>0&&!local.isReloading){this.fireAim=aim;this.triggerPending=true;}}
-  setFireIntent(held: boolean, aim: number) { if(held&&!this.firing&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=true;if(!held&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=false;this.firing = held; this.fireAim = aim; }
+  setFireIntent(held: boolean, aim: number) { if(held!==this.firing||held&&performance.now()-this.lastTriggerAt>100)this.sendTrigger(held); if(held&&!this.firing&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=true;if(!held&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=false;this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (local.ammo <= 0 || local.isReloading)) return;
+    if (!this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (!activeWeapon(local)||local.ammo <= 0 || local.isReloading)) return;
     if(!hasGoldGun(local)&&!WEAPONS[activeWeapon(local)?.class??'blaster'].automatic&&!this.triggerPending)return;this.triggerPending=false;
     this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(local));
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
@@ -243,14 +244,20 @@ export class FlightConnection {
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
     this.starting = false;
+    const wasFiring=this.firing;
     this.projectilePrediction.cancelPending(); this.firing = false;this.triggerPending=false;
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
-    this.pendingRelease = true;
+    this.pendingRelease = true;if(wasFiring)this.sendTrigger(false);
   }
-  inventory(action:'switch'|'swap',slot?:number){
+  inventory(action:InventoryCommand['action'],slot?:number,pickupId?:string,toSlot?:number){
     const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room;if(!this.canPlay()||!local?.inventory||!room)return;
-    const request={action,...(slot===undefined?{}:{slot}),sequence:++this.inventorySequence,roomCode:room.code,round:this.latest!.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence,revision:local.inventory.revision};
+    const request={action,...(pickupId===undefined?{}:{pickupId}),...(toSlot===undefined?{}:{toSlot}),...(slot===undefined?{}:{slot}),sequence:++this.inventorySequence,roomCode:room.code,round:this.latest!.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence,revision:local.inventory.revision};
     const epoch=this.epoch;const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('inventory',request,()=>{});};if(this.lag)this.lag.schedule('input',send);else send();
+  }
+  private sendTrigger(held:boolean){
+    const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room;if(!local||!room||local.galaxyType!=='titan'||!this.canPlay())return;
+    this.lastTriggerAt=performance.now();const request={sequence:++this.triggerSequence,held,roomCode:room.code,round:this.latest!.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence},epoch=this.epoch;
+    const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('trigger',request);};if(this.lag)this.lag.schedule('input',send);else send();
   }
   cycleWeapon(direction:number){const inv=this.latest?.players.find(p=>p.id===this.socket.id)?.inventory;if(!inv)return;for(let n=1;n<4;n++){const slot=(inv.activeSlot+n*(direction>0?1:2))%3;if(inv.slots[slot]){this.inventory('switch',slot);break;}}}
   reload() {

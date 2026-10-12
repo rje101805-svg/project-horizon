@@ -5,7 +5,7 @@ export const RARITIES=['COMMON','RARE','LEGENDARY'] as const;
 export type Rarity=typeof RARITIES[number];
 export const AMMO_TYPES=['energy','plasma','missiles','light','shock'] as const;
 export type AmmoType=typeof AMMO_TYPES[number];
-// Preserve 100 HP + 50 shield; scale regular damage from the supplied 100-EHP table.
+// Accepted P3S4 regular damage remains unchanged when shields increase.
 export const REGULAR_DAMAGE_SCALE=1.5;
 export interface WeaponDefinition {name:string;assetId:string;ammoType:AmmoType;damage:readonly number[];rate:number;reloadMs:number;magazine:number;speed:number;lifetimeMs:number;spread:number;pellets:number;range:number;automatic:boolean}
 export const WEAPONS:Readonly<Record<WeaponClass,WeaponDefinition>>={
@@ -25,10 +25,24 @@ export interface WeaponInventory {slots:(WeaponInstance|null)[];activeSlot:numbe
 export const emptyReserve=():Record<AmmoType,number>=>({energy:0,plasma:0,missiles:0,light:0,shock:0});
 export const weaponDamage=(weapon:Pick<WeaponInstance,'class'|'rarity'>)=>WEAPONS[weapon.class].damage[RARITIES.indexOf(weapon.rarity)]*REGULAR_DAMAGE_SCALE;
 export const activeWeapon=(state:Pick<CombatState,'inventory'>)=>state.inventory?.slots[state.inventory.activeSlot]??null;
-export const GOLD_GUN=Object.freeze({damage:40,rate:6,fireIntervalMs:1000/6,pickupRadius:45,maxHeld:1,maxActive:18,assetId:'weapon-galaxy'});
+// Historical protocol name retained for pickup geometry; combat has four typed variants.
+export const GOLD_GUN=Object.freeze({pickupRadius:45,maxHeld:1,maxActive:48});
 export const hasGoldGun=(state:Pick<CombatState,'status'|'goldGunId'>)=>state.status==='ALIVE'&&!!state.goldGunId;
 export const STUN_MS=500,STUN_IMMUNITY_MS=1500,MISSILE_EXPLOSION_RADIUS=130;
-export const fireInterval=(state:Pick<CombatState,'goldGunId'|'status'|'inventory'>)=>hasGoldGun(state)?GOLD_GUN.fireIntervalMs:1000/WEAPONS[activeWeapon(state)?.class??'blaster'].rate;
+export const GALAXY_TYPES=['cryo','inferno','lunar','titan'] as const;
+export type GalaxyType=typeof GALAXY_TYPES[number];
+export const GALAXY_WEAPONS={
+ cryo:{name:'Cryo Stream',assetId:'weapon-cryo-stream',damage:13,rate:16,speed:950,lifetimeMs:750,range:700,color:0x9eefff},
+ inferno:{name:'Inferno Cannon',assetId:'weapon-inferno-cannon',damage:45,rate:4,speed:680,lifetimeMs:900,range:600,color:0xff783a},
+ lunar:{name:'Lunar Seeker',assetId:'weapon-lunar-seeker',damage:90,rate:2,speed:520,lifetimeMs:3500,range:1800,color:0xd2ccff},
+ titan:{name:'Titan Minigun',assetId:'weapon-titan-minigun',damage:24,rate:10,speed:900,lifetimeMs:850,range:750,color:0x70b9ff},
+} as const;
+export const PLANET_GALAXY:Record<string,GalaxyType>={borealis:'cryo',cinder:'inferno',ashen:'lunar',pelagia:'titan'};
+export const GALAXY_CONFIG=Object.freeze({slowFactor:.7,slowMs:600,burnDps:10,burnMs:2000,spinUpMs:750,spinDownMs:500,spreadMin:.012,spreadMax:.13,spreadRampMs:2000,homingCone:Math.PI/3,homingTurnRate:1.1,homingAcquireRange:1500,projectileCap:48});
+export function fireInterval(state:Pick<CombatState,'goldGunId'|'galaxyType'|'titanSpin'|'status'|'inventory'>){
+ if(!hasGoldGun(state))return 1000/WEAPONS[activeWeapon(state)?.class??'blaster'].rate;
+ const type=state.galaxyType??'cryo';return 1000/(GALAXY_WEAPONS[type].rate*(type==='titan'?.25+.75*(state.titanSpin??0):1));
+}
 export const reloadDuration=(state:Pick<CombatState,'inventory'>)=>WEAPONS[activeWeapon(state)?.class??'blaster'].reloadMs;
 
-export const MAX_PROJECTILE_DAMAGE=Math.max(GOLD_GUN.damage,...WEAPON_CLASSES.map(k=>Math.max(...WEAPONS[k].damage)*REGULAR_DAMAGE_SCALE/WEAPONS[k].pellets));
+export const MAX_PROJECTILE_DAMAGE=Math.max(...GALAXY_TYPES.map(t=>GALAXY_WEAPONS[t].damage),...WEAPON_CLASSES.map(k=>Math.max(...WEAPONS[k].damage)*REGULAR_DAMAGE_SCALE/WEAPONS[k].pellets));

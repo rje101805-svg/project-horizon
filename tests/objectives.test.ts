@@ -37,7 +37,7 @@ test('eight seconds minus two outside seconds leaves four seconds and clamps at 
  const f=fixture();f.inside();f.tick(240);f.outside();f.tick(60);assert.equal(f.record.ticks.get('a'),120);f.tick(100);assert.equal(f.record.ticks.get('a'),0);f.inside();f.tick();assert.equal(f.record.ticks.get('a'),1);
 });
 test('nonlethal damage, reload and firing do not cancel capture',()=>{
- const f=fixture();f.inside();f.tick(150);applyDamage(f.a,25,{type:'PLAYER',playerId:'b'},f.room.simulationTimeMs);assert.equal(f.a.state.shield,25);
+ const f=fixture();f.inside();f.tick(150);applyDamage(f.a,25,{type:'PLAYER',playerId:'b'},f.room.simulationTimeMs);assert.equal(f.a.state.shield,75);
  assert.equal(fire(f.room,f.a,{sequence:1,aim:0,lifeGeneration:0,teleportSequence:0},1).ok,true);
  assert.equal(reload(f.room,f.a,{sequence:1,roomCode:f.room.code,reloadSession:f.a.state.reloadSession,lifeGeneration:0,teleportSequence:0}).ok,true);
  f.tick(150);assert.ok(f.pickup());
@@ -57,8 +57,8 @@ test('successful capturers and Gold holders still contest, and unclaimed planeta
  f.inside();f.tick(30);assert.equal(f.planet.status,'CONTESTED');assert.equal(f.record.ticks.get('b'),60);f.outside();f.inside(f.c);f.tick(30);assert.equal(f.planet.status,'CONTESTED');assert.equal(f.record.ticks.get('b'),60);
  f.outside(f.b);f.outside(f.c);f.inside();f.tick(300);assert.equal(f.planet.status,'AVAILABLE');assert.equal(f.pickup(),undefined);assert.equal(f.record.completed.has('a'),true);
 });
-test('third-party collection is atomic, automatic and cannot award a second gun',()=>{
- const f=fixture();f.inside();f.tick(300);const gun=f.pickup()!;Object.assign(f.b.state,{x:gun.x,y:gun.y});Object.assign(f.c.state,{x:gun.x,y:gun.y});f.tick();
+test('third-party collection is atomic, explicit and cannot award a second gun',()=>{
+ const f=fixture();f.inside();f.tick(300);const gun=f.pickup()!;Object.assign(f.b.state,{x:gun.x,y:gun.y});Object.assign(f.c.state,{x:gun.x,y:gun.y});f.tick();assert.equal(collectGoldGun(f.room,f.b,gun.id),true);
  assert.equal(f.b.state.goldGunId,gun.id);assert.equal(f.c.state.goldGunId,null);assert.equal(f.pickup(),undefined);assert.equal(f.planet.pickupId,null);assert.equal(collectGoldGun(f.room,f.c,gun.id),false);assert.equal(objectiveState(f.room).announcements.filter(a=>a.kind==='claimed').length,1);
  const extra={...gun,id:'extra'};objectiveState(f.room).pickups.set(extra.id,extra);assert.equal(collectGoldGun(f.room,f.b,'extra'),false);assert.equal(objectiveState(f.room).pickups.size,1);
 });
@@ -96,11 +96,11 @@ test('multiple planetary completions produce one reward each; reset removes all 
 test('meaningful starts/restarts are announced once rather than on every tick',()=>{
  const f=fixture();f.inside();f.tick(120);assert.equal(objectiveState(f.room).announcements.length,1);assert.equal(objectiveState(f.room).announcements[0].text,'REDLINE IS CAPTURING BOREALIS');f.inside(f.b);f.tick(30);f.outside(f.b);f.tick(30);assert.equal(objectiveState(f.room).announcements.filter(a=>a.kind==='started').length,2);
 });
-test('Gold uses existing swept damage, five-tick cooldown, no regular ammo and no reload',()=>{
+test('Cryo uses existing swept damage, fractional sixteen/s cooldown, no regular ammo and no reload',()=>{
  const f=fixture();assert.equal(equipGoldGun(f.a,'trusted-fixture-gun'),true);f.a.state.ammo=0;Object.assign(f.a.state,{x:1000,y:1800,rotation:0});Object.assign(f.b.state,{x:1040,y:1800});
  const request=(sequence:number)=>({sequence,aim:0,lifeGeneration:0,teleportSequence:0});const result=fire(f.room,f.a,request(1),0);assert.ok(result.ok&&result.kind!=='melee');const bullet=f.room.projectiles.get(result.projectileId)!;
- assert.equal(bullet.damage,GOLD_GUN.damage);assert.equal(bullet.weapon,'gold');assert.equal(bullet.vx,BASIC_BLASTER.muzzleSpeed);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);assert.ok(Math.abs(f.a.combatTimers.cooldown-5)<1e-9);advanceProjectiles(f.room);assert.equal(f.b.state.shield,10);
- for(let i=0;i<4;i++)advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(2),1).ok,false);advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(3),2).ok,true);
+ assert.equal(bullet.damage,13);assert.equal(bullet.weapon,'gold');assert.equal(bullet.vx,950);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);assert.ok(Math.abs(f.a.combatTimers.cooldown-30/16)<1e-9);advanceProjectiles(f.room);assert.equal(f.b.state.shield,87);
+ advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(2),1).ok,false);advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(3),2).ok,true);
  assert.equal(reload(f.room,f.a,{sequence:1,roomCode:f.room.code,reloadSession:f.a.state.reloadSession,lifeGeneration:0,teleportSequence:0}).ok,false);
 });
 test('normal fire cannot forge Gold stats, and infinite sustained Gold fire respects bounded cap',()=>{

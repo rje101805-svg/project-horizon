@@ -1,3 +1,5 @@
+import {preloadWeaponAssets} from './weapon-assets';
+import {inventoryFocused} from './inventory-ui';
 import {LootVisuals} from './loot-visuals';
 import {drawWeaponProjectile} from './weapon-visuals';
 import {ObjectiveVisuals,GOLD_COLOR} from './objective-visuals';
@@ -75,7 +77,7 @@ class Horizon extends Phaser.Scene {
   private ships = new Map<string, Ship>();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
-  preload() { preloadPlanetImages(this); for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
+  preload() { preloadWeaponAssets(this);preloadPlanetImages(this); for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
   create() {
     const webgl=this.game.renderer.type===Phaser.WEBGL;
     this.visualIntensity.quality=defaultVisualQuality(webgl);
@@ -83,7 +85,7 @@ class Horizon extends Phaser.Scene {
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     this.celestial = new CelestialWorld(this);
-    this.objectives=new ObjectiveVisuals(this);this.loot=new LootVisuals(this);
+    this.objectives=new ObjectiveVisuals(this);this.loot=new LootVisuals(this,(action,slot,toSlot)=>this.connection.inventory(action,slot,undefined,toSlot),()=>{this.input.keyboard?.resetKeys();this.connection.release();});
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
@@ -102,15 +104,16 @@ class Horizon extends Phaser.Scene {
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
     const reload = (event: KeyboardEvent) => {
       const target = event.target as HTMLInputElement;
-      const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
+      const typing = inventoryFocused() || target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
       if (event.code === 'KeyE' && !event.repeat && !typing) this.connection.tractor();
       if(!event.repeat&&!typing&&['Digit1','Digit2','Digit3'].includes(event.code))this.connection.inventory('switch',Number(event.code.slice(-1))-1);
       if(event.code==='Space'&&!event.repeat&&!typing)this.connection.triggerFire(this.fireAim);
-      if(event.code==='KeyF'&&!event.repeat&&!typing)this.connection.inventory('swap');
+      if(event.code==='KeyF'&&!event.repeat&&!typing)this.connection.inventory('pickup',undefined,this.loot.highlightedId);
+      if(event.code==='KeyG'&&!event.repeat&&!typing)this.connection.inventory('drop');
       if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
     };
     window.addEventListener('keydown', reload);
-    const pointerTrigger=(pointer:Phaser.Input.Pointer)=>{if(pointer.leftButtonDown())this.connection.triggerFire(this.fireAim);};this.input.on('pointerdown',pointerTrigger);
+    const pointerTrigger=(pointer:Phaser.Input.Pointer)=>{if(pointer.downElement===this.game.canvas&&pointer.leftButtonDown()&&!inventoryFocused())this.connection.triggerFire(this.fireAim);};this.input.on('pointerdown',pointerTrigger);
     const wheel=(event:WheelEvent)=>{if(event.target===this.game.canvas){event.preventDefault();this.connection.cycleWeapon(event.deltaY);}};this.game.canvas.addEventListener('wheel',wheel,{passive:false});
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
@@ -131,6 +134,7 @@ class Horizon extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
     this.events.once(Phaser.Scenes.Events.DESTROY, cleanup);
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if(pointer.event?.target!==this.game.canvas)return;
       pointer.updateWorldPoint(this.cameras.main);
       this.fireAim = this.aim = Math.atan2(pointer.worldY - this.rocket.y, pointer.worldX - this.rocket.x);
     });
@@ -356,8 +360,8 @@ class Horizon extends Phaser.Scene {
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
-    if(import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
-    this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
+    if(inventoryFocused()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
+    this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;
     const up = this.keys.W.isDown || this.keys.UP.isDown;
@@ -379,6 +383,7 @@ class Horizon extends Phaser.Scene {
       this.map.lineStyle(1, 0xbb80ff, .7).strokeCircle(x + hole.x * s, y + hole.y * s, hole.influenceRadius * s);
       this.map.fillStyle(0xd6abff).fillCircle(x + hole.x * s, y + hole.y * s, hole.eventHorizonRadius * s);
     }
+    for(const loot of this.connection.latest?.loot?.pickups??[]){this.map.fillStyle(loot.kind==='weapon'?0xd9d9ff:0x91d8ba,.8).fillCircle(x+loot.x*s,y+loot.y*s,loot.kind==='weapon'?1.4:.8);}
     for (const [id, ship] of this.ships) {
       const color = this.connection.latest?.players.find(p => p.id === id)?.color ?? 0xffffff;
       this.map.fillStyle(color).fillCircle(x + ship.body.x * s, y + ship.body.y * s, id === this.connection.socket.id ? 3 : 2);

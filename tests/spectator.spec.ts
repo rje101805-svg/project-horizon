@@ -20,10 +20,10 @@ test('late spectator follows rendered roster players, replaces unavailable targe
   await expect(spectator.locator('#match-status')).toHaveText('SPECTATING · JOINS NEXT ROUND');expect(room.match.roster).not.toContain(c.state.id);expect(c.gameplayEnabled).toBe(false);
   Object.assign(a.state,{x:500,y:1800,vx:0,vy:0});a.state.teleportSequence++;await frame();
   await expect.poll(()=>camera(spectator)).toEqual({id:a.state.id,following:true,visible:true});
-  applyDamage(a,150,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');
+  applyDamage(a,200,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');
   await expect.poll(()=>camera(spectator)).toEqual({id:b.state.id,following:true,visible:true});
   await page.evaluate(()=>new Promise<void>(resolve=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.emit('leaveRoom',resolve)));pages=[peer,keeper,spectator];expect(room.match.hostId).toBe(b.state.id);await frame();
-  applyDamage(d,150,{type:'PLAYER',playerId:b.state.id});await frame();expect(room.match.state).toBe('ended');await expect(spectator.locator('#match-overlay')).toBeVisible();await expect.poll(()=>camera(spectator).then(v=>v.id)).toBe(null);
+  applyDamage(d,200,{type:'PLAYER',playerId:b.state.id});await frame();expect(room.match.state).toBe('ended');await expect(spectator.locator('#match-overlay')).toBeVisible();await expect.poll(()=>camera(spectator).then(v=>v.id)).toBe(null);
   for(let i=0;i<179;i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}await frame();expect(room.match.state).toBe('waiting');expect(c.state.status).toBe('ALIVE');await expect(spectator.locator('#lobby-status')).toHaveText('WAITING FOR HOST');await expect(peer.locator('#start-match')).toBeEnabled();
   await expect.poll(()=>spectator.evaluate(()=>{const w=window as unknown as DebugWindow,s=w.__HORIZON_GAME__.scene.scenes[0];return {id:s.spectatedId,own:s.ships.has(w.__HORIZON_FLIGHT__.socket.id!)};})).toEqual({id:null,own:true});
   await peer.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();expect(room.match.roster).toContain(c.state.id);

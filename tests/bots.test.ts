@@ -36,7 +36,7 @@ test('multiple queued humans cannot affect roster/combat and replace bots at res
  for(const id of ['q1','q2','q3']){const p=f.room.players.get(id)!;assert.equal(p.state.status,'OUT');assert.equal(p.gameplayEnabled,false);assert.equal(applyDamage(p,999,{type:'PLAYER',playerId:'a'}),null);}
  const winner=f.b;for(const p of activeParticipants(f.room))if(p!==winner)applyDamage(p,999,{type:'PLAYER',playerId:winner.state.id});evaluateResult(f.room,0);
  assert.deepEqual(f.room.match.result,{kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});assert.equal(advanceMatch(f.room,6000),true);assert.equal(f.room.players.size,8);assert.equal([...f.room.players.values()].filter(p=>p.state.bot).length,4);
- for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,50);assert.equal(p.state.ammo,30);assert.equal(p.state.queuedForNextRound,false);if(p.state.bot){assert.equal(p.state.controllerType,'BOT');assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
+ for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(p.state.ammo,30);assert.equal(p.state.queuedForNextRound,false);if(p.state.bot){assert.equal(p.state.controllerType,'BOT');assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
  startMatch(f.room,'a',{round:1});for(const id of ['q1','q2','q3'])assert.ok(f.room.match.roster.includes(id));assert.equal(roundHumans(f.room).length,8);
 });
 test('queue bounded by available bot backfill; disconnect frees queue and room destruction clears every bot',()=>{
@@ -52,7 +52,7 @@ test('bot fires normal projectiles, shield-first damage, cooldown/ammo and norma
  const f=fighting();Object.assign(f.b.state,{x:200,y:1800});Object.assign(f.a.state,{x:500,y:1800});f.b.state.tractor.cooldownRemainingMs=15000;
  for(const p of f.room.players.values())if(p!==f.a&&p!==f.b)Object.assign(p.state,{x:1000,y:200});
  advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,29);assert.ok([...f.room.projectiles.values()].some(p=>p.ownerId===f.b.state.id));
- for(let i=0;i<12;i++)advanceProjectiles(f.room,undefined,i);assert.equal(f.a.state.shield,9.5);assert.equal(f.a.state.health,100);
+ for(let i=0;i<12;i++)advanceProjectiles(f.room,undefined,i);assert.equal(f.a.state.shield,59.5);assert.equal(f.a.state.health,100);
  advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,29);f.b.state.ammo=0;advanceBots(f.room,0,2);advanceBotActions(f.room,2);assert.equal(f.b.state.isReloading,true);
  for(let i=0;i<69;i++)simulatePlayer(f.b,f.room,0,i*TICK_MS);assert.equal(f.b.state.ammo,30);assert.equal(f.b.state.isReloading,false);
 });
@@ -74,7 +74,7 @@ test('bot tractor attack uses existing validated beam and successfully tracked b
 });
 test('alien bot uses full respawn, human-only melee, no bullets/tractor, and resumes after death',()=>{
  const f=fighting();applyDamage(f.b,999,{type:'PLAYER',playerId:'a'},0);assert.equal(f.b.state.status,'ALIEN');assert.equal(roundHumans(f.room).length,7);simulatePlayer(f.b,f.room,3000,3000);assert.equal(f.b.state.health,40);assert.equal(f.b.state.shield,0);assert.equal(f.b.state.ammo,0);
- Object.assign(f.b.state,{x:230,y:1800});f.a.state.x=200;const count=f.room.projectiles.size;advanceBots(f.room,3000,90);advanceBotActions(f.room,90);assert.equal(f.b.state.bot!.target,'a');assert.equal(f.b.state.bot!.melee,true);assert.equal(f.a.state.shield,45);assert.equal([...f.room.projectiles.values()].filter(p=>p.ownerId===f.b.state.id).length,0);assert.equal(f.b.state.tractor.targetId,null);assert.equal(f.b.invulnerableUntilMs,0);
+ Object.assign(f.b.state,{x:230,y:1800});f.a.state.x=200;const count=f.room.projectiles.size;advanceBots(f.room,3000,90);advanceBotActions(f.room,90);assert.equal(f.b.state.bot!.target,'a');assert.equal(f.b.state.bot!.melee,true);assert.equal(f.a.state.shield,95);assert.equal([...f.room.projectiles.values()].filter(p=>p.ownerId===f.b.state.id).length,0);assert.equal(f.b.state.tractor.targetId,null);assert.equal(f.b.invulnerableUntilMs,0);
  assert.equal(activateTractor(f.room,f.b,tractorRequest(f,f.b)).ok,false);applyDamage(f.b,40,{type:'PLAYER',playerId:'a'},3000);simulatePlayer(f.b,f.room,6000,6000);assert.equal(f.b.state.status,'ALIEN');advanceBots(f.room,6000,180);assert.equal(f.b.state.bot!.mode,'HUNT');
 });
 for(const boost of [false,true])test(`tractor attacker has identical normal thrust/steering/boost ${boost}`,()=>{

@@ -35,7 +35,7 @@ test('misses, invalid fire, owner immunity, zero HP and non-damage targets produ
   assert.equal(fire(room, a, { ...shot(1), aim: NaN }, 0).ok, false);
   b.state.health = 0; assert.equal(fire(room, a, shot(1), 0).ok, true);
   for (let i = 0; i < 60; i++) advanceProjectiles(room, h => receipts.push(h));
-  assert.equal(b.state.shield, 50); assert.equal(receipts.length, 0);
+  assert.equal(b.state.shield, 100); assert.equal(receipts.length, 0);
   for (let i = 0; i < 6; i++) advanceCombatTick(a);
   b.state.health = 100; b.state.status = 'OUT'; fire(room, a, shot(2), 0);
   for (let i = 0; i < 60; i++) advanceProjectiles(room, h => receipts.push(h));
@@ -46,7 +46,7 @@ test('misses, invalid fire, owner immunity, zero HP and non-damage targets produ
   assert.equal(receipts.length, 0); assert.equal(a.state.health, 100);
   for (let i = 0; i < 6; i++) advanceCombatTick(a);
   a.state.vx = -1600; fire(room, a, shot(4), 0); // Travels back across its owner.
-  advanceProjectiles(room, h => receipts.push(h)); assert.equal(a.state.shield, 50); assert.equal(receipts.length, 0);
+  advanceProjectiles(room, h => receipts.push(h)); assert.equal(a.state.shield, 100); assert.equal(receipts.length, 0);
 });
 test('owner lifecycle changes, teleport and disconnect cancel bullets before damage or feedback', () => {
   for (const change of ['life', 'teleport', 'dead', 'leave']) {
@@ -56,7 +56,7 @@ test('owner lifecycle changes, teleport and disconnect cancel bullets before dam
     if (change === 'dead') a.state.lifeState = 'dead';
     if (change === 'leave') store.leave('a');
     let count = 0; advanceProjectiles(room, () => count++);
-    assert.equal(count, 0); assert.equal(b.state.shield, 50); assert.equal(room.projectiles.size, 0);
+    assert.equal(count, 0); assert.equal(b.state.shield, 100); assert.equal(room.projectiles.size, 0);
   }
 });
 test('real socket routes each receipt only to shooter; target, spectator and other room never receive it', async () => {

@@ -9,7 +9,7 @@ test('development controls report default server rejection without changing HUD'
   await page.keyboard.press('F3'); await page.locator('[data-combat-action="damage"]').click();
   await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug disabled by server');
   await expect(page.locator('#hud-health-value')).toHaveText('100 / 100');
-  await expect(page.locator('#hud-shield')).toHaveText('SHIELD 50 / 50');
+  await expect(page.locator('#hud-shield')).toHaveText('SHIELD 100 / 100');
 });
 
 test('enabled controls use authoritative snapshots for damage, ammo, reload', async ({ page, context }) => {
@@ -40,10 +40,11 @@ test('enabled controls use authoritative snapshots for damage, ammo, reload', as
       await page.locator('[data-combat-action="' + action + '"]').click();
       await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug: ' + action); await frame();
     };
-    await click('damage'); await expect(page.locator('#hud-shield')).toHaveText('SHIELD 15 / 50');
+    await click('damage'); await expect(page.locator('#hud-shield')).toHaveText('SHIELD 65 / 100');
+    await click('damage');await expect(page.locator('#hud-shield')).toHaveText('SHIELD 30 / 100');
     await page.locator('[data-combat-action="damage"]').click();
-    await expect.poll(() => p.state.health).toBe(80); await frame();
-    await expect(page.locator('#hud-health-value')).toHaveText('80 / 100');
+    await expect.poll(() => p.state.health).toBe(95); await frame();
+    await expect(page.locator('#hud-health-value')).toHaveText('95 / 100');
     await click('ammo'); await expect(page.locator('#hud-ammo')).toHaveText('AMMO 29 / 30');
     await click('reload'); await expect(page.locator('#debug-reload')).toContainText('Reload 2.');
     const remaining = p.combatTimers.reload;
@@ -57,7 +58,7 @@ test('enabled controls use authoritative snapshots for damage, ammo, reload', as
     await expect(page.locator('#debug-combat')).toHaveText('ALIVE · HUMAN · kills 0');
     await click('cooldown'); expect(p.state.fireCooldownRemainingMs).toBeGreaterThan(0);
     await expect.poll(() => peer.evaluate(id => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(s => s.id === id)?.shield, id)).toBe(0);
-    expect(p.state.health).toBe(80); expect(p.state.ammo).toBe(30);
+    expect(p.state.health).toBe(95); expect(p.state.ammo).toBe(30);
     // Real delayed request/snapshot handling never changes the tick deadline.
     await page.locator('#fake-lag').check();
     await click('ammo'); await click('reload');

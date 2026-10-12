@@ -23,6 +23,6 @@ test('real sockets receive the same objectives and cannot spoof position, captur
   const snapshot=async()=>{const promises=clients.map(c=>new Promise<Snapshot>(r=>c.once('snapshot',r)));server.step();return Promise.all(promises);};
   const states=await snapshot();assert.equal(a.state.goldGunId,null);assert.equal(a.state.x,1370);assert.equal(objectiveState(room).pickups.size,1);assert.ok(objectiveState(room).planets.every(p=>p.completed.size===0));
   assert.deepEqual(states[0].objectives,states[1].objectives);assert.deepEqual(states[1].objectives,states[2].objectives);
-  Object.assign(a.state,{x:9000,y:2400});a.state.teleportSequence++;await snapshot();assert.equal(a.state.goldGunId,'trusted-gold');assert.equal(objectiveState(room).pickups.size,0);
+  Object.assign(a.state,{x:9000,y:2400});a.state.teleportSequence++;await snapshot();assert.equal(a.state.goldGunId,null);const claim=await new Promise<any>(r=>clients[0].emit('inventory',{action:'pickup',pickupId:'trusted-gold',sequence:1,roomCode:code,round:room.match.round,reloadSession:a.state.reloadSession,lifeGeneration:a.state.lifeGeneration,teleportSequence:a.state.teleportSequence,revision:a.state.inventory!.revision},r));assert.equal(claim.ok,true);await snapshot();assert.equal(a.state.goldGunId,'trusted-gold');assert.equal(objectiveState(room).pickups.size,0);
  }finally{for(const c of clients)c.close();await server.close();}
 });

@@ -44,7 +44,8 @@ try{
  await page.keyboard.press('F3');await page.locator('#visual-quality').selectOption('standard');await page.locator('canvas').screenshot({path:'test-results/p3s28-standard.png'});await page.locator('#visual-quality').selectOption('low');await page.waitForTimeout(100);await page.locator('canvas').screenshot({path:'test-results/p3s28-low.png'});
  await peer.getByRole('button',{name:'Back to home'}).click();await frame();const survivors=await snapshot();for(const s of survivors)if(s.key!==initial.find(p=>p.id===s.id)?.key)throw Error('Departing player reshuffled designs');
  await page.getByRole('button',{name:'Back to home'}).click();await page.waitForFunction(()=>Object.keys((window as any).__HORIZON_GAME__?.textures?.list??{}).filter(k=>k.startsWith('ship-art-')).length===0);
- await page.locator('#create').click();await page.locator('canvas').waitFor({state:'visible'});const reloaded=await page.evaluate(()=>Object.keys((window as any).__HORIZON_GAME__.textures.list).filter(k=>k.startsWith('ship-art-')).length);if(reloaded!==8)throw Error('Texture recreation failed');
+ await page.locator('#create').click();await page.locator('canvas').waitFor({state:'visible'});// Canvas insertion is not the asynchronous asset-load completion barrier.
+ await expect.poll(()=>page.evaluate(()=>Object.keys((window as any).__HORIZON_GAME__.textures.list).filter(k=>k.startsWith('ship-art-')).length)).toBe(8);
  if(errors.length||requests.some(url=>!url.includes('/runtime/')))throw Error('Console/loading regression');
  expect(initial).toHaveLength(8);expect(errors).toEqual([]);expect(requests.length).toBeGreaterThanOrEqual(16);
  for(const participant of initial){const art=SHIP_ART.find(a=>a.key===participant.key)!;expect(participant.width).toBe(art.width);expect(participant.height).toBe(art.height);expect(participant.origin).toEqual([art.originX,art.originY]);expect(participant.rotation).toBe(art.rotationOffset);expect(participant.visible).toBe(true);}

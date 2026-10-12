@@ -29,7 +29,7 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     await page.keyboard.down('Space');await expect.poll(()=>a.state.ammo).toBe(29);await frame();
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.projectiles.length)).toBe(1);
     await frame(12);
-    await expect.poll(()=>b.state.shield).toBeLessThan(50);
+    await expect.poll(()=>b.state.shield).toBe(100-40.5);
     // Batch controlled ticks, then wait for the final snapshot. Do not pay a
     // browser-poll round trip per tick of the new 30-round / 69-tick loadout.
     await expect.poll(async()=>{await frame(6);return a.state.ammo;},{timeout:15000,intervals:[20]}).toBe(0);

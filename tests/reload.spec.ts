@@ -59,7 +59,7 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
       c.socket.emit('fire', { sequence: 1, aim: 0, lifeGeneration: 0, teleportSequence: 0 }, () => resolve());
     }));
     const remaining = p.combatTimers.reload; await frame();
-    expect(p.state.shield).toBe(9.5); expect(p.state.health).toBe(100); expect(p.combatTimers.reload).toBe(remaining - 1);
+    expect(p.state.shield).toBe(59.5); expect(p.state.health).toBe(100); expect(p.combatTimers.reload).toBe(remaining - 1);
     await advance(p.combatTimers.reload - 1); expect(p.state.ammo).toBe(7); expect(p.state.isReloading).toBe(true);
     await frame(); expect(p.state.ammo).toBe(30); await expect(page.locator('#hud-reload')).toHaveText('');
     // Final round triggers reload before any extra input and retains its one visual.
@@ -79,7 +79,7 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
     await frame(); await expect.poll(pending).toBe(0);
     // Reset moved to authorized DEV F4, retaining ammo and shield HP.
     await page.keyboard.press('F4'); await expect.poll(() => p.reset).toBe(true); await frame();
-    expect(p.state.x).toBe(1370); expect(p.state.ammo).toBe(29); expect(p.state.shield).toBe(9.5);
+    expect(p.state.x).toBe(1370); expect(p.state.ammo).toBe(29); expect(p.state.shield).toBe(59.5);
   } finally { await peer.close(); await page.close(); await server.close(); }
 });
 

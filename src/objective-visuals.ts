@@ -1,8 +1,9 @@
+import {WeaponSprites} from './weapon-assets';
 import type Phaser from 'phaser';
 import type {Snapshot} from '../shared/protocol';
 import {CAPTURE_DURATION_MS} from '../shared/objectives';
 import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
-import {hasGoldGun} from '../shared/weapons';
+import {hasGoldGun,GALAXY_WEAPONS} from '../shared/weapons';
 import {visibleCircle} from './visual/lighting';
 import {objectiveArrow,type ObjectiveTarget} from './objective-presentation';
 export const GOLD_COLOR=0xffc644;
@@ -16,6 +17,7 @@ export class ObjectiveVisuals {
  private labels:Phaser.GameObjects.Text[];
  private targets:ObjectiveTarget[]=[];
  private arrowSlots=Array.from({length:8},()=>({x:0,y:0,angle:0}));
+ private sprites:WeaponSprites;
  private snapshot:Snapshot|null=null;
  private arrival=0;
  private feedText='';
@@ -25,7 +27,7 @@ export class ObjectiveVisuals {
  private description=document.getElementById('capture-description')!;
  private bar=document.getElementById('capture-progress') as HTMLProgressElement;
  constructor(private scene:Phaser.Scene){
-  hudOwner=this;
+  hudOwner=this;this.sprites=new WeaponSprites(scene,4.7,48);
   this.rings=scene.add.graphics().setDepth(-9).setName('capture-rings');
   this.gold=scene.add.graphics().setDepth(4.5).setName('gold-guns');
   this.arrows=scene.add.graphics().setScrollFactor(0).setDepth(9).setName('objective-arrows');
@@ -34,12 +36,12 @@ export class ObjectiveVisuals {
  }
  accept(snapshot:Snapshot,selfId:string){
   this.snapshot=snapshot;this.arrival=performance.now();const state=snapshot.objectives;
-  this.targets=state&&snapshot.match.state==='active'?[...state.pickups.map(p=>({id:p.id,kind:'gold' as const,x:p.x,y:p.y,radius:22,label:p.source==='drop'?'DROPPED GALAXY GUN':'GALAXY GUN',distance:0,visible:false})),...state.planets.filter(p=>p.status==='CAPTURING'||p.status==='CONTESTED').map(p=>({id:p.id,kind:'capture' as const,x:p.x,y:p.y,radius:p.captureRadius,label:`${p.status==='CONTESTED'?'CONTESTED':'CAPTURE'} ${p.name}`,distance:0,visible:false}))]:[];
+  this.targets=state&&snapshot.match.state==='active'?[...state.pickups.map(p=>({id:p.id,kind:'gold' as const,x:p.x,y:p.y,radius:22,label:`${p.source==='drop'?'DROPPED ':''}${GALAXY_WEAPONS[p.galaxyType??'cryo'].name.toUpperCase()}`,distance:0,visible:false})),...state.planets.filter(p=>p.status==='CAPTURING'||p.status==='CONTESTED').map(p=>({id:p.id,kind:'capture' as const,x:p.x,y:p.y,radius:p.captureRadius,label:`${p.status==='CONTESTED'?'CONTESTED':'CAPTURE'} ${p.name}`,distance:0,visible:false}))]:[];
   this.updateHud(snapshot,selfId);
  }
  render(camera:Phaser.Cameras.Scene2D.Camera,now:number,selfId:string,ships:ReadonlyMap<string,{body:Phaser.GameObjects.Container}>){
   if(hudOwner!==this)return;
-  this.rings.clear();this.gold.clear();this.arrows.clear();for(const label of this.labels)label.setVisible(false);
+  this.rings.clear();this.gold.clear();this.sprites.begin();this.arrows.clear();for(const label of this.labels)label.setVisible(false);
   const snapshot=this.snapshot,state=snapshot?.objectives;if(!selfId||!snapshot||!state){this.hud.hidden=this.feed.hidden=true;return;}
   const view=camera.worldView,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
   const visualTime=snapshot.timeMs+Math.min(1000,Math.max(0,now-this.arrival));
@@ -48,11 +50,13 @@ export class ObjectiveVisuals {
   }
   for(const event of state.announcements){const age=visualTime-event.timeMs;if(event.kind!=='captured'||age<0||age>1000)continue;const p=state.planets.find(p=>p.id===event.planetId);if(p&&visibleCircle(view,p,p.captureRadius*1.1)){this.rings.lineStyle(3/z,GOLD_COLOR,(1-age/1000)*.8).strokeCircle(p.x,p.y,p.captureRadius*(1+age/10000));this.rings.fillStyle(GOLD_COLOR,(1-age/1000)*.08).fillCircle(p.x,p.y,p.radius);}}
   for(const p of state.pickups){if(!visibleCircle(view,p,28))continue;
-   const y=p.y+2*Math.sin(visualTime*.003);this.gold.fillStyle(GOLD_COLOR,.15).fillCircle(p.x,y,21).lineStyle(1,0xffe5a0,.65).strokeCircle(p.x,y,19);this.gun(p.x,y,0);
+   const y=p.y+2*Math.sin(visualTime*.003);this.gold.fillStyle(GOLD_COLOR,.15).fillCircle(p.x,y,21).lineStyle(1,0xffe5a0,.65).strokeCircle(p.x,y,19);if(!this.sprites.draw(GALAXY_WEAPONS[p.galaxyType??'cryo'].assetId,p.x,y,76))this.gun(p.x,y,0);
   }
-  for(const p of snapshot.players){if(!hasGoldGun(p)||p.lifeState!=='active'||p.health<=0)continue;const body=ships.get(p.id)?.body;if(!body)continue;
+  for(const p of snapshot.players){const body=ships.get(p.id)?.body;if(body&&(p.slowRemainingMs||p.burnRemainingMs)){this.gold.lineStyle(1.5/z,p.slowRemainingMs?0x9eefff:0xff783a,.8).strokeCircle(body.x,body.y,SHIP_HITBOX_RADIUS+9);}
+   if(!hasGoldGun(p)||p.lifeState!=='active'||p.health<=0)continue;if(!body)continue;
    this.gold.lineStyle(2/z,GOLD_COLOR,.88).strokeCircle(body.x,body.y,SHIP_HITBOX_RADIUS+4).fillStyle(GOLD_COLOR,.07).fillCircle(body.x,body.y,SHIP_HITBOX_RADIUS+5);
-   this.gun(body.x+Math.cos(body.rotation)*21,body.y+Math.sin(body.rotation)*21,body.rotation);
+   const kind=GALAXY_WEAPONS[p.galaxyType??'cryo'];this.gold.lineStyle(1/z,kind.color,.8).strokeCircle(body.x,body.y,SHIP_HITBOX_RADIUS+8);
+   if(!this.sprites.draw(kind.assetId,body.x+Math.cos(body.rotation)*23,body.y+Math.sin(body.rotation)*23,30,body.rotation))this.gun(body.x+Math.cos(body.rotation)*21,body.y+Math.sin(body.rotation)*21,body.rotation);
   }
   this.arrows.setScale(1/z).setPosition(w*.5*(1-1/z),h*.5*(1-1/z));
   for(const target of this.targets){target.visible=visibleCircle(view,target,target.radius);target.distance=(target.x-view.centerX)**2+(target.y-view.centerY)**2;}
@@ -88,5 +92,5 @@ export class ObjectiveVisuals {
   g.lineStyle(4,GOLD_COLOR,1).lineBetween(x-cos*10,y-sin*10,x+cos*13,y+sin*13);
   g.lineStyle(4,0xffe7a4,1).lineBetween(x-cos*4,y-sin*4,x-cos*4-sin*9,y-sin*4+cos*9);
  }
- destroy(){this.rings.destroy();this.gold.destroy();this.arrows.destroy();for(const label of this.labels)label.destroy();this.targets=[];if(hudOwner===this){hudOwner=undefined;this.hud.hidden=this.feed.hidden=true;this.feed.textContent='';this.description.textContent='';}}
+ destroy(){this.sprites.destroy();this.rings.destroy();this.gold.destroy();this.arrows.destroy();for(const label of this.labels)label.destroy();this.targets=[];if(hudOwner===this){hudOwner=undefined;this.hud.hidden=this.feed.hidden=true;this.feed.textContent='';this.description.textContent='';}}
 }

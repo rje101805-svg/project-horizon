@@ -1,3 +1,4 @@
+import {advanceGalaxyTick} from './galaxy';
 import { advanceCombatTick, resetCombatState } from './combat';
 import { stepMovement } from '../shared/movement';
 import { retireInputs } from './inputs';
@@ -30,6 +31,7 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
     player.input = idleInput(); player.lastInput = -Infinity;
     return; // teleport only; no movement integration on the respawn tick
   }
+  advanceGalaxyTick(room,player);if(player.state.health<=0)return;
   advanceCombatTick(player);
   if (player.reset) {
     const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player && !p.state.queuedForNextRound).map(p => p.state), room.blackHole);

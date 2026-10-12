@@ -1,3 +1,4 @@
+import {MAX_HEALTH,MAX_SHIELD} from '../shared/combat';
 import {initializeInventory,resetLoot} from './inventory';
 import {resetObjectives,pauseObjectives} from './objectives';
 import { SHIP_COLORS } from '../shared/rooms';
@@ -56,7 +57,7 @@ function resetRound(room: GameRoom): boolean {
     player.simulationTimeMs=room.simulationTimeMs;
     s.queuedForNextRound=false;
     if(s.controllerType==='BOT'){s.bot=initialBotState();player.botInputTick=player.botInputLife=player.botInputTeleport=undefined;}
-    initializeInventory(player);player.nextSwapMs=0;player.lastFireInputMs=undefined;
+    initializeInventory(player);player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;player.recentPickups?.clear();player.nextSwapMs=0;player.lastFireInputMs=undefined;
     player.humanEliminated=false; player.gameplayEnabled=s.controllerType!=='BOT'; player.invulnerableUntilMs=0;
     player.combatTimers={reload:0,cooldown:0,reloadCompleted:false}; player.respawnAtMs=null;
     player.input=idleInput();player.lastInput=-Infinity;player.reset=false;
@@ -85,8 +86,8 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if (room.match.state!=='waiting') return reject('Match is not waiting');
   const humans=roundHumans(room);
   if (humans.length<2) return reject('At least 2 eligible humans are required');
-  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];
-  for(const p of humans){initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.gameplayEnabled=true;}
+  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room,true);room.combatEffects=[];
+  for(const p of humans){Object.assign(p.state,{health:MAX_HEALTH,maxHealth:MAX_HEALTH,shield:MAX_SHIELD,maxShield:MAX_SHIELD,slowRemainingMs:0,burnRemainingMs:0});p.burnOwnerId=undefined;p.titanTriggerUntilMs=0;p.nextSwapMs=0;initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.gameplayEnabled=true;}
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
   }

@@ -59,19 +59,19 @@ test('zero ammo/reload/dead/zero-health/noncontestant rejects', () => {
 test('server swept hits are single-use, shield-first with typed PLAYER source, and eliminate at zero', () => {
   const {room,p,store} = fixture(); store.join('b',room.code,'B',0); const b=room.players.get('b')!;
   Object.assign(b.state,{x:p.state.x+70,y:p.state.y});
-  for(let seq=1;seq<=4;seq++) { assert.equal(fire(room,p,request(seq),0).ok,true); advanceProjectiles(room); assert.equal(room.projectiles.size,0); ready(p); }
+  for(let seq=1;seq<=5;seq++) { assert.equal(fire(room,p,request(seq),0).ok,true); advanceProjectiles(room); assert.equal(room.projectiles.size,0); ready(p); }
   assert.equal(b.state.shield,0); assert.equal(b.state.health,0); assert.equal(b.state.status,'ALIEN');
   assert.equal(b.state.lifeState,'dead'); assert.equal(b.state.kills,0);
   assert.deepEqual(b.state.lastDamageSource,{type:'PLAYER',playerId:'a'});
   const before=b.state.health; advanceProjectiles(room); assert.equal(b.state.health,before);
-  assert.equal(p.state.health,100); assert.equal(p.state.shield,50);
+  assert.equal(p.state.health,100); assert.equal(p.state.shield,100);
 });
 test('swept collision prevents tunneling and chooses nearest target before further ships', () => {
   const {room,p,store}=fixture(); store.join('b',room.code,'B',0); store.join('c',room.code,'C',0);
   const b=room.players.get('b')!,c=room.players.get('c')!;
   Object.assign(b.state,{x:1500,y:1200}); Object.assign(c.state,{x:1600,y:1200}); p.state.vx=10000;
   fire(room,p,request(),0); advanceProjectiles(room);
-  assert.equal(b.state.shield,50-BASIC_BLASTER.damage); assert.equal(c.state.shield,50);
+  assert.equal(b.state.shield,100-BASIC_BLASTER.damage); assert.equal(c.state.shield,100);
   assert.equal(circleEntry({x:0,y:1},{x:2,y:1},{x:1,y:0},1),.5);
   assert.equal(circleEntry({x:0,y:0},{x:0,y:0},{x:0,y:0},1),0);
 });

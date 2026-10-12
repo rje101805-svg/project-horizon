@@ -1,5 +1,6 @@
-import {activeWeapon,WEAPONS,RARITIES} from '../shared/weapons';
-import {lootState,nearestWeapon,swapWeapon,switchSlot,lootEligible} from './inventory';
+import {triggerIntent} from './galaxy';
+import {activeWeapon,WEAPONS,RARITIES,GALAXY_WEAPONS} from '../shared/weapons';
+import {lootState,nearestWeapon,swapWeapon,pickupWeapon,switchSlot,lootEligible} from './inventory';
 import type {GoldPickup} from '../shared/objectives';
 import {objectiveState,eligibleShip} from './objectives';
 import {SHIP_COLORS} from '../shared/rooms';
@@ -67,7 +68,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
    input.boost=d.distance>650;
    const error=Math.abs(angleDelta(heading,s.rotation));
    d.melee=alien && d.distance<=ALIEN_MELEE_RANGE;
-   d.fire=!alien && d.distance<(s.goldGunId?1100:WEAPONS[activeWeapon(s)?.class??'blaster'].range) && error<.20 && !s.tractor.targetId && !s.isReloading;
+   d.fire=!alien && d.distance<(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range) && error<.20 && !s.tractor.targetId && !s.isReloading;
    d.reload=!alien && !s.goldGunId && s.ammo===0 && !s.isReloading;
    d.tractor=!alien && !s.tractor.targetId && !s.tractor.cooldownRemainingMs && error<.25 && inTractorCone(s,target.state);
  }
@@ -75,7 +76,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
   dx=strategy.goal.x-s.x;dy=strategy.goal.y-s.y;const distance=Math.hypot(dx,dy);
   if(distance<(strategy.goal.kind==='capture'?80:10))dx=dy=0;
   input.boost=distance>500;
-  if(!target||d.distance>(s.goldGunId?1100:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
+  if(!target||d.distance>(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
  }
  if(s.status==='ALIVE' && s.tractor.attackerId){
    const attacker=room.players.get(s.tractor.attackerId);
@@ -108,7 +109,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
    if(lootEligible(room,bot)&&s.inventory){
      const target=selectBotStrategy(bot,candidates).target,distance=target?Math.hypot(room.players.get(target)!.state.x-s.x,room.players.get(target)!.state.y-s.y):600;
      if(!s.isReloading){const active=activeWeapon(s);let slot=s.inventory.activeSlot,score=active&&(active.magazine>0||s.inventory.reserve[WEAPONS[active.class].ammoType]>0)?weaponValue(active,distance):-1;s.inventory.slots.forEach((w,i)=>{if(!w)return;const usable=w.magazine>0||s.inventory!.reserve[WEAPONS[w.class].ammoType]>0,value=usable?weaponValue(w,distance):-1;if(value>score){score=value;slot=i;}});switchSlot(bot,slot);
-       const item=nearestWeapon(room,bot);if(item&&!s.inventory.slots.includes(null)){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
+       const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
    const input=botHands(room,bot,selectObjectiveStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
@@ -127,6 +128,8 @@ export function advanceBotActions(room:GameRoom,tick:number) {
    // Respawn/teleport-only ticks must not reuse an old life's attack intention.
    if(d.reload)reload(room,bot,{sequence:bot.lastReloadSequence+1,roomCode:room.code,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
    if(d.tractor)activateTractor(room,bot,{sequence:(bot.lastTractorSequence??0)+1,round:room.match.round,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
+   if(s.galaxyType==='titan')triggerIntent(room,bot,{sequence:(bot.lastTriggerSequence??0)+1,held:d.fire,roomCode:room.code,round:room.match.round,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
+   const pickup=nearestWeapon(room,bot);if(pickup&&!s.goldGunId&&s.inventory?.slots.includes(null))pickupWeapon(room,bot,pickup.id);
    if(d.fire || d.melee)fire(room,bot,{sequence:bot.lastFireSequence+1,aim:s.rotation,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},tick);
  }
 }

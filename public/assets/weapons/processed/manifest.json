@@ -1,0 +1,164 @@
+[
+  {
+    "original": "regular/Futuristic Blue-Glow Sci-Fi Rifle.png",
+    "sha256": "3a4ffe2633f5fde47973a134c1e9890026fb4b1ec95c2860e899b6be484e2e9c",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/regular/blaster.png",
+    "dimensions": [
+      469,
+      240
+    ],
+    "bytes": 117392,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "regular/Futuristic Orange-Glow Heavy Shotgun.png",
+    "sha256": "c3209bd18e2d44e536301ef4d0856cf001081d8893ac5859faa6432077889068",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/regular/nova-shotgun.png",
+    "dimensions": [
+      480,
+      235
+    ],
+    "bytes": 121620,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "regular/Futuristic Red-Armored Rocket Launcher.png",
+    "sha256": "9659f0c598df5c483f14a7bcbd7a94c29316d6ad04a52f2f3d6a120235afe912",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/regular/missile-launcher.png",
+    "dimensions": [
+      480,
+      239
+    ],
+    "bytes": 147873,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "regular/Neon Green Futuristic SMG Render.png",
+    "sha256": "d2012e74ef7e964e37b24db5dda3091ad8afe0e4c42338bf035d02e565bc62b9",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/regular/ion-smg.png",
+    "dimensions": [
+      480,
+      232
+    ],
+    "bytes": 148119,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "regular/Futuristic Blue-Energy Zapper Rifle.png",
+    "sha256": "d6fc9a002f86c0ec01a4ec3deba2a4ef35e5396f91eb20d1938c01ff73a71c8b",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/regular/zapper.png",
+    "dimensions": [
+      476,
+      240
+    ],
+    "bytes": 125360,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "galaxy/Frostbound Cryo Energy Cannon.png",
+    "sha256": "6bd6a2a56a10c49a4dcbae85c486dda6486f2b1a30c8b5f9e61f6fe489ca8f8b",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/galaxy/cryo-stream.png",
+    "dimensions": [
+      480,
+      240
+    ],
+    "bytes": 160878,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "galaxy/Inferno Cinder Plasma Cannon.png",
+    "sha256": "b1a4943d3a9ef0d170fb02fab5905483cbb8d2091926bd072d81a4a91e79b1f4",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/galaxy/inferno-cannon.png",
+    "dimensions": [
+      480,
+      240
+    ],
+    "bytes": 165377,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "galaxy/Futuristic Quad-Missile Launcher Render.png",
+    "sha256": "25a8bccc239af546c7423d0b121590c4e4ae6eeac96f489e5c55c67959d64da0",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/galaxy/lunar-seeker.png",
+    "dimensions": [
+      480,
+      236
+    ],
+    "bytes": 178396,
+    "alphaRange": [
+      0,
+      255
+    ]
+  },
+  {
+    "original": "galaxy/Futuristic Blue-Energy Minigun.png",
+    "sha256": "a9d620177ad5fe038d3aa3fe593d0633d882ffba7491466becde85e4226b7186",
+    "originalDimensions": [
+      1774,
+      887
+    ],
+    "processed": "processed/galaxy/titan-minigun.png",
+    "dimensions": [
+      480,
+      238
+    ],
+    "bytes": 176411,
+    "alphaRange": [
+      0,
+      255
+    ]
+  }
+]

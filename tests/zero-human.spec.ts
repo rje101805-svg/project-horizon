@@ -20,8 +20,8 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   const spectatorPage=pages[3];await spectatorPage.locator('#room-code').fill(code);await spectatorPage.locator('#join').click();await expect(spectatorPage.locator('canvas')).toBeVisible();clients=pages;await frame();const spectator=[...room.players.values()].find(p=>![a,b,c].includes(p))!;
   await expect(spectatorPage.locator('#match-status')).toHaveText('SPECTATING · JOINS NEXT ROUND');expect(room.match.roster).toEqual([a.state.id,b.state.id,c.state.id]);
   if(lag)for(const p of pages)await p.locator('#fake-lag').check();
-  expect(applyDamage(spectator,150,{type:'ENVIRONMENT',cause:'HAZARD'})).toBe(null);
-  applyDamage(c,150,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
+  expect(applyDamage(spectator,200,{type:'ENVIRONMENT',cause:'HAZARD'})).toBe(null);
+  applyDamage(c,200,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
   Object.assign(a.state,{x:200,y:1800,health:25,shield:0});Object.assign(b.state,{x:270,y:1800,health:25,shield:0});
   for(const [player,aim] of [[a,0],[b,Math.PI]] as const)expect(fire(room,player,{sequence:1,aim,lifeGeneration:player.state.lifeGeneration,teleportSequence:player.state.teleportSequence},tick).ok).toBe(true);
   await frame();expect(room.match.state).toBe('ended');expect(room.match.result).toEqual({kind:'draw'});
@@ -30,7 +30,7 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   for(const player of room.players.values())expect(player.gameplayEnabled).toBe(false);expect(room.projectiles.size).toBe(0);
   await advance(179);await frame();expect(room.match.state).toBe('waiting');expect(room.match.round).toBe(1);
   for(const p of pages){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#alien-message')).toBeHidden();}
-  for(const player of room.players.values()){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(50);expect(player.humanEliminated).toBe(false);}
+  for(const player of room.players.values()){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(100);expect(player.humanEliminated).toBe(false);}
   await frame();expect(room.match.state).toBe('waiting');await expect(page.locator('#start-match')).toBeEnabled();
   await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();expect(room.match.roster).toEqual([...room.players.keys()]);
   // Former spectator is now a participant; a second all-human batch must draw too.

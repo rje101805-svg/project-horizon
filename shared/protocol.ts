@@ -11,7 +11,7 @@ import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
 export interface PlayerState extends FlightState, LifeState { queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
 export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; participantIds?: string[]; queuedIds?: string[]; maxPlayers: number; blackHole: BlackHoleState }
-export interface CombatEffect {id:number;kind:'explosion'|'shock';x:number;y:number;radius:number;timeMs:number}
+export interface CombatEffect {color?:number;id:number;kind:'explosion'|'shock'|'frost'|'burn';x:number;y:number;radius:number;timeMs:number}
 export interface Snapshot {effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
 export interface RoomRequest { name: string }
@@ -22,7 +22,9 @@ export interface ServerEvents {
   roomState: (room: RoomInfo) => void;
 }
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
+export interface TriggerRequest {sequence:number;held:boolean;roomCode:string;round:number;reloadSession:string;lifeGeneration:number;teleportSequence:number}
 export interface ClientEvents {
+  trigger:(request:TriggerRequest)=>void;
   inventory:(request:InventoryCommand,reply:(result:InventoryResult)=>void)=>void;
   fillGame:(request:{roomCode:string;round:number},reply:(result:StartMatchResult)=>void)=>void;
   tractor:(request:TractorRequest,reply:(result:TractorResult)=>void)=>void;

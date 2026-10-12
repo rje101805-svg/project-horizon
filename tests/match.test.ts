@@ -14,7 +14,7 @@ function fixture(count=2) {
  const store=new RoomStore(()=> 'ABCD');store.create('a','<A>',0);const room=store.roomFor('a')!;
  for(let i=1;i<count;i++)store.join(String.fromCharCode(97+i),room.code,String.fromCharCode(65+i),0);
  const a=room.players.get('a')!,b=room.players.get('b')!;
- const kill=(id:string)=>applyDamage(room.players.get(id)!,150,source,100);
+ const kill=(id:string)=>applyDamage(room.players.get(id)!,200,source,100);
  const shot=(id:string,sequence=1)=>{const s=room.players.get(id)!.state;return {sequence,aim:0,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence};};
  return {store,room,a,b,kill,shot};
 }
@@ -60,9 +60,9 @@ test('alien disconnect during active round does not alter eligible humans or end
 test('late join cannot move, shoot, damage, be hit or obstruct bullets; becomes human at next reset',()=>{
  const {store,room,a,b,shot,kill}=fixture();advanceMatch(room,0);assert.ok(startMatch(room,'a',{round:0}).ok);store.join('c',room.code,'C',0);const c=room.players.get('c')!;
  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:300,y:1800});Object.assign(c.state,{x:270,y:1800});
- assert.equal(c.state.status,'OUT');assert.equal(c.gameplayEnabled,false);assert.equal(fire(room,c,shot('c'),0).ok,false);assert.equal(applyDamage(c,150,source),null);
+ assert.equal(c.state.status,'OUT');assert.equal(c.gameplayEnabled,false);assert.equal(fire(room,c,shot('c'),0).ok,false);assert.equal(applyDamage(c,200,source),null);
  assert.equal(acceptMovementInput(c,{...idleInput(),right:true,sequence:1,lifeGeneration:0,teleportSequence:0},1),false);
- assert.equal(fire(room,a,shot('a'),0).ok,true);advanceProjectiles(room);advanceProjectiles(room);assert.equal(c.state.shield,50);assert.equal(b.state.shield,9.5);
+ assert.equal(fire(room,a,shot('a'),0).ok,true);advanceProjectiles(room);advanceProjectiles(room);assert.equal(c.state.shield,100);assert.equal(b.state.shield,59.5);
  kill('b');evaluateResult(room,100);advanceMatch(room,6100);assert.equal(room.match.state,'waiting');assert.deepEqual(room.match.roster,[]);assert.ok(startMatch(room,'a',{round:1}).ok);assert.deepEqual(room.match.roster,['a','b','c']);assert.equal(c.state.status,'ALIVE');assert.equal(c.gameplayEnabled,true);
 });
 test('six-second reset clears alien/combat/feedback state, restores resources and markers; consecutive winners differ',()=>{
@@ -71,11 +71,11 @@ test('six-second reset clears alien/combat/feedback state, restores resources an
  const oldShot=shot('a'),oldSession=a.state.reloadSession,oldSequence=a.lastFireSequence;
  advanceMatch(room,6099);assert.equal(room.match.state,'ended');assert.equal(room.match.resetRemainingMs,1);
  assert.equal(advanceMatch(room,6100),true);assert.equal(room.match.round,1);assert.equal(room.match.state,'waiting');assert.equal(room.match.result,null);
- for(const p of [a,b]){assert.equal(p.simulationTimeMs,6100);assert.equal(p.humanEliminated,false);assert.equal(p.state.status,'ALIVE');assert.equal(p.state.lifeState,'active');assert.equal(p.state.health,100);assert.equal(p.state.shield,50);assert.equal(p.state.ammo,30);assert.equal(p.state.isReloading,false);assert.equal(p.state.lastMeleeDamage,0);assert.equal(p.state.spawnInvulnerabilityRemainingMs,0);assert.equal(p.invulnerableUntilMs,0);assert.equal(p.respawnAtMs,null);assert.deepEqual(p.pendingInputs,[]);assert.equal(p.state.lastDamageSource,null);}
+ for(const p of [a,b]){assert.equal(p.simulationTimeMs,6100);assert.equal(p.humanEliminated,false);assert.equal(p.state.status,'ALIVE');assert.equal(p.state.lifeState,'active');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(p.state.ammo,30);assert.equal(p.state.isReloading,false);assert.equal(p.state.lastMeleeDamage,0);assert.equal(p.state.spawnInvulnerabilityRemainingMs,0);assert.equal(p.invulnerableUntilMs,0);assert.equal(p.respawnAtMs,null);assert.deepEqual(p.pendingInputs,[]);assert.equal(p.state.lastDamageSource,null);}
  assert.equal(a.state.reloadSession,oldSession);assert.equal(a.lastFireSequence,oldSequence);
  assert.equal(fire(room,a,oldShot,4).ok,false);assert.equal(room.projectiles.size,0);
  assert.equal(startMatch(room,'a',{round:0}).ok,false);assert.ok(startMatch(room,'a',{round:1}).ok);assert.equal(room.match.round,2);
- applyDamage(a,150,source);assert.equal(a.respawnAtMs,9100);evaluateResult(room,6200);assert.deepEqual(room.match.result,{kind:'winner',winnerId:'b',winnerName:'B'});
+ applyDamage(a,200,source);assert.equal(a.respawnAtMs,9100);evaluateResult(room,6200);assert.deepEqual(room.match.result,{kind:'winner',winnerId:'b',winnerName:'B'});
  assert.equal(MATCH_RESET_DELAY_MS,6000);
 });
 

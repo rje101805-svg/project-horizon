@@ -41,7 +41,7 @@ test('prediction handoff preserves exact current position, one identity and boun
   prediction.reconcile(s,'a',now);assert.equal(prediction.render(s.projectiles,now)[0].x,previous);
   for(let dt=0;dt<33;dt+=8){const x=prediction.render(s.projectiles,now+dt)[0].x;assert.ok(x>=last-1e-8);last=x;}
  }
- assert.deepEqual(snapshot,saved);assert.equal(p.state.health,100);assert.equal(p.state.shield,50);
+ assert.deepEqual(snapshot,saved);assert.equal(p.state.health,100);assert.equal(p.state.shield,100);
 });
 test('ten independent single shots hand over once and unrelated lifecycle/owner identities cannot consume them',()=>{
  const {p,request,bullet,frame}=fixture(),prediction=new ProjectilePrediction();

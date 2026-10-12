@@ -42,7 +42,7 @@ for (const damage of ['horizon batch', 'staged elimination and reciprocal bullet
   if (damage === 'horizon batch') {
    for (const player of [a,b,c]) Object.assign(player.state, {x:room.blackHole.x, y:room.blackHole.y, vx:0, vy:0});
   } else {
-   applyDamage(c, 150, {type:'ENVIRONMENT',cause:'HAZARD'}); await frame();
+   applyDamage(c, 200, {type:'ENVIRONMENT',cause:'HAZARD'}); await frame();
    assert.equal(room.match.state, 'active'); assert.equal(survivingHumans(room), 2);
    Object.assign(a.state, {x:200,y:1800,health:25,shield:0}); Object.assign(b.state, {x:270,y:1800,health:25,shield:0});
    for (const [player,aim] of [[a,0],[b,Math.PI]] as const) assert.equal(fire(room, player, {sequence:1,aim,lifeGeneration:player.state.lifeGeneration,teleportSequence:player.state.teleportSequence},tick).ok,true);
@@ -56,7 +56,7 @@ for (const damage of ['horizon batch', 'staged elimination and reciprocal bullet
   const endedAt = room.match.endedAtMs!;
   while ((tick+1)*TICK_MS < endedAt+6000) {await frame(); assert.equal(room.match.state,'ended'); assert.deepEqual(room.match.result,{kind:'draw'});}
   await frame(); assert.equal(room.match.state,'waiting'); assert.deepEqual(room.match.roster,[]); assert.equal(room.match.result,null);
-  for (const player of room.players.values()) {assert.equal(player.state.status,'ALIVE'); assert.equal(player.state.health,100); assert.equal(player.state.shield,50); assert.equal(player.state.ammo,30); assert.equal(player.humanEliminated,false);}
+  for (const player of room.players.values()) {assert.equal(player.state.status,'ALIVE'); assert.equal(player.state.health,100); assert.equal(player.state.shield,100); assert.equal(player.state.ammo,30); assert.equal(player.humanEliminated,false);}
   await frame(); assert.equal(room.match.state,'waiting'); assert.equal((await start(0)).ok,false); assert.equal((await start(1)).ok,true);
   assert.deepEqual(room.match.roster,[...room.players.keys()]); assert.equal(survivingHumans(room),4);
   assert.equal((await new Promise<{ok:boolean}>(resolve => spectatorSocket.emit('fire',{...staleSpectatorFire,sequence:2},resolve))).ok,false);
@@ -70,7 +70,7 @@ test('three staggered eliminations without host start remain waiting sandbox, no
  const store = new RoomStore(); const created = store.create('a','A',0); assert.ok(created.ok);
  const room = store.roomFor('a')!; store.join('b',room.code,'B',0); store.join('c',room.code,'C',0);
  for (const player of room.players.values()) {
-  applyDamage(player,150,{type:'ENVIRONMENT',cause:'HAZARD'});
+  applyDamage(player,200,{type:'ENVIRONMENT',cause:'HAZARD'});
   // Invoke the same result evaluator used after every server damage batch.
   evaluateResult(room,100);
   assert.equal(room.match.state,'waiting'); assert.equal(room.match.result,null);
@@ -84,11 +84,11 @@ test('three-player active staggered eliminations lock the last-human victory bef
  const store = new RoomStore(); store.create('a','A',0); const room = store.roomFor('a')!;
  store.join('b',room.code,'B',0); store.join('c',room.code,'C',0); assert.equal(startMatch(room,'a',{round:0}).ok,true);
  const [a,b,c] = [...room.players.values()];
- applyDamage(c,150,{type:'ENVIRONMENT',cause:'HAZARD'}); evaluateResult(room,100);
+ applyDamage(c,200,{type:'ENVIRONMENT',cause:'HAZARD'}); evaluateResult(room,100);
  assert.equal(room.match.state,'active'); assert.equal(survivingHumans(room),2);
- applyDamage(b,150,{type:'ENVIRONMENT',cause:'HAZARD'}); evaluateResult(room,200);
+ applyDamage(b,200,{type:'ENVIRONMENT',cause:'HAZARD'}); evaluateResult(room,200);
  assert.equal(room.match.state,'ended'); assert.equal(survivingHumans(room),1);
  assert.deepEqual(room.match.result,{kind:'winner',winnerId:'a',winnerName:'A'});
- assert.equal(applyDamage(a,150,{type:'ENVIRONMENT',cause:'HAZARD'}),null); evaluateResult(room,300);
+ assert.equal(applyDamage(a,200,{type:'ENVIRONMENT',cause:'HAZARD'}),null); evaluateResult(room,300);
  assert.equal(a.state.status,'ALIVE'); assert.deepEqual(room.match.result,{kind:'winner',winnerId:'a',winnerName:'A'});
 });
