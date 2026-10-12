@@ -45,3 +45,5 @@
 #visual-controls label { display: inline-flex; align-items: center; gap: 6px; margin: 8px 14px 8px 0; }
 #visual-controls input[type=range] { width: 150px; }
 #visual-controls output { display: block; color: #72eee0; }
+
+.objective-feed{position:absolute;z-index:12;top:12px;left:50%;transform:translateX(-50%);max-width:min(370px,70%);padding:6px 10px;background:#080e1ee8;border:1px solid #647c85;border-radius:6px;white-space:pre-line;font:11px/1.5 monospace;text-align:center;color:#ffe18a;pointer-events:none}.capture-hud{position:absolute;z-index:12;bottom:14px;left:14px;max-width:calc(100% - 28px);width:290px;padding:8px;background:#080e1ee8;border:1px solid #6ce6e0;border-radius:6px;color:#baf9f5;white-space:pre-line;font:11px/1.5 monospace;pointer-events:none}.capture-hud progress{display:block;width:100%;height:8px;accent-color:#6ce6e0;margin-top:5px}.gameplay-hud.gold{border-color:#ffc644;color:#ffe18a}

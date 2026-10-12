@@ -1,3 +1,4 @@
+import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
 import { ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { ProjectilePrediction } from './projectile-prediction';
 import { BASIC_BLASTER, type FireRequest, type FireResult } from '../shared/projectiles';
@@ -91,6 +92,7 @@ export class FlightConnection {
         if (matchChanged) { this.starting = false; this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
         const previous = this.latest?.players.find(p => p.id === this.socket.id);
         const local = snapshot.players.find(p => p.id === this.socket.id)!;
+        if(previous?.goldGunId!==local.goldGunId)this.nextFireAt=0;
         if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
           this.lag?.clear(); this.input = idleInput();
         }
@@ -217,8 +219,8 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || local.status === 'ALIVE' && (local.ammo <= 0 || local.isReloading)) return;
-    this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : BASIC_BLASTER.fireIntervalMs);
+    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || local.status === 'ALIVE' && !hasGoldGun(local) && (local.ammo <= 0 || local.isReloading)) return;
+    this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : hasGoldGun(local)?GOLD_GUN.fireIntervalMs:BASIC_BLASTER.fireIntervalMs);
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
     if (local.status === 'ALIVE') this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
     const epoch = this.epoch;
@@ -243,6 +245,7 @@ export class FlightConnection {
     this.pendingRelease = true;
   }
   reload() {
+    if(this.latest?.players.find(p=>p.id===this.socket.id)?.goldGunId)return;
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;
     if (!this.canPlay() || !this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
     const request = { sequence: ++this.reloadSequence, lifeGeneration: local.lifeGeneration,

@@ -1,3 +1,4 @@
+import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
 import { melee } from './melee';
 import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type ProjectileState } from '../shared/projectiles';
 import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
@@ -16,22 +17,23 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
   if (s.tractor.targetId) return reject('Tractor active');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
-  if (s.isReloading) return reject('No ammo or reloading');
-  if (s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }
-  if (s.ammo < 0) return reject('No ammo or reloading');
+  const gold=hasGoldGun(s);
+  if (!gold&&s.isReloading) return reject('No ammo or reloading');
+  if (!gold&&s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }
+  if (!gold&&s.ammo < 0) return reject('No ammo or reloading');
   if (!canFireFromCooldown(player)) return reject('Cooldown');
-  if ([...room.projectiles.values()].filter(p => p.ownerId === s.id).length >= BASIC_BLASTER.maxActive) return reject('Projectile cap');
+  if ([...room.projectiles.values()].filter(p => p.ownerId === s.id).length >= (gold?GOLD_GUN.maxActive:BASIC_BLASTER.maxActive)) return reject('Projectile cap');
   const dx = Math.cos(request.aim), dy = Math.sin(request.aim);
   const x = s.x + dx * BASIC_BLASTER.muzzleOffset, y = s.y + dy * BASIC_BLASTER.muzzleOffset;
   if (x < 0 || x > WORLD || y < 0 || y > WORLD) return reject('Muzzle outside world');
-  if (!consumeAmmo(player)) return reject('No ammo');
+  if (!gold&&!consumeAmmo(player)) return reject('No ammo');
   startFireCooldown(player);
   const id = `${room.code}:${++room.projectileSequence}`;
   room.projectiles.set(id, { id, ownerId: s.id, shotSequence: request.sequence, lifeGeneration: s.lifeGeneration,
     teleportSequence: s.teleportSequence, x, y, vx: s.vx + dx * BASIC_BLASTER.muzzleSpeed,
-    vy: s.vy + dy * BASIC_BLASTER.muzzleSpeed, damage: BASIC_BLASTER.damage, spawnTick: tick,
-    remainingMs: BASIC_BLASTER.lifetimeMs, remainingTicks: Math.ceil(BASIC_BLASTER.lifetimeMs / TICK_MS) });
-  if (s.ammo === 0) startReload(player); // The accepted final round has already spawned.
+    vy: s.vy + dy * BASIC_BLASTER.muzzleSpeed, damage: BASIC_BLASTER.damage*(gold?GOLD_GUN.damageMultiplier:1), spawnTick: tick,
+    ...(gold?{weapon:'gold' as const}:{}), remainingMs: BASIC_BLASTER.lifetimeMs, remainingTicks: Math.ceil(BASIC_BLASTER.lifetimeMs / TICK_MS) });
+  if (!gold&&s.ammo === 0) startReload(player); // The accepted final round has already spawned.
   return { ok: true, sequence: request.sequence, projectileId: id, spawnTick: tick };
 }
 function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {

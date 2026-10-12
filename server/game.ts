@@ -1,3 +1,4 @@
+import {advanceObjectives,objectivesSnapshot} from './objectives';
 import { advanceBots, advanceBotActions } from './bots';
 import { activateTractor, advanceTractors } from './tractor';
 import { advanceMatch, evaluateResult, matchSnapshot, startMatch } from './match';
@@ -95,10 +96,11 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
       if (!reset) advanceProjectiles(room, hit => hits.push(hit), tick);
       advanceTractors(room,tick*TICK_MS,true);
+      if(!reset)advanceObjectives(room);
       evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
       // Replacement membership is reliable, but follows the volatile snapshot

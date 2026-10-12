@@ -1,3 +1,6 @@
+import type {GoldPickup} from '../shared/objectives';
+import {objectiveState,eligibleShip} from './objectives';
+import {SHIP_COLORS} from '../shared/rooms';
 import { initialBotState, type BotStrategy } from '../shared/bots';
 import { idleInput, TICK_SECONDS, type PlayerInput } from '../shared/flight';
 import { ALIEN_MELEE_RANGE } from '../shared/alien';
@@ -18,10 +21,29 @@ export function selectBotStrategy(bot:RoomPlayer,candidates:RoomPlayer[]):BotStr
  return {mode:target?'HUNT':'IDLE',target:target?.state.id??null};
 }
 
+// Replaceable deterministic intent writer; close combat and escape retain priority.
+export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotStrategy):BotStrategy {
+ if(!eligibleShip(room,bot))return combat;
+ const enemy=combat.target?room.players.get(combat.target):undefined;
+ if(enemy&&Math.hypot(enemy.state.x-bot.state.x,enemy.state.y-bot.state.y)<320)return combat;
+ const objectives=objectiveState(room);
+ if(!bot.state.goldGunId){let nearest:GoldPickup|undefined,distance=5000;
+  for(const pickup of objectives.pickups.values()){const d=Math.hypot(pickup.x-bot.state.x,pickup.y-bot.state.y);if(d<distance){distance=d;nearest=pickup;}}
+  if(nearest)return {...combat,mode:'GOLD_GUN',goal:{kind:'pickup',id:nearest.id,x:nearest.x,y:nearest.y}};
+ }
+ const elapsed=Math.max(0,room.simulationTimeMs-objectives.startedAtMs),slot=Math.max(0,SHIP_COLORS.findIndex(color=>color===bot.state.color));
+ const continuing=objectives.planets.find(r=>!r.completed.has(bot.state.id)&&!r.planet.pickupId&&(r.ticks.get(bot.state.id)??0)>0);
+ if(!continuing&&(elapsed+slot*5000)%45000>=30000)return combat;
+ const candidates=objectives.planets.filter(r=>!r.completed.has(bot.state.id)&&!r.planet.pickupId);
+ const record=continuing??candidates[(slot+Math.floor(elapsed/45000))%Math.max(1,candidates.length)];
+ return record?{...combat,mode:'CAPTURE',goal:{kind:'capture',id:record.planet.id,x:record.planet.x,y:record.planet.y}}:combat;
+}
+
 // Normal keyboard-style controls, bounded turning, and imperfect heading aim.
 // No position/velocity writes or special bot movement statistics.
 export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:number):PlayerInput {
  const s=bot.state,d=s.bot??=initialBotState(),target=strategy.target?room.players.get(strategy.target):undefined;
+ d.goal=strategy.goal;
  Object.assign(d,strategy,{override:null,thrust:false,boost:false,fire:false,reload:false,tractor:false,melee:false,distance:0});
  const input={...idleInput(),aim:s.rotation};
  let dx=0,dy=0,heading=s.rotation;
@@ -40,6 +62,12 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
    d.fire=!alien && d.distance<650 && error<.20 && !s.tractor.targetId && !s.isReloading;
    d.reload=!alien && s.ammo===0 && !s.isReloading;
    d.tractor=!alien && !s.tractor.targetId && !s.tractor.cooldownRemainingMs && error<.25 && inTractorCone(s,target.state);
+ }
+ if(strategy.goal&&s.status==='ALIVE'){
+  dx=strategy.goal.x-s.x;dy=strategy.goal.y-s.y;const distance=Math.hypot(dx,dy);
+  if(distance<(strategy.goal.kind==='capture'?80:10))dx=dy=0;
+  input.boost=distance>500;
+  if(!target||d.distance>650)heading=Math.atan2(dy,dx);
  }
  if(s.status==='ALIVE' && s.tractor.attackerId){
    const attacker=room.players.get(s.tractor.attackerId);
@@ -68,7 +96,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
  for(const bot of room.players.values()){
    const s=bot.state;
    if(s.controllerType!=='BOT' || !bot.gameplayEnabled || s.lifeState!=='active' || s.health<=0)continue;
-   const input=botHands(room,bot,selectBotStrategy(bot,candidates),tick);
+   const input=botHands(room,bot,selectObjectiveStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
    }

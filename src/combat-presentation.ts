@@ -12,6 +12,6 @@ const ratio = (n: number, max: number) => Number.isFinite(max) && max > 0 ? clam
 export function combatPresentation(s: CombatState) {
   const ammo = clampCombatValue(s.ammo, s.maxAmmo);
   return { alien: s.status === 'ALIEN', shield: ratio(s.shield, s.maxShield), health: ratio(s.health, s.maxHealth),
-    ammo, maxAmmo: s.maxAmmo, lowAmmo: s.status === 'ALIVE' && ammo <= LOW_AMMO_THRESHOLD, lowHealth: ratio(s.health, s.maxHealth) <= LOW_HEALTH_RATIO,
+    ammo, maxAmmo: s.maxAmmo, lowAmmo: s.status === 'ALIVE' && !s.goldGunId && ammo <= LOW_AMMO_THRESHOLD, lowHealth: ratio(s.health, s.maxHealth) <= LOW_HEALTH_RATIO,
     reloading: s.isReloading, reloadProgress: clampCombatValue(s.reloadProgress, 1) };
 }

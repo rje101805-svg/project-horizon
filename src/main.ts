@@ -1,3 +1,4 @@
+import {ObjectiveVisuals,GOLD_COLOR} from './objective-visuals';
 import {preloadPlanetImages} from './visual/planet-images';
 import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
 import {SHIP_ART,shipArtForColor,type ShipArt} from './visual/ships';
@@ -47,6 +48,7 @@ class Horizon extends Phaser.Scene {
   private deepSpace!: DeepSpace;
   private hitFeedback = new HitFeedback();
   private damageNumbers!: DamageNumbers;
+  private objectives!:ObjectiveVisuals;
   private localHud!: ShipCombatHud;
   private projectileView = new ProjectileView();
   private tractorGraphics!: Phaser.GameObjects.Graphics;
@@ -79,6 +81,7 @@ class Horizon extends Phaser.Scene {
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     this.celestial = new CelestialWorld(this);
+    this.objectives=new ObjectiveVisuals(this);
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
@@ -114,7 +117,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
+      this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -178,6 +181,7 @@ class Horizon extends Phaser.Scene {
   }
   acceptSnapshot(snapshot: Snapshot) {
     if (!this.ready) return;
+    this.objectives.accept(snapshot,this.connection.socket.id??'');
     const local = snapshot.players.find(p => p.id === this.connection.socket.id);
     if (!local) return;
     // Lifecycle/HUD stay authoritative; only local movement is predicted.
@@ -319,7 +323,7 @@ class Horizon extends Phaser.Scene {
     }
     this.drawTractors(now);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
-    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) {this.projectileGraphics.fillStyle(0x030912).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius+1);this.projectileGraphics.fillStyle(0xffe08a).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius);}
+    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) {this.projectileGraphics.fillStyle(0x030912).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius+1);this.projectileGraphics.fillStyle(p.weapon==='gold'?GOLD_COLOR:0xffe08a).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius);}
     this.localHud.render(this.rocket.x, this.rocket.y-(local?.status==='ALIEN'?0:17), now);
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
@@ -344,6 +348,7 @@ class Horizon extends Phaser.Scene {
     this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
+    this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);
     if(import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

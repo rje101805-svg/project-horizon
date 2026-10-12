@@ -1,10 +1,10 @@
 import { BASIC_BLASTER, parseFire, type FireRequest, type FireResult, type ProjectileState } from '../shared/projectiles';
 import type { PlayerState, Snapshot } from '../shared/protocol';
 import { LOCAL_PROJECTILE_EXTRAPOLATION_MS } from './projectile-view';
-export interface BulletVisual { id: string; x: number; y: number }
+export interface BulletVisual { weapon?:'gold'; id: string; x: number; y: number }
 export const PREDICTED_SHOT_TIMEOUT_MS = 1000;
 const CORRECTION_TIME_MS = 80;
-interface PendingVisual { request: FireRequest; ownerId: string; x: number; y: number; vx: number; vy: number; born: number;
+interface PendingVisual { weapon?:'gold'; request: FireRequest; ownerId: string; x: number; y: number; vx: number; vy: number; born: number;
   accepted?: { id: string; spawnTick: number } }
 interface ConfirmedVisual { state: ProjectileState; arrival: number; offsetX: number; offsetY: number }
 const sameShot = (a: ProjectileState, b: ProjectileState) => a.ownerId === b.ownerId && a.shotSequence === b.shotSequence &&
@@ -37,7 +37,7 @@ export class ProjectilePrediction {
     if (!request || this.pending.has(request.sequence) || this.pending.size >= BASIC_BLASTER.maxActive ||
       player.lifeGeneration !== request.lifeGeneration || player.teleportSequence !== request.teleportSequence) return false;
     const dx = Math.cos(request.aim), dy = Math.sin(request.aim);
-    this.pending.set(request.sequence, { request, ownerId: player.id, born: now,
+    this.pending.set(request.sequence, { ...(player.goldGunId&&player.status==='ALIVE'?{weapon:'gold' as const}:{}), request, ownerId: player.id, born: now,
       x: player.x + dx * BASIC_BLASTER.muzzleOffset, y: player.y + dy * BASIC_BLASTER.muzzleOffset,
       vx: player.vx + dx * BASIC_BLASTER.muzzleSpeed, vy: player.vy + dy * BASIC_BLASTER.muzzleSpeed });
     return true;
@@ -75,11 +75,11 @@ export class ProjectilePrediction {
     const visuals: BulletVisual[] = authoritative.map(p => {
       const cached = this.confirmed.get(p.id), confirmed = cached && sameShot(cached.state, p) ? cached : undefined, pending = this.pending.get(p.shotSequence);
       const position = confirmed ? confirmedPosition(confirmed, now) : pending && matches(p, pending) ? pendingPosition(pending, now) : p;
-      return { id: p.id, x: position.x, y: position.y };
+      return { ...(p.weapon?{weapon:p.weapon}:{}), id: p.id, x: position.x, y: position.y };
     });
     for (const [seq, v] of this.pending) {
       if (authoritative.some(p => matches(p, v))) continue;
-      visuals.push({ id: `predicted:${v.ownerId}:${seq}`, ...pendingPosition(v, now) });
+      visuals.push({ ...(v.weapon?{weapon:v.weapon}:{}), id: `predicted:${v.ownerId}:${seq}`, ...pendingPosition(v, now) });
     }
     return visuals;
   }

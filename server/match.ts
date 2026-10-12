@@ -1,3 +1,4 @@
+import {resetObjectives,pauseObjectives} from './objectives';
 import { SHIP_COLORS } from '../shared/rooms';
 import { initialBotState } from '../shared/bots';
 import { clearAllTractors } from './tractor';
@@ -26,7 +27,7 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
   clearAllTractors(room);
   room.match.state = 'ended'; room.match.endedAtMs = timeMs; room.match.resetRemainingMs = MATCH_RESET_DELAY_MS;
   room.match.result = humans.length ? {kind:'winner', winnerId:humans[0].state.id, winnerName:humans[0].state.name} : {kind:'draw'};
-  room.projectiles.clear();
+  room.projectiles.clear();pauseObjectives(room);
   for (const player of room.players.values()) freeze(player);
 }
 // Reset is a room transaction: validate every spawn before changing any player.
@@ -40,6 +41,7 @@ function resetRound(room: GameRoom): boolean {
   for (const _player of next) {
     const spawn = chooseSpawn(spawns, room.blackHole); if (!spawn) return false; spawns.push(spawn);
   }
+  resetObjectives(room);
   for(const p of remove)removeBot(room,p.state.id);
   clearAllTractors(room,true);
   const usedColors=new Set(next.filter(p=>!p.state.queuedForNextRound).map(p=>p.state.color));
@@ -80,7 +82,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if (room.match.state!=='waiting') return reject('Match is not waiting');
   const humans=roundHumans(room);
   if (humans.length<2) return reject('At least 2 eligible humans are required');
-  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);
+  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);
   for(const p of humans)p.gameplayEnabled=true;
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);

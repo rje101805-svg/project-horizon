@@ -1,3 +1,4 @@
+import type {ObjectiveSnapshot} from './objectives';
 import type { BotDebugState } from './bots';
 import type { TractorRequest, TractorResult } from './tractor';
 import type { MatchState, StartMatchRequest, StartMatchResult } from './match';
@@ -9,7 +10,7 @@ import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
 export interface PlayerState extends FlightState, LifeState { queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
 export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; participantIds?: string[]; queuedIds?: string[]; maxPlayers: number; blackHole: BlackHoleState }
-export interface Snapshot { match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
+export interface Snapshot { objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }
