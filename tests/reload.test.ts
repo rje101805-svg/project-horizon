@@ -1,10 +1,11 @@
+import {BASIC_BLASTER} from '../shared/projectiles';
 import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
 import { reload } from '../server/reload';
 import { startReload, advanceCombatTick, applyDamage, completeReload } from '../server/combat';
-import { fire, projectileSnapshot } from '../server/projectiles';
+import { fire, advanceProjectiles, projectileSnapshot } from '../server/projectiles';
 import { simulatePlayer } from '../server/simulation';
 import { RELOAD_DURATION, MAX_AMMO, parseReload } from '../shared/combat';
 import { TICK_MS, idleInput } from '../shared/flight';
@@ -19,8 +20,8 @@ function fixture() {
 const shot = (sequence: number) => ({ sequence, aim: 0, lifeGeneration: 0, teleportSequence: 0 });
 const ticks = Math.ceil(RELOAD_DURATION / TICK_MS);
 
-test('manual partial/empty reload completes only on tick 45, with duplicates unable to alter it', () => {
-  assert.equal(ticks, 45);
+test('manual partial/empty reload completes only on tick 69, with duplicates unable to alter it', () => {
+  assert.equal(ticks, 69);
   for (const ammo of [0, 7]) {
     const { room, p, request } = fixture(); p.state.ammo = ammo;
     assert.equal(reload(room, p, request).ok, true);
@@ -54,39 +55,39 @@ test('reload rejects full, inactive, noncontestant, zero health, malformed and s
   assert.equal(p.state.ammo, 3); assert.equal(p.combatTimers.reload, 0);
 });
 
-test('last accepted round spawns normally and immediately starts reload without a thirteenth request', () => {
+test('last accepted round spawns normally and immediately starts reload without an extra request', () => {
   const { room, p } = fixture(); p.state.ammo = 2;
   assert.equal(fire(room, p, shot(1), 0).ok, true); assert.equal(p.state.ammo, 1); assert.equal(p.state.isReloading, false);
   for (let i = 0; i < 6; i++) advanceCombatTick(p);
   const last = fire(room, p, shot(2), 6); assert.ok(last.ok && last.kind !== 'melee');
   assert.equal(room.projectiles.size, 2); assert.equal(room.projectiles.get(last.projectileId)!.shotSequence, 2);
-  assert.equal(p.state.ammo, 0); assert.equal(p.state.isReloading, true); assert.equal(p.combatTimers.reload, 45);
-  assert.equal(p.combatTimers.cooldown, 6);
-  for (let i = 0; i < 45; i++) advanceCombatTick(p);
-  assert.equal(p.state.ammo, 12); assert.equal(fire(room, p, shot(3), 51).ok, true);
+  assert.equal(p.state.ammo, 0); assert.equal(p.state.isReloading, true); assert.equal(p.combatTimers.reload, 69);
+  assert.ok(p.combatTimers.cooldown>0 && p.combatTimers.cooldown<=6);
+  for (let i = 0; i < ticks; i++) advanceCombatTick(p);
+  assert.equal(p.state.ammo, 30); assert.equal(fire(room, p, shot(3), 51).ok, true);
 });
 
-test('a complete twelve-round magazine begins reload on exactly its twelfth accepted request', () => {
+test('a complete thirty-round magazine begins reload on exactly its thirtieth accepted request', () => {
   const { room, p } = fixture();
-  for (let n = 1; n <= 12; n++) {
+  for (let n = 1; n <= MAX_AMMO; n++) {
     assert.equal(fire(room, p, shot(n), (n - 1) * 6).ok, true);
-    assert.equal(p.state.ammo, 12 - n); assert.equal(p.state.isReloading, n === 12);
-    if (n < 12) for (let i = 0; i < 6; i++) advanceCombatTick(p);
+    assert.equal(p.state.ammo, MAX_AMMO - n); assert.equal(p.state.isReloading, n === MAX_AMMO);
+    if (n < MAX_AMMO) { for (let i = 0; i < 6; i++){advanceCombatTick(p);advanceProjectiles(room);} }
   }
-  assert.equal(room.projectiles.size, 12); assert.equal(p.lastFireSequence, 12);
-  assert.equal(p.combatTimers.reload, 45); assert.equal(p.combatTimers.cooldown, 6);
+  assert.ok(room.projectiles.size<=BASIC_BLASTER.maxActive);assert.ok([...room.projectiles.values()].some(p=>p.shotSequence===MAX_AMMO)); assert.equal(p.lastFireSequence, MAX_AMMO);
+  assert.equal(p.combatTimers.reload, 69); assert.ok(p.combatTimers.cooldown>0 && p.combatTimers.cooldown<=6);
 });
 
 test('empty fallback begins reload; repeated fire cannot create bullets, damage or manipulate timers/cap', () => {
   const { store, room, p } = fixture(); store.join('b', room.code, 'B', 0);
   const b = room.players.get('b')!, before = structuredClone(b.state); p.state.ammo = 0;
-  assert.equal(fire(room, p, shot(1), 0).ok, false); assert.equal(p.combatTimers.reload, 45);
+  assert.equal(fire(room, p, shot(1), 0).ok, false); assert.equal(p.combatTimers.reload, 69);
   for (let n = 2; n < 100; n++) assert.equal(fire(room, p, shot(n), 0).ok, false);
-  assert.equal(p.combatTimers.reload, 45); assert.equal(p.combatTimers.cooldown, 0);
+  assert.equal(p.combatTimers.reload, 69); assert.equal(p.combatTimers.cooldown, 0);
   assert.equal(p.state.ammo, 0); assert.equal(room.projectiles.size, 0); assert.equal(room.projectileSequence, 0);
   assert.deepEqual(b.state, before);
-  for (let n = 0; n < 44; n++) advanceCombatTick(p);
-  assert.equal(p.state.isReloading, true); advanceCombatTick(p); assert.equal(p.state.ammo, 12);
+  for (let n = 0; n < ticks-1; n++) advanceCombatTick(p);
+  assert.equal(p.state.isReloading, true); advanceCombatTick(p); assert.equal(p.state.ammo, 30);
   assert.equal(fire(room, p, shot(100), 45).ok, true);
 });
 
@@ -96,11 +97,11 @@ test('partial reload blocks fire without changing existing bullets, ammo or cool
   for (let n = 2; n < 20; n++) assert.equal(fire(room, p, shot(n), 0).ok, false);
   assert.deepEqual(projectileSnapshot(room), bullets); assert.deepEqual(p.combatTimers, timer); assert.equal(p.state.ammo, ammo);
   applyDamage(p, 60, { type: 'PLAYER', playerId: 'b' });
-  assert.equal(p.state.shield, 0); assert.equal(p.state.health, 90); assert.equal(p.combatTimers.reload, 45);
+  assert.equal(p.state.shield, 0); assert.equal(p.state.health, 90); assert.equal(p.combatTimers.reload, 69);
   const x = p.state.x; p.input = { ...idleInput(), right: true }; p.lastInput = 0;
-  for (let n = 1; n <= 44; n++) simulatePlayer(p, room, n * TICK_MS, n * TICK_MS);
+  for (let n = 1; n < ticks; n++) simulatePlayer(p, room, n * TICK_MS, n * TICK_MS);
   assert.ok(p.state.x > x); assert.equal(p.state.isReloading, true); assert.equal(p.state.ammo, ammo);
-  simulatePlayer(p, room, 45 * TICK_MS, 45 * TICK_MS); assert.equal(p.state.ammo, 12);
+  simulatePlayer(p, room, ticks * TICK_MS, ticks * TICK_MS); assert.equal(p.state.ammo, 30);
 });
 
 test('final-round prediction hands off while reloading; stale rejection clears without mutating snapshots', () => {

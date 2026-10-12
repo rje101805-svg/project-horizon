@@ -44,27 +44,27 @@ test('enabled controls use authoritative snapshots for damage, ammo, reload', as
     await page.locator('[data-combat-action="damage"]').click();
     await expect.poll(() => p.state.health).toBe(80); await frame();
     await expect(page.locator('#hud-health-value')).toHaveText('80 / 100');
-    await click('ammo'); await expect(page.locator('#hud-ammo')).toHaveText('AMMO 11 / 12');
-    await click('reload'); await expect(page.locator('#debug-reload')).toContainText('Reload 1.');
+    await click('ammo'); await expect(page.locator('#hud-ammo')).toHaveText('AMMO 29 / 30');
+    await click('reload'); await expect(page.locator('#debug-reload')).toContainText('Reload 2.');
     const remaining = p.combatTimers.reload;
     await page.locator('[data-combat-action="reload"]').click();
     await expect(page.locator('#combat-debug-result')).toHaveText('Action unavailable or already in progress');
     expect(p.combatTimers.reload).toBe(remaining);
     for (let i = 0; i < remaining; i++) { step(); await new Promise<void>(resolve => setImmediate(resolve)); }
-    expect(p.state.ammo).toBe(12); await frame();
-    await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
+    expect(p.state.ammo).toBe(30); await frame();
+    await expect(page.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');
     await expect(page.locator('#debug-reload')).toHaveText('Reload ready');
     await expect(page.locator('#debug-combat')).toHaveText('ALIVE · HUMAN · kills 0');
     await click('cooldown'); expect(p.state.fireCooldownRemainingMs).toBeGreaterThan(0);
     await expect.poll(() => peer.evaluate(id => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(s => s.id === id)?.shield, id)).toBe(0);
-    expect(p.state.health).toBe(80); expect(p.state.ammo).toBe(12);
+    expect(p.state.health).toBe(80); expect(p.state.ammo).toBe(30);
     // Real delayed request/snapshot handling never changes the tick deadline.
     await page.locator('#fake-lag').check();
     await click('ammo'); await click('reload');
-    expect(p.combatTimers.reload).toBe(44); // One frame after acceptance.
-    for (let i = 0; i < 43; i++) { step(); await new Promise<void>(resolve => setImmediate(resolve)); }
-    expect(p.state.isReloading).toBe(true); expect(p.state.ammo).toBe(11);
-    step(); expect(p.state.isReloading).toBe(false); expect(p.state.ammo).toBe(12);
-    await frame(); await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
+    expect(p.combatTimers.reload).toBe(68); // One frame after acceptance.
+    for (let i = 0; i < 67; i++) { step(); await new Promise<void>(resolve => setImmediate(resolve)); }
+    expect(p.state.isReloading).toBe(true); expect(p.state.ammo).toBe(29);
+    step(); expect(p.state.isReloading).toBe(false); expect(p.state.ammo).toBe(30);
+    await frame(); await expect(page.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');
   } finally { await peer.close(); await page.close(); await server.close(); }
 });

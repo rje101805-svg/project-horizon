@@ -56,7 +56,7 @@ for (const damage of ['horizon batch', 'staged elimination and reciprocal bullet
   const endedAt = room.match.endedAtMs!;
   while ((tick+1)*TICK_MS < endedAt+6000) {await frame(); assert.equal(room.match.state,'ended'); assert.deepEqual(room.match.result,{kind:'draw'});}
   await frame(); assert.equal(room.match.state,'waiting'); assert.deepEqual(room.match.roster,[]); assert.equal(room.match.result,null);
-  for (const player of room.players.values()) {assert.equal(player.state.status,'ALIVE'); assert.equal(player.state.health,100); assert.equal(player.state.shield,50); assert.equal(player.state.ammo,12); assert.equal(player.humanEliminated,false);}
+  for (const player of room.players.values()) {assert.equal(player.state.status,'ALIVE'); assert.equal(player.state.health,100); assert.equal(player.state.shield,50); assert.equal(player.state.ammo,30); assert.equal(player.humanEliminated,false);}
   await frame(); assert.equal(room.match.state,'waiting'); assert.equal((await start(0)).ok,false); assert.equal((await start(1)).ok,true);
   assert.deepEqual(room.match.roster,[...room.players.keys()]); assert.equal(survivingHumans(room),4);
   assert.equal((await new Promise<{ok:boolean}>(resolve => spectatorSocket.emit('fire',{...staleSpectatorFire,sequence:2},resolve))).ok,false);

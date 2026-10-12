@@ -29,7 +29,7 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   expect(spectator.state.status).toBe('OUT');expect(spectator.humanEliminated).toBe(false);expect(spectator.state.health).toBe(100);
   for(const player of room.players.values())expect(player.gameplayEnabled).toBe(false);expect(room.projectiles.size).toBe(0);
   await advance(179);await frame();expect(room.match.state).toBe('waiting');expect(room.match.round).toBe(1);
-  for(const p of pages){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#alien-message')).toBeHidden();}
+  for(const p of pages){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#alien-message')).toBeHidden();}
   for(const player of room.players.values()){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(50);expect(player.humanEliminated).toBe(false);}
   await frame();expect(room.match.state).toBe('waiting');await expect(page.locator('#start-match')).toBeEnabled();
   await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();expect(room.match.roster).toEqual([...room.players.keys()]);

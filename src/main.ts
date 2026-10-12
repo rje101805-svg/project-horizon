@@ -1,3 +1,5 @@
+import {LootVisuals} from './loot-visuals';
+import {drawWeaponProjectile} from './weapon-visuals';
 import {ObjectiveVisuals,GOLD_COLOR} from './objective-visuals';
 import {preloadPlanetImages} from './visual/planet-images';
 import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
@@ -48,7 +50,7 @@ class Horizon extends Phaser.Scene {
   private deepSpace!: DeepSpace;
   private hitFeedback = new HitFeedback();
   private damageNumbers!: DamageNumbers;
-  private objectives!:ObjectiveVisuals;
+  private objectives!:ObjectiveVisuals;private loot!:LootVisuals;
   private localHud!: ShipCombatHud;
   private projectileView = new ProjectileView();
   private tractorGraphics!: Phaser.GameObjects.Graphics;
@@ -81,7 +83,7 @@ class Horizon extends Phaser.Scene {
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     this.celestial = new CelestialWorld(this);
-    this.objectives=new ObjectiveVisuals(this);
+    this.objectives=new ObjectiveVisuals(this);this.loot=new LootVisuals(this);
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
@@ -102,9 +104,14 @@ class Horizon extends Phaser.Scene {
       const target = event.target as HTMLInputElement;
       const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
       if (event.code === 'KeyE' && !event.repeat && !typing) this.connection.tractor();
+      if(!event.repeat&&!typing&&['Digit1','Digit2','Digit3'].includes(event.code))this.connection.inventory('switch',Number(event.code.slice(-1))-1);
+      if(event.code==='Space'&&!event.repeat&&!typing)this.connection.triggerFire(this.fireAim);
+      if(event.code==='KeyF'&&!event.repeat&&!typing)this.connection.inventory('swap');
       if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
     };
     window.addEventListener('keydown', reload);
+    const pointerTrigger=(pointer:Phaser.Input.Pointer)=>{if(pointer.leftButtonDown())this.connection.triggerFire(this.fireAim);};this.input.on('pointerdown',pointerTrigger);
+    const wheel=(event:WheelEvent)=>{if(event.target===this.game.canvas){event.preventDefault();this.connection.cycleWeapon(event.deltaY);}};this.game.canvas.addEventListener('wheel',wheel,{passive:false});
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
     window.addEventListener('blur', release);
@@ -112,12 +119,12 @@ class Horizon extends Phaser.Scene {
     const rendered=()=>hud.renderFrame();this.game.events.on('postrender',rendered);
     const cleanup = () => {
       if (!this.ready) return;
-      window.removeEventListener('keydown', reload);
+      window.removeEventListener('keydown', reload);this.input.off('pointerdown',pointerTrigger);this.game.canvas.removeEventListener('wheel',wheel);
       window.removeEventListener('blur', release);
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
+      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -181,7 +188,7 @@ class Horizon extends Phaser.Scene {
   }
   acceptSnapshot(snapshot: Snapshot) {
     if (!this.ready) return;
-    this.objectives.accept(snapshot,this.connection.socket.id??'');
+    this.objectives.accept(snapshot,this.connection.socket.id??'');this.loot.accept(snapshot,this.connection.socket.id??'');
     const local = snapshot.players.find(p => p.id === this.connection.socket.id);
     if (!local) return;
     // Lifecycle/HUD stay authoritative; only local movement is predicted.
@@ -323,7 +330,7 @@ class Horizon extends Phaser.Scene {
     }
     this.drawTractors(now);
     this.projectileGraphics.clear().fillStyle(0xffe08a);
-    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now, this.connection.socket.id ?? ''), now)) {this.projectileGraphics.fillStyle(0x030912).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius+1);this.projectileGraphics.fillStyle(p.weapon==='gold'?GOLD_COLOR:0xffe08a).fillCircle(p.x,p.y,BASIC_BLASTER.projectileRadius);}
+    for (const p of this.connection.projectilePrediction.render(this.projectileView.sample(now,this.connection.socket.id??''),now))drawWeaponProjectile(this.projectileGraphics,p);
     this.localHud.render(this.rocket.x, this.rocket.y-(local?.status==='ALIEN'?0:17), now);
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
@@ -348,7 +355,7 @@ class Horizon extends Phaser.Scene {
     this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
-    this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);
+    this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

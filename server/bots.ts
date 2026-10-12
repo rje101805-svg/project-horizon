@@ -1,3 +1,5 @@
+import {activeWeapon,WEAPONS,RARITIES} from '../shared/weapons';
+import {lootState,nearestWeapon,swapWeapon,switchSlot,lootEligible} from './inventory';
 import type {GoldPickup} from '../shared/objectives';
 import {objectiveState,eligibleShip} from './objectives';
 import {SHIP_COLORS} from '../shared/rooms';
@@ -26,6 +28,12 @@ export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotS
  if(!eligibleShip(room,bot))return combat;
  const enemy=combat.target?room.players.get(combat.target):undefined;
  if(enemy&&Math.hypot(enemy.state.x-bot.state.x,enemy.state.y-bot.state.y)<320)return combat;
+ const inv=bot.state.inventory;
+ if(inv&&!bot.state.goldGunId){
+  const loot=[...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-bot.state.x,item.y-bot.state.y)<1200).filter(item=>item.kind==='weapon'?(inv.slots.includes(null)||weaponValue(item.weapon,600)>weaponValue(activeWeapon(bot.state),600)+1):inv.slots.some(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)&&inv.reserve[item.ammoType]<WEAPONS[inv.slots.find(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)!.class].magazine*2);
+  loot.sort((a,b)=>Math.hypot(a.x-bot.state.x,a.y-bot.state.y)-Math.hypot(b.x-bot.state.x,b.y-bot.state.y)||a.id.localeCompare(b.id));
+  if(loot[0])return {...combat,mode:'LOOT',goal:{kind:'loot',id:loot[0].id,x:loot[0].x,y:loot[0].y}};
+ }
  const objectives=objectiveState(room);
  if(!bot.state.goldGunId){let nearest:GoldPickup|undefined,distance=5000;
   for(const pickup of objectives.pickups.values()){const d=Math.hypot(pickup.x-bot.state.x,pickup.y-bot.state.y);if(d<distance){distance=d;nearest=pickup;}}
@@ -59,15 +67,15 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
    input.boost=d.distance>650;
    const error=Math.abs(angleDelta(heading,s.rotation));
    d.melee=alien && d.distance<=ALIEN_MELEE_RANGE;
-   d.fire=!alien && d.distance<650 && error<.20 && !s.tractor.targetId && !s.isReloading;
-   d.reload=!alien && s.ammo===0 && !s.isReloading;
+   d.fire=!alien && d.distance<(s.goldGunId?1100:WEAPONS[activeWeapon(s)?.class??'blaster'].range) && error<.20 && !s.tractor.targetId && !s.isReloading;
+   d.reload=!alien && !s.goldGunId && s.ammo===0 && !s.isReloading;
    d.tractor=!alien && !s.tractor.targetId && !s.tractor.cooldownRemainingMs && error<.25 && inTractorCone(s,target.state);
  }
  if(strategy.goal&&s.status==='ALIVE'){
   dx=strategy.goal.x-s.x;dy=strategy.goal.y-s.y;const distance=Math.hypot(dx,dy);
   if(distance<(strategy.goal.kind==='capture'?80:10))dx=dy=0;
   input.boost=distance>500;
-  if(!target||d.distance>650)heading=Math.atan2(dy,dx);
+  if(!target||d.distance>(s.goldGunId?1100:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
  }
  if(s.status==='ALIVE' && s.tractor.attackerId){
    const attacker=room.players.get(s.tractor.attackerId);
@@ -84,6 +92,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
  // 180 degrees/sec; deterministic small heading error, never exact target aim.
  const desired=heading+(d.override?0:Math.sin(tick*.08+s.color)*.065);
  input.aim=s.rotation+Math.max(-Math.PI*TICK_SECONDS,Math.min(Math.PI*TICK_SECONDS,angleDelta(desired,s.rotation)));
+ if((s.stunRemainingMs??0)>0){d.fire=d.reload=d.tractor=d.melee=false;input.up=input.down=input.left=input.right=input.boost=false;}
  d.desiredHeading=desired;d.thrust=input.up||input.down||input.left||input.right;d.boost=input.boost;
  return input;
 }
@@ -96,6 +105,12 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
  for(const bot of room.players.values()){
    const s=bot.state;
    if(s.controllerType!=='BOT' || !bot.gameplayEnabled || s.lifeState!=='active' || s.health<=0)continue;
+   if(lootEligible(room,bot)&&s.inventory){
+     const target=selectBotStrategy(bot,candidates).target,distance=target?Math.hypot(room.players.get(target)!.state.x-s.x,room.players.get(target)!.state.y-s.y):600;
+     if(!s.isReloading){const active=activeWeapon(s);let slot=s.inventory.activeSlot,score=active&&(active.magazine>0||s.inventory.reserve[WEAPONS[active.class].ammoType]>0)?weaponValue(active,distance):-1;s.inventory.slots.forEach((w,i)=>{if(!w)return;const usable=w.magazine>0||s.inventory!.reserve[WEAPONS[w.class].ammoType]>0,value=usable?weaponValue(w,distance):-1;if(value>score){score=value;slot=i;}});switchSlot(bot,slot);
+       const item=nearestWeapon(room,bot);if(item&&!s.inventory.slots.includes(null)){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
+     }
+   }
    const input=botHands(room,bot,selectObjectiveStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
@@ -115,3 +130,5 @@ export function advanceBotActions(room:GameRoom,tick:number) {
    if(d.fire || d.melee)fire(room,bot,{sequence:bot.lastFireSequence+1,aim:s.rotation,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},tick);
  }
 }
+
+function weaponValue(w:import('../shared/weapons').WeaponInstance|null,distance:number){if(!w)return -1;const role=w.class==='shotgun'?(distance<250?8:-4):w.class==='smg'?(distance<500?5:-3):w.class==='missile'?(distance>350?5:0):w.class==='zapper'?3:2;return RARITIES.indexOf(w.rarity)*3+role;}

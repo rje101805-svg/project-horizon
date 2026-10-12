@@ -1,3 +1,4 @@
+import {initializeInventory,resetLoot} from './inventory';
 import {resetObjectives,pauseObjectives} from './objectives';
 import { SHIP_COLORS } from '../shared/rooms';
 import { initialBotState } from '../shared/bots';
@@ -41,8 +42,9 @@ function resetRound(room: GameRoom): boolean {
   for (const _player of next) {
     const spawn = chooseSpawn(spawns, room.blackHole); if (!spawn) return false; spawns.push(spawn);
   }
-  resetObjectives(room);
+  resetObjectives(room);room.combatEffects=[];
   for(const p of remove)removeBot(room,p.state.id);
+  resetLoot(room); // Removed bots may drop equipment; clear those old-round drops too.
   clearAllTractors(room,true);
   const usedColors=new Set(next.filter(p=>!p.state.queuedForNextRound).map(p=>p.state.color));
   for(const p of next)if(p.state.queuedForNextRound){p.state.color=SHIP_COLORS.find(c=>!usedColors.has(c))!;usedColors.add(p.state.color);}
@@ -54,6 +56,7 @@ function resetRound(room: GameRoom): boolean {
     player.simulationTimeMs=room.simulationTimeMs;
     s.queuedForNextRound=false;
     if(s.controllerType==='BOT'){s.bot=initialBotState();player.botInputTick=player.botInputLife=player.botInputTeleport=undefined;}
+    initializeInventory(player);player.nextSwapMs=0;player.lastFireInputMs=undefined;
     player.humanEliminated=false; player.gameplayEnabled=s.controllerType!=='BOT'; player.invulnerableUntilMs=0;
     player.combatTimers={reload:0,cooldown:0,reloadCompleted:false}; player.respawnAtMs=null;
     player.input=idleInput();player.lastInput=-Infinity;player.reset=false;
@@ -82,8 +85,8 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if (room.match.state!=='waiting') return reject('Match is not waiting');
   const humans=roundHumans(room);
   if (humans.length<2) return reject('At least 2 eligible humans are required');
-  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);
-  for(const p of humans)p.gameplayEnabled=true;
+  room.match.state='active';room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];
+  for(const p of humans){initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.gameplayEnabled=true;}
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
   }

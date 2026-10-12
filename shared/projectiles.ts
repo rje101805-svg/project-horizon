@@ -1,14 +1,15 @@
+import {WEAPONS,weaponDamage} from './weapons';
 import { SHIP_HITBOX_RADIUS } from './ship-geometry';
 import { FIRE_COOLDOWN, MAX_AMMO } from './combat';
-// Temporary basic blaster balance; magazine/cooldown share the combat configuration.
-export const BASIC_BLASTER = Object.freeze({ damage: 25, muzzleSpeed: 800, lifetimeMs: 2000,
+// Compatible default Blaster view; weapon balance remains centralized.
+export const BASIC_BLASTER = Object.freeze({ damage: weaponDamage({class:'blaster',rarity:'COMMON'}), muzzleSpeed: WEAPONS.blaster.speed, lifetimeMs: WEAPONS.blaster.lifetimeMs,
   fireIntervalMs: FIRE_COOLDOWN, magazineSize: MAX_AMMO, maxActive: 12,
   muzzleOffset: 28, projectileRadius: 3, shipRadius: SHIP_HITBOX_RADIUS });
 export interface FireRequest { sequence: number; aim: number; lifeGeneration: number; teleportSequence: number }
 export type FireResult = { ok: true; sequence: number; projectileId: string; spawnTick: number; kind?: 'projectile' } |
   { ok: true; kind: 'melee'; sequence: number; damageApplied: number } |
   { ok: false; sequence: number; reason: string };
-export interface ProjectileState { weapon?:'gold'; id: string; ownerId: string; shotSequence: number; lifeGeneration: number;
+export interface ProjectileState { weapon?:'gold'|import('./weapons').WeaponClass; pellet?:number; radius?:number; traveled?:number; originX?:number; originY?:number; id: string; ownerId: string; shotSequence: number; lifeGeneration: number;
   teleportSequence: number; x: number; y: number; vx: number; vy: number; damage: number; spawnTick: number; remainingMs: number }
 export function parseFire(raw: unknown): FireRequest | null {
   if (!raw || typeof raw !== 'object') return null;

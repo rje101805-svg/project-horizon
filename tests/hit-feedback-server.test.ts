@@ -17,7 +17,7 @@ function fixture() {
   return { store, room, a, b };
 }
 test('hit receipt reports actual shield, health, split and clamped damage once, at swept contact', () => {
-  for (const [shield, health, expectedShield, expectedHealth] of [[50,100,25,0],[0,100,0,25],[10,100,10,15],[0,7,0,7]]) {
+  for (const [shield, health, expectedShield, expectedHealth] of [[50,100,40.5,0],[0,100,0,40.5],[10,100,10,30.5],[0,7,0,7]]) {
     const { room, a, b } = fixture(); b.state.shield = shield; b.state.health = health;
     const receipts: ProjectileHit[] = []; assert.equal(fire(room, a, shot(1), 1).ok, true);
     advanceProjectiles(room, h => receipts.push(h), 2); advanceProjectiles(room, h => receipts.push(h), 3);
@@ -79,7 +79,7 @@ test('real socket routes each receipt only to shooter; target, spectator and oth
     const received = new Map(sockets.map(s => [s, [] as ProjectileHit[]]));
     for (const s of sockets) s.on('projectileHit', h => received.get(s)!.push(h));
     const send = (sequence: number, aim = 0) => new Promise<{ok:boolean}>(resolve => a.emit('fire', shot(sequence, aim), resolve));
-    for (const [sequence, shield, health, expectedShield, expectedHealth] of [[1,50,100,25,0],[2,0,100,0,25],[3,10,100,10,15]]) {
+    for (const [sequence, shield, health, expectedShield, expectedHealth] of [[1,50,100,40.5,0],[2,0,100,0,40.5],[3,10,100,10,30.5]]) {
       pb.state.shield = shield; pb.state.health = health;
       assert.equal((await send(sequence)).ok, true);
       const frame = new Promise<Snapshot>((resolve, reject) => {
@@ -98,7 +98,7 @@ test('real socket routes each receipt only to shooter; target, spectator and oth
     // A client cannot invent a server receipt or invoke another damage path.
     (a as unknown as { emit: (event: string, data: unknown) => void }).emit('projectileHit', { targetId: b.id, healthDamage: 99999 });
     await new Promise<void>(resolve => a.emit('latencyProbe', resolve));
-    assert.equal(received.get(a)!.length, 3); assert.equal(pb.state.health, 85);
+    assert.equal(received.get(a)!.length, 3); assert.equal(pb.state.health, 69.5);
     for (const s of [b, spectator, isolated]) { await new Promise<void>(resolve => s.emit('latencyProbe', resolve)); assert.deepEqual(received.get(s), []); }
   } finally { sockets.forEach(s => s.disconnect()); await server.close(); }
 });

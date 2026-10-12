@@ -33,21 +33,21 @@ for (const mode of ['default', 'debug', 'production'] as const) test(`reload is 
       { ...request, sequence: 3, teleportSequence: 1 }]) assert.equal((await send(a, bad)).ok, false);
     assert.equal(p.state.ammo, 4); assert.equal(p.combatTimers.reload, 0);
     assert.equal((await send(a, { ...request, sequence: 4 })).ok, true);
-    assert.equal(p.combatTimers.reload, 45); assert.equal(peer.state.isReloading, false);
-    assert.equal((await send(a, { ...request, sequence: 5 })).ok, false); assert.equal(p.combatTimers.reload, 45);
+    assert.equal(p.combatTimers.reload, 69); assert.equal(peer.state.isReloading, false);
+    assert.equal((await send(a, { ...request, sequence: 5 })).ok, false); assert.equal(p.combatTimers.reload, 69);
     const snapshot = new Promise<Snapshot>(resolve => b.once('snapshot', resolve)); server.step();
     const shown = (await snapshot).players.find(s => s.id === a.id)!;
-    assert.equal(shown.ammo, 4); assert.equal(shown.maxAmmo, 12); assert.equal(shown.isReloading, true);
+    assert.equal(shown.ammo, 4); assert.equal(shown.maxAmmo, 30); assert.equal(shown.isReloading, true);
     assert.equal(shown.reloadRemainingMs, p.state.reloadRemainingMs);
-    for (let i = 0; i < 43; i++) server.step(); assert.equal(p.state.ammo, 4);
-    server.step(); assert.equal(p.state.ammo, 12); assert.equal(p.state.isReloading, false);
+    for (let i = 0; i < 67; i++) server.step(); assert.equal(p.state.ammo, 4);
+    server.step(); assert.equal(p.state.ammo, 30); assert.equal(p.state.isReloading, false);
     Object.assign(p.state, { x: 200, y: 1800 });
     a.emit('resetFlight', 1); // Wrong generation must fail even when enabled.
     await new Promise<void>(resolve => a.emit('latencyProbe', resolve)); assert.equal(p.reset, false);
     a.emit('resetFlight', 0);
     await new Promise<void>(resolve => a.emit('latencyProbe', resolve)); assert.equal(p.reset, mode === 'debug');
     server.step(); assert.equal(p.state.x, mode === 'debug' ? 1370 : 200);
-    assert.equal(p.state.ammo, 12); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 50);
+    assert.equal(p.state.ammo, 30); assert.equal(p.state.health, 100); assert.equal(p.state.shield, 50);
     await new Promise<void>(resolve => a.emit('leaveRoom', resolve));
     await new Promise<RoomResult>(resolve => a.emit('joinRoom', { code: room.code, name: 'A' }, resolve));
     const rejoined = store.roomFor(a.id!)!.players.get(a.id!)!; rejoined.state.ammo = 3;

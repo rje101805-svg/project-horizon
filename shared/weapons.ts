@@ -1,4 +1,34 @@
-import {BASIC_BLASTER} from './projectiles';
-import {FIRE_COOLDOWN,type CombatState} from './combat';
-export const GOLD_GUN = Object.freeze({damageMultiplier:2,fireIntervalMs:FIRE_COOLDOWN/1.5,pickupRadius:45,maxHeld:1,maxActive:Math.ceil(BASIC_BLASTER.maxActive*1.5)});
+import type {CombatState} from './combat';
+export const WEAPON_CLASSES=['blaster','shotgun','missile','smg','zapper'] as const;
+export type WeaponClass=typeof WEAPON_CLASSES[number];
+export const RARITIES=['COMMON','RARE','LEGENDARY'] as const;
+export type Rarity=typeof RARITIES[number];
+export const AMMO_TYPES=['energy','plasma','missiles','light','shock'] as const;
+export type AmmoType=typeof AMMO_TYPES[number];
+// Preserve 100 HP + 50 shield; scale regular damage from the supplied 100-EHP table.
+export const REGULAR_DAMAGE_SCALE=1.5;
+export interface WeaponDefinition {name:string;assetId:string;ammoType:AmmoType;damage:readonly number[];rate:number;reloadMs:number;magazine:number;speed:number;lifetimeMs:number;spread:number;pellets:number;range:number;automatic:boolean}
+export const WEAPONS:Readonly<Record<WeaponClass,WeaponDefinition>>={
+ blaster:{name:'Blaster',assetId:'weapon-blaster',ammoType:'energy',damage:[27,30,34],rate:5.5,reloadMs:2300,magazine:30,speed:800,lifetimeMs:2000,spread:0,pellets:1,range:1100,automatic:true},
+ shotgun:{name:'Nova Shotgun',assetId:'weapon-nova-shotgun',ammoType:'plasma',damage:[72,85,105],rate:.7,reloadMs:4000,magazine:6,speed:800,lifetimeMs:600,spread:.32,pellets:5,range:350,automatic:true},
+ missile:{name:'Missile Launcher',assetId:'weapon-missile-launcher',ammoType:'missiles',damage:[55,65,75],rate:.75,reloadMs:3000,magazine:3,speed:430,lifetimeMs:3000,spread:0,pellets:1,range:1100,automatic:true},
+ smg:{name:'Ion SMG',assetId:'weapon-ion-smg',ammoType:'light',damage:[12,14,17],rate:11,reloadMs:2200,magazine:40,speed:850,lifetimeMs:800,spread:.035,pellets:1,range:600,automatic:true},
+ zapper:{name:'Zapper',assetId:'weapon-zapper',ammoType:'shock',damage:[15,18,21],rate:1.25,reloadMs:2500,magazine:12,speed:650,lifetimeMs:2000,spread:0,pellets:1,range:1000,automatic:false},
+};
+export const RARITY_COLORS:Record<Rarity,number>={COMMON:0xdce3eb,RARE:0x489dff,LEGENDARY:0xbe6cff};
+export const RARITY_WEIGHTS=[.6,.3,.1] as const;
+export const RESERVE_CAPS:Record<AmmoType,number>={energy:180,plasma:36,missiles:18,light:240,shock:72};
+export const AMMO_PACKS:Record<AmmoType,number>={energy:30,plasma:6,missiles:3,light:40,shock:12};
+export const AMMO_NAMES:Record<AmmoType,string>={energy:'Energy Rounds',plasma:'Plasma Shells',missiles:'Missiles',light:'Light Energy Rounds',shock:'Shock Cells'};
+export interface WeaponInstance {id:string;class:WeaponClass;rarity:Rarity;magazine:number;capacity:number;grantConsumed:boolean}
+export interface WeaponInventory {slots:(WeaponInstance|null)[];activeSlot:number;reserve:Record<AmmoType,number>;revision:number}
+export const emptyReserve=():Record<AmmoType,number>=>({energy:0,plasma:0,missiles:0,light:0,shock:0});
+export const weaponDamage=(weapon:Pick<WeaponInstance,'class'|'rarity'>)=>WEAPONS[weapon.class].damage[RARITIES.indexOf(weapon.rarity)]*REGULAR_DAMAGE_SCALE;
+export const activeWeapon=(state:Pick<CombatState,'inventory'>)=>state.inventory?.slots[state.inventory.activeSlot]??null;
+export const GOLD_GUN=Object.freeze({damage:40,rate:6,fireIntervalMs:1000/6,pickupRadius:45,maxHeld:1,maxActive:18,assetId:'weapon-galaxy'});
 export const hasGoldGun=(state:Pick<CombatState,'status'|'goldGunId'>)=>state.status==='ALIVE'&&!!state.goldGunId;
+export const STUN_MS=500,STUN_IMMUNITY_MS=1500,MISSILE_EXPLOSION_RADIUS=130;
+export const fireInterval=(state:Pick<CombatState,'goldGunId'|'status'|'inventory'>)=>hasGoldGun(state)?GOLD_GUN.fireIntervalMs:1000/WEAPONS[activeWeapon(state)?.class??'blaster'].rate;
+export const reloadDuration=(state:Pick<CombatState,'inventory'>)=>WEAPONS[activeWeapon(state)?.class??'blaster'].reloadMs;
+
+export const MAX_PROJECTILE_DAMAGE=Math.max(GOLD_GUN.damage,...WEAPON_CLASSES.map(k=>Math.max(...WEAPONS[k].damage)*REGULAR_DAMAGE_SCALE/WEAPONS[k].pellets));

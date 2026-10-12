@@ -8,8 +8,9 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
   await new Promise<void>(resolve=>server.http.listen(0,'127.0.0.1',resolve));
   const address=server.http.address();if(!address || typeof address==='string')throw new Error('Missing server');
   const peer=await context.newPage(),keeper=await context.newPage();let tick=0;
-  const frame=async()=>{
+  const frame=async(n=1)=>{
     await page.evaluate(()=>new Promise<void>((resolve,reject)=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.timeout(1000).emit('latencyProbe',e=>e?reject(e):resolve())));
+    for(let i=0;i<n-1;i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}
     server.step();tick++;
     await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);
   };
@@ -25,23 +26,25 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     const room=store.rooms.get(code)!,a=room.players.get(id!)!,b=[...room.players.values()].find(p=>p!==a)!;
     Object.assign([...room.players.values()].find(p=>p!==a && p!==b)!.state,{x:200,y:1800});
     Object.assign(b.state,{x:1600,y:1200});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();await page.bringToFront();await page.keyboard.press('F3');
-    await page.keyboard.down('Space');await expect.poll(()=>a.state.ammo).toBe(11);await frame();
+    await page.keyboard.down('Space');await expect.poll(()=>a.state.ammo).toBe(29);await frame();
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.projectiles.length)).toBe(1);
-    for(let i=0;i<12;i++)await frame();
+    await frame(12);
     await expect.poll(()=>b.state.shield).toBeLessThan(50);
-    // Drive production ticks while held input attempts keep arriving.
-    await expect.poll(async()=>{for(let i=0;i<6;i++)await frame();return a.state.ammo;},{timeout:15000,intervals:[20]}).toBe(0);
+    // Batch controlled ticks, then wait for the final snapshot. Do not pay a
+    // browser-poll round trip per tick of the new 30-round / 69-tick loadout.
+    await expect.poll(async()=>{await frame(6);return a.state.ammo;},{timeout:15000,intervals:[20]}).toBe(0);
     await page.keyboard.up('Space');await frame();const consumed=a.lastFireSequence;
-    await page.keyboard.down('Space');for(let i=0;i<12;i++)await frame();await page.keyboard.up('Space');
+    await page.keyboard.down('Space');await frame(12);await page.keyboard.up('Space');
+    await expect.poll(()=>page.evaluate(()=>(window as unknown as {__HORIZON_FLIGHT__:{firing:boolean}}).__HORIZON_FLIGHT__.firing)).toBe(false);
     expect(a.state.ammo).toBe(0);expect(a.lastFireSequence).toBe(consumed);
-    await expect(page.locator('#debug-weapon')).toContainText('ammo 0 / 12');
+    await expect(page.locator('#debug-weapon')).toContainText('ammo 0 / 30');
     expect(a.state.isReloading).toBe(true);
-    for(let i=0;i<45;i++)await frame();
+    await frame(69);
     expect(a.state.isReloading).toBe(false);
     await page.locator('[data-combat-action="refill"]').click();await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug: refill');await frame();
-    await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
+    await expect(page.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');
     expect(b.state.status).toBe('ALIEN');expect(b.state.kills).toBe(0);
-    await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id!==(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.ammo)).toBe(12);
+    await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id!==(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.ammo)).toBe(30);
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players.find(p=>p.id===(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id)?.health)).toBe(b.state.health);
   }finally{await keeper.close();await peer.close();await page.close();await server.close();}
 });

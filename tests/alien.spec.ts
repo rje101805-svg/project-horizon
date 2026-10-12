@@ -27,15 +27,15 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   const aid=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const bid=await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const room=store.roomFor(aid)!,a=room.players.get(aid)!,b=room.players.get(bid)!,c=[...room.players.values()].find(p=>p!==a&&p!==b)!;
-  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});b.state.ammo=11;await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();
+  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');b.state.ammo=29;await frame();
   if(lag)for(const p of pages){await p.bringToFront();await p.keyboard.press('F3');await p.locator('#fake-lag').check();await p.keyboard.press('F3');}
   await peer.bringToFront();await peer.keyboard.press('r');await expect.poll(()=>b.state.isReloading).toBe(true);await frame();
-  for(let seq=1;seq<=6;seq++){
+  for(let seq=1;seq<=4;seq++){
    await page.bringToFront();await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].fireAim=0);
    await page.keyboard.down('Space');await page.waitForTimeout(60);await page.keyboard.up('Space');await expect.poll(()=>a.lastFireSequence).toBe(seq);await frame();
-   if(seq===1){expect(b.state.shield).toBe(25);expect(b.state.health).toBe(100);}
-   if(seq===2){expect(b.state.shield).toBe(0);expect(b.state.health).toBe(100);}
-   if(seq<6){await advance(5);await frame();await page.waitForTimeout(220);}
+   if(seq===1){expect(b.state.shield).toBe(9.5);expect(b.state.health).toBe(100);}
+   if(seq===2){expect(b.state.shield).toBe(0);expect(b.state.health).toBe(69);}
+   if(seq<4){await advance(5);await frame();await page.waitForTimeout(220);}
   }
   expect(b.state.status).toBe('ALIEN');expect(b.state.lifeState).toBe('dead');expect(b.state.isReloading).toBe(false);expect(b.combatTimers.reload).toBe(0);
   expect(room.players.size).toBe(3);expect(a.state.lifeState).toBe('active');

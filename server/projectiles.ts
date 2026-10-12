@@ -1,8 +1,8 @@
-import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
+import {hasGoldGun,GOLD_GUN,activeWeapon,WEAPONS,weaponDamage,MISSILE_EXPLOSION_RADIUS} from '../shared/weapons';
 import { melee } from './melee';
 import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type ProjectileState } from '../shared/projectiles';
 import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
-import { applyDamage, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
+import { applyDamage, applyStun, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
 import type { ProjectileHit } from '../shared/hit-feedback';
 export interface ServerProjectile extends ProjectileState { remainingTicks: number }
@@ -16,23 +16,27 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   if (!player.gameplayEnabled || room.match.state === 'ended' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
   if (s.tractor.targetId) return reject('Tractor active');
+  if((s.stunRemainingMs??0)>0)return reject('Stunned');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
-  const gold=hasGoldGun(s);
+  const gold=hasGoldGun(s),weapon=activeWeapon(s);if(!gold&&!weapon)return reject('No owned weapon');const definition=WEAPONS[weapon?.class??'blaster'];
   if (!gold&&s.isReloading) return reject('No ammo or reloading');
   if (!gold&&s.ammo === 0) { startReload(player); return reject('No ammo or reloading'); }
   if (!gold&&s.ammo < 0) return reject('No ammo or reloading');
   if (!canFireFromCooldown(player)) return reject('Cooldown');
-  if ([...room.projectiles.values()].filter(p => p.ownerId === s.id).length >= (gold?GOLD_GUN.maxActive:BASIC_BLASTER.maxActive)) return reject('Projectile cap');
+  if ([...room.projectiles.values()].filter(p => p.ownerId === s.id).length+ (gold?1:definition.pellets) > (gold?GOLD_GUN.maxActive:weapon!.class==='blaster'?BASIC_BLASTER.maxActive:weapon!.class==='shotgun'?20:weapon!.class==='smg'?16:8)) return reject('Projectile cap');
   const dx = Math.cos(request.aim), dy = Math.sin(request.aim);
   const x = s.x + dx * BASIC_BLASTER.muzzleOffset, y = s.y + dy * BASIC_BLASTER.muzzleOffset;
   if (x < 0 || x > WORLD || y < 0 || y > WORLD) return reject('Muzzle outside world');
   if (!gold&&!consumeAmmo(player)) return reject('No ammo');
   startFireCooldown(player);
-  const id = `${room.code}:${++room.projectileSequence}`;
-  room.projectiles.set(id, { id, ownerId: s.id, shotSequence: request.sequence, lifeGeneration: s.lifeGeneration,
-    teleportSequence: s.teleportSequence, x, y, vx: s.vx + dx * BASIC_BLASTER.muzzleSpeed,
-    vy: s.vy + dy * BASIC_BLASTER.muzzleSpeed, damage: BASIC_BLASTER.damage*(gold?GOLD_GUN.damageMultiplier:1), spawnTick: tick,
-    ...(gold?{weapon:'gold' as const}:{}), remainingMs: BASIC_BLASTER.lifetimeMs, remainingTicks: Math.ceil(BASIC_BLASTER.lifetimeMs / TICK_MS) });
+  let id='';
+  for(let pellet=0;pellet<(gold?1:definition.pellets);pellet++){
+    const spread=gold?0:definition.pellets>1?(pellet-2)*definition.spread/4:definition.spread*Math.sin(request.sequence*2.399963);
+    const angle=request.aim+spread,px=Math.cos(angle),py=Math.sin(angle),speed=gold?BASIC_BLASTER.muzzleSpeed:definition.speed,lifetime=gold?BASIC_BLASTER.lifetimeMs:definition.lifetimeMs;
+    const bulletId=`${room.code}:${++room.projectileSequence}`;if(!id)id=bulletId;
+    room.projectiles.set(bulletId,{id:bulletId,ownerId:s.id,shotSequence:request.sequence,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence,x:s.x+px*BASIC_BLASTER.muzzleOffset,y:s.y+py*BASIC_BLASTER.muzzleOffset,vx:s.vx+px*speed,vy:s.vy+py*speed,damage:gold?GOLD_GUN.damage:weaponDamage(weapon!)/definition.pellets,spawnTick:tick,
+      ...(gold?{weapon:'gold' as const}:weapon!.class!=='blaster'?{weapon:weapon!.class,pellet}:{}),radius:weapon?.class==='missile'&&!gold?6:3,traveled:0,remainingMs:lifetime,remainingTicks:Math.ceil(lifetime/TICK_MS)});
+  }
   if (!gold&&s.ammo === 0) startReload(player); // The accepted final round has already spawned.
   return { ok: true, sequence: request.sequence, projectileId: id, spawnTick: tick };
 }
@@ -50,29 +54,41 @@ export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) 
     const owner = room.players.get(p.ownerId)?.state;
     if (!owner || owner.lifeGeneration !== p.lifeGeneration || !(owner.teleportSequence === p.teleportSequence && owner.lifeState === 'active' || owner.status === 'ALIEN' && owner.lifeState === 'dead' && owner.teleportSequence === p.teleportSequence + 1)) { room.projectiles.delete(id); continue; }
     const next = { x: p.x + p.vx * TICK_SECONDS, y: p.y + p.vy * TICK_SECONDS };
-    let contact = Math.min(boundaryEntry(p, next), circleEntry(p, next, room.blackHole, room.blackHole.eventHorizonRadius + BASIC_BLASTER.projectileRadius) ?? Infinity);
+    let contact = Math.min(boundaryEntry(p, next), circleEntry(p, next, room.blackHole, room.blackHole.eventHorizonRadius + (p.radius??BASIC_BLASTER.projectileRadius)) ?? Infinity);
     let target: RoomPlayer | null = null;
     for (const player of room.players.values()) {
       const s = player.state;
       if (!player.gameplayEnabled || s.id === p.ownerId || s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) continue;
-      const t = circleEntry(p, next, s, BASIC_BLASTER.shipRadius + BASIC_BLASTER.projectileRadius);
+      const t = circleEntry(p, next, s, BASIC_BLASTER.shipRadius + (p.radius??BASIC_BLASTER.projectileRadius));
       if (t !== null && t < contact) { contact = t; target = player; }
     }
     if (contact !== Infinity) {
-      if (target) {
-        const damage = applyDamage(target, p.damage, { type: 'PLAYER', playerId: p.ownerId }, target.simulationTimeMs);
-        if (damage && damage.shieldAbsorbed + damage.healthDamage > 0) onHit?.({
-          projectileId: p.id, shotSequence: p.shotSequence, hitTick: tick, roomCode: room.code,
-          ownerId: p.ownerId, ownerSession: owner.reloadSession, lifeGeneration: p.lifeGeneration, teleportSequence: p.teleportSequence,
-          targetId: target.state.id, targetSession: target.state.reloadSession, targetLifeGeneration: target.state.lifeGeneration,
-          targetTeleportSequence: target.state.teleportSequence, x: p.x + (next.x - p.x) * contact,
-          y: p.y + (next.y - p.y) * contact, shieldDamage: damage.shieldAbsorbed, healthDamage: damage.healthDamage,
-        });
-      }
+      const point={x:p.x+(next.x-p.x)*contact,y:p.y+(next.y-p.y)*contact};
+      const distance=(p.traveled??0)+Math.hypot(point.x-p.x,point.y-p.y),falloff=p.weapon==='shotgun'?Math.max(.2,Math.min(1,1-(distance-100)/400)):1;
+      if(target)damageTarget(room,p,target,p.damage*falloff,point,tick,onHit);
+      if(p.weapon==='missile')explode(room,p,point,target,tick,onHit);
       room.projectiles.delete(id); continue;
     }
-    Object.assign(p, next); p.remainingTicks--; p.remainingMs = p.remainingTicks * TICK_MS;
-    if (p.remainingTicks <= 0) room.projectiles.delete(id);
+    p.traveled=(p.traveled??0)+Math.hypot(next.x-p.x,next.y-p.y);Object.assign(p, next); p.remainingTicks--; p.remainingMs = p.remainingTicks * TICK_MS;
+    if (p.remainingTicks <= 0){if(p.weapon==='missile')explode(room,p,p,null,tick,onHit);room.projectiles.delete(id);}
   }
 }
 export const projectileSnapshot = (room: GameRoom): ProjectileState[] => [...room.projectiles.values()].map(({ remainingTicks: _ticks, ...state }) => state);
+
+function effect(room:GameRoom,kind:'explosion'|'shock',point:{x:number;y:number},radius:number){
+ const effects=room.combatEffects??=[];effects.push({id:(room.effectSequence=(room.effectSequence??0)+1),kind,...point,radius,timeMs:room.simulationTimeMs});if(effects.length>24)effects.shift();
+}
+function damageTarget(room:GameRoom,p:ServerProjectile,target:RoomPlayer,amount:number,point:{x:number;y:number},tick:number,onHit?: (hit:ProjectileHit)=>void){
+ const damage=applyDamage(target,amount,{type:'PLAYER',playerId:p.ownerId},target.simulationTimeMs);if(!damage)return;
+ if(p.weapon==='zapper'){applyStun(target);effect(room,'shock',point,35);}
+ const owner=room.players.get(p.ownerId)?.state;if(!owner||damage.shieldAbsorbed+damage.healthDamage<=0)return;
+ onHit?.({projectileId:p.id,shotSequence:p.shotSequence,hitTick:tick,roomCode:room.code,ownerId:p.ownerId,ownerSession:owner.reloadSession,lifeGeneration:p.lifeGeneration,teleportSequence:p.teleportSequence,targetId:target.state.id,targetSession:target.state.reloadSession,targetLifeGeneration:target.state.lifeGeneration,targetTeleportSequence:target.state.teleportSequence,...point,shieldDamage:damage.shieldAbsorbed,healthDamage:damage.healthDamage});
+}
+function explode(room:GameRoom,p:ServerProjectile,point:{x:number;y:number},direct:RoomPlayer|null,tick:number,onHit?:(hit:ProjectileHit)=>void){
+ effect(room,'explosion',point,MISSILE_EXPLOSION_RADIUS);
+ for(const target of room.players.values()){
+  const s=target.state;if(target===direct||s.id===p.ownerId||!target.gameplayEnabled||s.lifeState!=='active'||s.status==='OUT'||s.health<=0)continue;
+  const distance=Math.hypot(s.x-point.x,s.y-point.y);if(distance>=MISSILE_EXPLOSION_RADIUS)continue;
+  damageTarget(room,p,target,p.damage*.5*(1-distance/MISSILE_EXPLOSION_RADIUS),point,tick,onHit);
+ }
+}

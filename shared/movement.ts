@@ -1,13 +1,19 @@
+import {STUN_IMMUNITY_MS} from './weapons';
 import { tractorAcceleration, type TractorState } from './tractor';
 import { gravityAt, crossesHorizon, type BlackHoleState } from './black-hole';
-import { stepFlight, type FlightState, type PlayerInput } from './flight';
+import { stepFlight, TICK_MS,TICK_SECONDS,EDGE_MARGIN,WORLD, type FlightState, type PlayerInput } from './flight';
 
 // Complete deterministic movement, including all existing forces. The returned
 // swept contact freezes prediction; only the server may decide health/respawn.
-export function stepMovement(state: FlightState & {tractor?:TractorState}, input: PlayerInput, hole: BlackHoleState): boolean {
+export function stepMovement(state: FlightState & {tractor?:TractorState;stunRemainingMs?:number;stunImmunityRemainingMs?:number}, input: PlayerInput, hole: BlackHoleState): boolean {
   const previous = { x: state.x, y: state.y };
   const gravity=gravityAt(state,hole),pull=tractorAcceleration(state);
-  stepFlight(state, input, {x:gravity.x+pull.x,y:gravity.y+pull.y});
+  if((state.stunRemainingMs??0)>0){
+    // Coast with existing gravity/tractor forces; stun removes thrust, not momentum.
+    state.vx+=(gravity.x+pull.x)*TICK_SECONDS;state.vy+=(gravity.y+pull.y)*TICK_SECONDS;
+    state.x=Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,state.x+state.vx*TICK_SECONDS));state.y=Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,state.y+state.vy*TICK_SECONDS));state.rotation=input.aim;
+    state.stunRemainingMs=Math.max(0,(state.stunRemainingMs??0)-TICK_MS);if(state.stunRemainingMs<1e-7){state.stunRemainingMs=0;state.stunImmunityRemainingMs=STUN_IMMUNITY_MS;}
+  }else stepFlight(state, input, {x:gravity.x+pull.x,y:gravity.y+pull.y});
   const contact = crossesHorizon(previous, state, hole);
   if (contact) state.vx = state.vy = 0;
   return contact;

@@ -20,7 +20,7 @@ test('local predicted bullet precedes delayed acceptance, replaces without dupli
   await page.keyboard.press('F3'); await page.locator('#fake-jitter').uncheck();await page.locator('#fake-lag').check();await frame();
   await page.keyboard.down('Space');await expect.poll(pending,{intervals:[5,10,20]}).toBe(1);
   // The visual exists before the delayed request reaches the server, and resources are unchanged.
-  expect(room.projectiles.size).toBe(0);expect(p.state.ammo).toBe(12);expect(p.state.health).toBe(100);
+  expect(room.projectiles.size).toBe(0);expect(p.state.ammo).toBe(30);expect(p.state.health).toBe(100);
   await page.keyboard.up('Space');await expect.poll(()=>room.projectiles.size).toBe(1);await frame();await expect.poll(pending).toBe(0);
   const visuals=await page.evaluate(()=>{
    const w=window as unknown as DebugWindow;return w.__HORIZON_FLIGHT__.projectilePrediction.render(w.__HORIZON_GAME__.scene.scenes[0].projectileView.sample(performance.now()),performance.now());

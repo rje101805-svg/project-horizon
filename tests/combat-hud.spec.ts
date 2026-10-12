@@ -41,7 +41,7 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
     await page.bringToFront();
     if(lag){await page.keyboard.press('F3');await page.locator('#fake-lag').check();await page.keyboard.press('F3');}
     await expect(page.locator('#debug-overlay')).toBeHidden();await expect(page.locator('#debug-network')).toBeVisible();
-    await expect(page.locator('#hud-weapon')).toHaveCount(0);await expect(page.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');
+    await expect(page.locator('#hud-weapon')).toHaveCount(0);await expect(page.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');
     await expect.poll(()=>visual(page).then(v=>v.visible)).toBe(true);
     for(const p of pages){const v=await visual(p);expect(v.bars).toBe(1);expect(v.remoteBars).toBe(0);expect(v.presentation!.shield).toBe(1);expect(v.presentation!.health).toBe(1);}
     const ammoBox=(await page.locator('#ammo-hud').boundingBox())!,canvasBox=(await page.locator('canvas').boundingBox())!;
@@ -53,19 +53,19 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
       await frame();await expect.poll(()=>visual(page).then(v=>v.numbers.length)).toBeGreaterThan(0);
     };
     await tap(1);
-    expect(b.state.shield).toBe(25);expect(b.state.health).toBe(100);
-    let v=await visual(page);expect(v.numbers).toHaveLength(1);expect(v.numbers[0].text).toBe('25');expect(v.numbers[0].color).toBe('#65d9ff');
+    expect(b.state.shield).toBe(9.5);expect(b.state.health).toBe(100);
+    let v=await visual(page);expect(v.numbers).toHaveLength(1);expect(v.numbers[0].text).toBe('40.5');expect(v.numbers[0].color).toBe('#65d9ff');
     for(const p of [peer,spectator])expect((await visual(p)).numbers).toHaveLength(0);
-    await expect.poll(()=>visual(peer).then(v=>v.presentation!.shield)).toBe(.5);
+    await expect.poll(()=>visual(peer).then(v=>v.presentation!.shield)).toBe(.19);
     await advance(5);await frame(); // Restore cooldown; keep each hit independent.
     b.state.shield=10;await page.waitForTimeout(220);await tap(2);
-    expect(b.state.shield).toBe(0);expect(b.state.health).toBe(85);
+    expect(b.state.shield).toBe(0);expect(b.state.health).toBe(69.5);
     v=await visual(page);expect(v.numbers.some(t=>t.text==='10'&&t.color==='#65d9ff')).toBe(true);
-    expect(v.numbers.some(t=>t.text==='15'&&t.color==='#ffffff')).toBe(true);
-    const split=v.numbers.filter(t=>t.text==='10'||t.text==='15');expect(new Set(split.map(t=>t.x)).size).toBe(2);
+    expect(v.numbers.some(t=>t.text==='30.5'&&t.color==='#ffffff')).toBe(true);
+    const split=v.numbers.filter(t=>t.text==='10'||t.text==='30.5');expect(new Set(split.map(t=>t.x)).size).toBe(2);
     await expect.poll(()=>visual(peer).then(v=>v.presentation!.shield)).toBe(0);await expect.poll(()=>visual(peer).then(v=>v.visible)).toBe(true);
     await advance(5);await frame();await page.waitForTimeout(220);await tap(3);
-    expect(b.state.health).toBe(60);v=await visual(page);expect(v.numbers.some(t=>t.text==='25'&&t.color==='#ffffff')).toBe(true);
+    expect(b.state.health).toBe(29);v=await visual(page);expect(v.numbers.some(t=>t.text==='40.5'&&t.color==='#ffffff')).toBe(true);
     expect(new Set(v.feedback.map(h=>h.id)).size).toBe(v.feedback.length);
     expect(new Set(v.feedback.map(h=>h.slot)).size).toBe(v.feedback.length); // No merged hits or same row.
     for(const p of [peer,spectator])expect((await visual(p)).numbers).toHaveLength(0);
@@ -76,7 +76,7 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
     expect(v.presentation!.lowHealth).toBe(true);expect(v.presentation!.shield).toBe(0);expect(v.visible).toBe(true);
     await page.keyboard.press('r');await expect.poll(()=>a.state.isReloading).toBe(true);await frame();
     v=await visual(page);expect(v.presentation!.reloading).toBe(true);await expect(page.locator('#ammo-hud')).toHaveAttribute('data-state','reloading');
-    await advance(a.combatTimers.reload-1);expect(a.state.ammo).toBe(3);await frame();expect(a.state.ammo).toBe(12);
+    await advance(a.combatTimers.reload-1);expect(a.state.ammo).toBe(3);await frame();expect(a.state.ammo).toBe(30);
     await expect.poll(()=>visual(page).then(v=>v.presentation!.reloading)).toBe(false);await expect(page.locator('#ammo-hud')).not.toHaveClass(/low-ammo/);
     // Bars follow the locally rendered ship, not a delayed/rotating enemy container.
     await page.keyboard.down('d');await page.waitForTimeout(lag?250:80);

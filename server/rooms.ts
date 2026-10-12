@@ -1,3 +1,4 @@
+import {initializeInventory,clearInventory,dropRegularInventory,type LootState} from './inventory';
 import {resetObjectives,dropGoldGun,removeObjectiveParticipant,type ObjectiveState} from './objectives';
 import { initialBotState } from '../shared/bots';
 import { clearTractorsFor, type TractorBeam, type TractorLOS } from './tractor';
@@ -10,12 +11,12 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { dropGold?:()=>void; botInputTick?:number; botInputLife?:number; botInputTeleport?:number; cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
-export interface GameRoom { objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
+export interface RoomPlayer { dropRegular?:()=>void; reloadWeaponId?:string; lastInventorySequence?:number; nextSwapMs?:number; lastFireInputMs?:number; dropGold?:()=>void; botInputTick?:number; botInputLife?:number; botInputTeleport?:number; cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface GameRoom { combatEffects?:import('../shared/protocol').CombatEffect[];effectSequence?:number; loot?:LootState; objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const activeParticipants = (room:GameRoom) => [...room.players.values()].filter(p=>!p.state.queuedForNextRound);
 export function removeBot(room:GameRoom,id:string) {
  const p=room.players.get(id);if(p?.state.controllerType!=='BOT')return;
- removeObjectiveParticipant(room,p);clearTractorsFor(room,id);room.tractorCooldowns?.delete(id);
+ p.state.stunRemainingMs=p.state.stunImmunityRemainingMs=0;p.dropRegular?.();removeObjectiveParticipant(room,p);clearTractorsFor(room,id);room.tractorCooldowns?.delete(id);
  for(const [key,bullet] of room.projectiles)if(bullet.ownerId===id)room.projectiles.delete(key);
  room.players.delete(id);p.gameplayEnabled=false;p.state.bot=undefined;p.pendingInputs=[];p.input=idleInput();p.lastInput=-Infinity;p.respawnAtMs=null;p.state.respawnRemainingMs=0;p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.cancelTractor=undefined;p.botInputTick=p.botInputLife=p.botInputTeleport=undefined;
  for(const other of room.players.values())if(other.state.bot?.target===id){other.state.bot.target=null;other.state.bot.mode='IDLE';}
@@ -94,7 +95,7 @@ export class RoomStore {
     if (color === undefined || !spawn) return { ok: false, error: 'No safe spawn is available. Please try another room.' };
     room.players.set(id, { gameplayEnabled: room.match.state === 'waiting', humanEliminated: false, simulationTimeMs: 0, invulnerableUntilMs: 0, lastReloadSequence: 0, lastFireSequence: 0, combatTimers: { reload: 0, cooldown: 0, reloadCompleted: false }, state: { queuedForNextRound:queued, id, name: sanitizeName(name), color, ...initialLifeState(), reloadSession: randomUUID(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, ...spawn }, input: idleInput(), lastInput: now, reset: false, respawnAtMs: null, pendingInputs: [], lastReceivedSequence: 0 });
     if (room.match.state !== 'waiting') room.players.get(id)!.state.status = 'OUT';
-    const member=room.players.get(id)!;member.dropGold=()=>dropGoldGun(room,member);
+    const member=room.players.get(id)!;initializeInventory(member);if(member.state.status==='OUT')clearInventory(member);member.dropRegular=()=>dropRegularInventory(room,member);member.dropGold=()=>dropGoldGun(room,member);
     room.players.get(id)!.cancelTractor=()=>clearTractorsFor(room,id);
     assignHost(room);
     this.membership.set(id, room.code);
@@ -120,7 +121,7 @@ export class RoomStore {
   leave(id: string): GameRoom | undefined {
     const room = this.roomFor(id);
     this.membership.delete(id);
-    if (room) { const departing=room.players.get(id);if(departing)removeObjectiveParticipant(room,departing);clearTractorsFor(room,id); room.tractorCooldowns?.delete(id); room.players.delete(id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (![...room.players.values()].some(p=>p.state.controllerType==='HUMAN')) { for(const p of [...room.players.values()])removeBot(room,p.state.id);room.projectiles.clear();room.tractorBeams?.clear();room.tractorCooldowns?.clear();this.rooms.delete(room.code); } }
+    if (room) { const departing=room.players.get(id);if(departing){departing.state.stunRemainingMs=departing.state.stunImmunityRemainingMs=0;departing.dropRegular?.();removeObjectiveParticipant(room,departing);}clearTractorsFor(room,id); room.tractorCooldowns?.delete(id); room.players.delete(id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (![...room.players.values()].some(p=>p.state.controllerType==='HUMAN')) { for(const p of [...room.players.values()])removeBot(room,p.state.id);room.projectiles.clear();room.tractorBeams?.clear();room.tractorCooldowns?.clear();room.loot?.pickups.clear();room.objectives?.pickups.clear();room.combatEffects=[];this.rooms.delete(room.code); } }
     return room;
   }
 }

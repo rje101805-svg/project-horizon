@@ -96,17 +96,17 @@ test('multiple planetary completions produce one reward each; reset removes all 
 test('meaningful starts/restarts are announced once rather than on every tick',()=>{
  const f=fixture();f.inside();f.tick(120);assert.equal(objectiveState(f.room).announcements.length,1);assert.equal(objectiveState(f.room).announcements[0].text,'REDLINE IS CAPTURING BOREALIS');f.inside(f.b);f.tick(30);f.outside(f.b);f.tick(30);assert.equal(objectiveState(f.room).announcements.filter(a=>a.kind==='started').length,2);
 });
-test('Gold uses existing swept damage, four-tick cooldown, reserve ammo and no reload',()=>{
+test('Gold uses existing swept damage, five-tick cooldown, no regular ammo and no reload',()=>{
  const f=fixture();assert.equal(equipGoldGun(f.a,'trusted-fixture-gun'),true);f.a.state.ammo=0;Object.assign(f.a.state,{x:1000,y:1800,rotation:0});Object.assign(f.b.state,{x:1040,y:1800});
  const request=(sequence:number)=>({sequence,aim:0,lifeGeneration:0,teleportSequence:0});const result=fire(f.room,f.a,request(1),0);assert.ok(result.ok&&result.kind!=='melee');const bullet=f.room.projectiles.get(result.projectileId)!;
- assert.equal(bullet.damage,BASIC_BLASTER.damage*2);assert.equal(bullet.weapon,'gold');assert.equal(bullet.vx,BASIC_BLASTER.muzzleSpeed);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);assert.equal(f.a.combatTimers.cooldown,4);advanceProjectiles(f.room);assert.equal(f.b.state.shield,0);
- for(let i=0;i<3;i++)advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(2),1).ok,false);advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(3),2).ok,true);
+ assert.equal(bullet.damage,GOLD_GUN.damage);assert.equal(bullet.weapon,'gold');assert.equal(bullet.vx,BASIC_BLASTER.muzzleSpeed);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);assert.ok(Math.abs(f.a.combatTimers.cooldown-5)<1e-9);advanceProjectiles(f.room);assert.equal(f.b.state.shield,10);
+ for(let i=0;i<4;i++)advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(2),1).ok,false);advanceCombatTick(f.a);assert.equal(fire(f.room,f.a,request(3),2).ok,true);
  assert.equal(reload(f.room,f.a,{sequence:1,roomCode:f.room.code,reloadSession:f.a.state.reloadSession,lifeGeneration:0,teleportSequence:0}).ok,false);
 });
 test('normal fire cannot forge Gold stats, and infinite sustained Gold fire respects bounded cap',()=>{
- const f=fixture();const result=fire(f.room,f.a,{sequence:1,aim:0,lifeGeneration:0,teleportSequence:0,weapon:'gold',damage:999},0);assert.ok(result.ok&&result.kind!=='melee');assert.equal(f.room.projectiles.get(result.projectileId)!.damage,25);f.room.projectiles.clear();equipGoldGun(f.a,'gold');Object.assign(f.a.state,{x:6000,y:6000});
- let fired=0;for(let i=0;i<120;i++){advanceCombatTick(f.a);if(i%4===0){assert.equal(fire(f.room,f.a,{sequence:i+2,aim:0,lifeGeneration:0,teleportSequence:0},i).ok,true);fired++;}advanceProjectiles(f.room);assert.ok(f.room.projectiles.size<=GOLD_GUN.maxActive);}
- assert.equal(fired,30);assert.equal(f.a.state.ammo,11);assert.equal(f.a.state.isReloading,false);
+ const f=fixture();const result=fire(f.room,f.a,{sequence:1,aim:0,lifeGeneration:0,teleportSequence:0,weapon:'gold',damage:999},0);assert.ok(result.ok&&result.kind!=='melee');assert.equal(f.room.projectiles.get(result.projectileId)!.damage,40.5);f.room.projectiles.clear();equipGoldGun(f.a,'gold');Object.assign(f.a.state,{x:6000,y:6000});
+ let fired=0;for(let i=0;i<120;i++){advanceCombatTick(f.a);if(i%5===0){assert.equal(fire(f.room,f.a,{sequence:i+2,aim:0,lifeGeneration:0,teleportSequence:0},i).ok,true);fired++;}advanceProjectiles(f.room);assert.ok(f.room.projectiles.size<=GOLD_GUN.maxActive);}
+ assert.equal(fired,24);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);
 });
 test('bots share capture, contest, collect, firing and drop rules; intent preserves escape priority',()=>{
  const f=fixture(true),bot=[...f.room.players.values()].find(p=>p.state.controllerType==='BOT')!;f.inside(bot);f.tick(300);const gun=f.pickup()!;assert.ok(objectiveState(f.room).announcements.some(a=>a.text===`${bot.state.name.toUpperCase()} CAPTURED BOREALIS`));Object.assign(bot.state,{x:gun.x,y:gun.y});f.tick();assert.equal(bot.state.goldGunId,gun.id);

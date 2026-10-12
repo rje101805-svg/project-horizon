@@ -1,3 +1,4 @@
+import {inventoryCommand,advanceLoot,lootSnapshot} from './inventory';
 import {advanceObjectives,objectivesSnapshot} from './objectives';
 import { advanceBots, advanceBotActions } from './bots';
 import { activateTractor, advanceTractors } from './tractor';
@@ -30,6 +31,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
   const debugAuthorized = combatDebugEnabled(options.combatDebug);
   let tick = 0;
   io.on('connection', socket => {
+    socket.on('inventory',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id);reply(inventoryCommand(room,room?.players.get(socket.id),request));});
     socket.on('tractor',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id);reply(activateTractor(room,room?.players.get(socket.id),request));});
     socket.on('fire', (request, reply) => {
       if (typeof reply !== 'function') return;
@@ -96,11 +98,12 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       const hits: ProjectileHit[] = []; // Bounded by this room's live projectile cap.
       if (!reset) advanceProjectiles(room, hit => hits.push(hit), tick);
       advanceTractors(room,tick*TICK_MS,true);
-      if(!reset)advanceObjectives(room);
+      if(!reset){advanceObjectives(room);advanceLoot(room);}
+      room.combatEffects=room.combatEffects?.filter(e=>room.simulationTimeMs-e.timeMs<400);
       evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
       // Replacement membership is reliable, but follows the volatile snapshot

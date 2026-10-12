@@ -34,7 +34,7 @@ for(const lag of [false,true])test(`authoritative repeatable rounds, spectator, 
   expect(b.respawnAtMs).toBe(null);expect(applyDamage(a,150,{type:'PLAYER',playerId:b.state.id})).toBe(null);
   await page.keyboard.down('Space');await peer.keyboard.down('Space');await page.waitForTimeout(lag?400:80);await frame();expect(room.projectiles.size).toBe(0);expect(a.state.health).toBe(100);expect(room.match.result).toEqual(result);await page.keyboard.up('Space');await peer.keyboard.up('Space');
   await advance(178);await frame();expect(room.match.state).toBe('waiting');expect(room.match.round).toBe(1);expect(room.match.roster).toEqual([]);
-  for(const p of clients){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 12 / 12');await expect(p.locator('#hud-alien')).toBeHidden();expect(await p.locator('#alien-message').isHidden()).toBe(true);}
+  for(const p of clients){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-alien')).toBeHidden();expect(await p.locator('#alien-message').isHidden()).toBe(true);}
   for(const p of room.players.values()){expect(p.state.status).toBe('ALIVE');expect(p.state.health).toBe(100);expect(p.state.shield).toBe(50);expect(p.humanEliminated).toBe(false);expect(p.state.spawnInvulnerabilityRemainingMs).toBe(0);expect(p.state.lastMeleeDamage).toBe(0);}
   await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();expect(room.match.round).toBe(2);expect(room.match.roster).toHaveLength(3);
   // Opposite winner in round two; all deaths belong to this simulation batch.

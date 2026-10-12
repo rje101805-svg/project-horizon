@@ -34,7 +34,7 @@ export class ObjectiveVisuals {
  }
  accept(snapshot:Snapshot,selfId:string){
   this.snapshot=snapshot;this.arrival=performance.now();const state=snapshot.objectives;
-  this.targets=state&&snapshot.match.state==='active'?[...state.pickups.map(p=>({id:p.id,kind:'gold' as const,x:p.x,y:p.y,radius:22,label:p.source==='drop'?'DROPPED GOLD GUN':'GOLD GUN',distance:0,visible:false})),...state.planets.filter(p=>p.status==='CAPTURING'||p.status==='CONTESTED').map(p=>({id:p.id,kind:'capture' as const,x:p.x,y:p.y,radius:p.captureRadius,label:`${p.status==='CONTESTED'?'CONTESTED':'CAPTURE'} ${p.name}`,distance:0,visible:false}))]:[];
+  this.targets=state&&snapshot.match.state==='active'?[...state.pickups.map(p=>({id:p.id,kind:'gold' as const,x:p.x,y:p.y,radius:22,label:p.source==='drop'?'DROPPED GALAXY GUN':'GALAXY GUN',distance:0,visible:false})),...state.planets.filter(p=>p.status==='CAPTURING'||p.status==='CONTESTED').map(p=>({id:p.id,kind:'capture' as const,x:p.x,y:p.y,radius:p.captureRadius,label:`${p.status==='CONTESTED'?'CONTESTED':'CAPTURE'} ${p.name}`,distance:0,visible:false}))]:[];
   this.updateHud(snapshot,selfId);
  }
  render(camera:Phaser.Cameras.Scene2D.Camera,now:number,selfId:string,ships:ReadonlyMap<string,{body:Phaser.GameObjects.Container}>){
@@ -77,7 +77,7 @@ export class ObjectiveVisuals {
   const zone=state.planets.find(p=>p.occupants.includes(selfId))??state.planets.find(p=>p.progress.some(r=>r.participantId===selfId&&r.progressMs>0&&!r.completed));
   if(!zone){this.hud.hidden=true;return;}
   const progress=zone.progress.find(p=>p.participantId===selfId),ms=progress?.progressMs??0,inside=zone.occupants.includes(selfId);
-  const status=zone.status==='CONTESTED'&&inside?'CONTESTED — CAPTURE PAUSED':progress?.completed?'CAPTURE COMPLETE · ONCE PER MATCH':zone.status==='GOLD_GUN_AVAILABLE'&&inside?'GOLD GUN AVAILABLE':inside?'CAPTURING':'OUTSIDE — PROGRESS DECAYING';
+  const status=zone.status==='CONTESTED'&&inside?'CONTESTED — CAPTURE PAUSED':progress?.completed?'CAPTURE COMPLETE · ONCE PER MATCH':zone.status==='GOLD_GUN_AVAILABLE'&&inside?'GALAXY GUN AVAILABLE':inside?'CAPTURING':'OUTSIDE — PROGRESS DECAYING';
   const text=`${zone.name} · ${status}\n${(ms/1000).toFixed(1)} / ${(CAPTURE_DURATION_MS/1000).toFixed(0)} seconds`;if(text!==this.hudText){this.description.textContent=text;this.hudText=text;}this.bar.value=ms;this.hud.hidden=false;
  }
 

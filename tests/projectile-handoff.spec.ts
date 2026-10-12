@@ -37,7 +37,7 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
   await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
   const taps=await page.evaluate(()=>(window as unknown as DebugWindow).__handoffTrace);
   expect(taps.requests).toHaveLength(10);expect(taps.adds).toEqual([1,2,3,4,5,6,7,8,9,10]);
-  expect(taps.results.filter(r=>r.ok)).toHaveLength(10);expect(taps.results.filter(r=>!r.ok)).toHaveLength(0);expect(p.state.ammo).toBe(2);
+  expect(taps.results.filter(r=>r.ok)).toHaveLength(10);expect(taps.results.filter(r=>!r.ok)).toHaveLength(0);expect(p.state.ammo).toBe(20);
   const assertFrames=(trace:Trace,continuous:boolean)=>{
    const last=new Map<number,number>();let reversals=0;
    for(const frame of trace.frames){
@@ -47,14 +47,14 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
    expect(reversals).toBe(0);
   };
   assertFrames(taps,true);
-  refillAmmo(p);await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players[0].ammo)).toBe(12);
+  refillAmmo(p);await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.players[0].ammo)).toBe(30);
   if(lag)await page.keyboard.down('d'); // Representative moving fire with latency/jitter.
   await page.keyboard.down('Space');await page.waitForTimeout(1200);await page.keyboard.up('Space');if(lag)await page.keyboard.up('d');
   await page.waitForTimeout(lag?400:100);
   const all=await page.evaluate(()=>(window as unknown as DebugWindow).__handoffTrace),accepted=all.results.filter((r):r is Extract<FireResult,{ok:true;projectileId:string}>=>r.ok && r.kind !== 'melee');
   const held=accepted.filter(r=>r.sequence>10);expect(held.length).toBeGreaterThanOrEqual(lag?3:4);expect(held.length).toBeLessThanOrEqual(7);
-  for(let i=1;i<held.length;i++)expect(held[i].spawnTick-held[i-1].spawnTick).toBeGreaterThanOrEqual(6);
-  expect(p.state.ammo).toBe(12-held.length);expect(new Set(all.requests.map(r=>r.sequence)).size).toBe(all.requests.length);
+  for(let i=1;i<held.length;i++)expect(held[i].spawnTick-held[i-1].spawnTick).toBeGreaterThanOrEqual(5);
+  expect(p.state.ammo).toBe(30-held.length);expect(new Set(all.requests.map(r=>r.sequence)).size).toBe(all.requests.length);
   assertFrames(all,true);expect(await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
   expect(p.state.health).toBe(100);expect(p.state.shield).toBe(50);
   // All misses and temporary visuals disappear; no indefinite accumulation.

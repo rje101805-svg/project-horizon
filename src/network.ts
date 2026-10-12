@@ -1,4 +1,4 @@
-import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
+import {hasGoldGun,GOLD_GUN,activeWeapon,WEAPONS,fireInterval} from '../shared/weapons';
 import { ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { ProjectilePrediction } from './projectile-prediction';
 import { BASIC_BLASTER, type FireRequest, type FireResult } from '../shared/projectiles';
@@ -20,6 +20,7 @@ export interface ConnectionCallbacks {
 export class FlightConnection {
   starting = false;
   private firing = false;
+  private triggerPending=false;private inventorySequence=0;
   private fireAim = 0;
   private nextFireAt = 0;
   private shotSequence = 0;
@@ -89,10 +90,10 @@ export class FlightConnection {
         const ids = new Set(this.room.playerIds);
         snapshot = { ...snapshot, players: snapshot.players.filter(p => ids.has(p.id)) };
         const matchChanged = this.latest && (snapshot.match.round !== this.latest.match.round || snapshot.match.state !== this.latest.match.state);
-        if (matchChanged) { this.starting = false; this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
+        if (matchChanged) { this.starting = false; this.epoch++; this.lag?.clear(); this.input = idleInput(); this.firing = false;this.triggerPending=false; this.nextFireAt = 0; this.pendingRelease = false; this.accumulator = 0; this.prediction.clear(); this.projectilePrediction.clear(); }
         const previous = this.latest?.players.find(p => p.id === this.socket.id);
         const local = snapshot.players.find(p => p.id === this.socket.id)!;
-        if(previous?.goldGunId!==local.goldGunId)this.nextFireAt=0;
+        if(previous?.goldGunId!==local.goldGunId||activeWeapon(previous??{})?.id!==activeWeapon(local)?.id){this.projectilePrediction.cancelPending();this.triggerPending=false;}
         if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
           this.lag?.clear(); this.input = idleInput();
         }
@@ -173,7 +174,7 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.starting = false; this.projectilePrediction.clear(); this.firing = false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  private invalidate() { this.starting = false; this.projectilePrediction.clear(); this.firing = false;this.triggerPending=false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
   private tractorSequence=0;
   tractor() {
     const match=this.latest?.match,local=this.latest?.players.find(p=>p.id===this.socket.id);
@@ -216,11 +217,13 @@ export class FlightConnection {
     const guarded = () => { if (epoch === this.epoch && this.socket.connected && this.room) action(); };
     if (this.lag) this.lag.schedule('input', guarded); else guarded();
   }
-  setFireIntent(held: boolean, aim: number) { this.firing = held; this.fireAim = aim; }
+  triggerFire(aim:number){const local=this.latest?.players.find(p=>p.id===this.socket.id);if(local&&activeWeapon(local)?.class==='zapper'&&local.ammo>0&&!local.isReloading){this.fireAim=aim;this.triggerPending=true;}}
+  setFireIntent(held: boolean, aim: number) { if(held&&!this.firing&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=true;if(!held&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=false;this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.canPlay() || !this.firing || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || local.status === 'ALIVE' && !hasGoldGun(local) && (local.ammo <= 0 || local.isReloading)) return;
-    this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : hasGoldGun(local)?GOLD_GUN.fireIntervalMs:BASIC_BLASTER.fireIntervalMs);
+    if (!this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (local.ammo <= 0 || local.isReloading)) return;
+    if(!hasGoldGun(local)&&!WEAPONS[activeWeapon(local)?.class??'blaster'].automatic&&!this.triggerPending)return;this.triggerPending=false;
+    this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(local));
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
     if (local.status === 'ALIVE') this.projectilePrediction.add(request, this.renderedLocal(0) ?? local, now);
     const epoch = this.epoch;
@@ -240,10 +243,16 @@ export class FlightConnection {
   renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
   release() {
     this.starting = false;
-    this.projectilePrediction.cancelPending(); this.firing = false;
+    this.projectilePrediction.cancelPending(); this.firing = false;this.triggerPending=false;
     this.lag?.clear(); this.input = { ...idleInput(), aim: this.input.aim };
     this.pendingRelease = true;
   }
+  inventory(action:'switch'|'swap',slot?:number){
+    const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room;if(!this.canPlay()||!local?.inventory||!room)return;
+    const request={action,...(slot===undefined?{}:{slot}),sequence:++this.inventorySequence,roomCode:room.code,round:this.latest!.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence,revision:local.inventory.revision};
+    const epoch=this.epoch;const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('inventory',request,()=>{});};if(this.lag)this.lag.schedule('input',send);else send();
+  }
+  cycleWeapon(direction:number){const inv=this.latest?.players.find(p=>p.id===this.socket.id)?.inventory;if(!inv)return;for(let n=1;n<4;n++){const slot=(inv.activeSlot+n*(direction>0?1:2))%3;if(inv.slots[slot]){this.inventory('switch',slot);break;}}}
   reload() {
     if(this.latest?.players.find(p=>p.id===this.socket.id)?.goldGunId)return;
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;

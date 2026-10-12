@@ -31,7 +31,7 @@ function spawnPoint(room:GameRoom,record:CaptureRecord,p:RoomPlayer){
 export function dropGoldGun(room:GameRoom,p:RoomPlayer){
  const id=clearGoldGun(p);if(!id)return;
  const s=objectiveState(room);s.pickups.set(id,{id,x:Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,p.state.x)),y:Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,p.state.y)),source:'drop',planetId:null,spawnTimeMs:room.simulationTimeMs});
- announce(room,{kind:'dropped',text:'THE GOLD GUN HAS DROPPED',participantId:p.state.id});
+ announce(room,{kind:'dropped',text:'THE GALAXY GUN HAS DROPPED',participantId:p.state.id});
 }
 export function removeObjectiveParticipant(room:GameRoom,p:RoomPlayer){
  dropGoldGun(room,p);
@@ -44,7 +44,7 @@ export function collectGoldGun(room:GameRoom,p:RoomPlayer,id:string):boolean {
  if(!equipGoldGun(p,id))return false;
  s.pickups.delete(id);
  if(pickup.source==='planet'){const record=s.planets.find(r=>r.planet.id===pickup.planetId);if(record?.planet.pickupId===id){record.planet.pickupId=null;record.planet.status=record.planet.occupants.length>1?'CONTESTED':'AVAILABLE';}}
- announce(room,{kind:'claimed',text:`${p.state.name.toUpperCase()} CLAIMED THE GOLD GUN`,participantId:p.state.id});return true;
+ announce(room,{kind:'claimed',text:`${p.state.name.toUpperCase()} CLAIMED THE GALAXY GUN`,participantId:p.state.id});return true;
 }
 export function advanceObjectives(room:GameRoom){
  const s=objectiveState(room);if(room.match.state!=='active')return;

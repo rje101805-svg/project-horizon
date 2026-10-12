@@ -1,4 +1,4 @@
-import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
+import {hasGoldGun,GOLD_GUN,activeWeapon,WEAPONS,weaponDamage} from '../shared/weapons';
 import {BASIC_BLASTER} from '../shared/projectiles';
 import { ALIEN_MELEE_DAMAGE, ALIEN_MELEE_RANGE } from '../shared/alien';
 import { combatPresentation } from './combat-presentation';
@@ -56,7 +56,7 @@ export class GameplayHud {
     this.lastStatus = null; this.alienMessageUntil = 0; this.node('alien-message').hidden = true; this.node('hud-alien').hidden = true; this.node('hud-ammo').hidden = false; write(this.node('humans-remaining'), 'Humans alive: —');
     this.bar.value = 0; write(this.node('hud-health-value'), `— / ${MAX_HEALTH}`);
     write(this.node('hud-life'), 'Awaiting server');
-    write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —'); this.node('ammo-hud').classList.remove('low-ammo', 'reloading','gold'); this.node('ammo-hud').dataset.state = 'awaiting'; write(this.node('hud-reload'), '');
+    write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —');write(this.node('hud-reserve'),''); this.node('ammo-hud').classList.remove('low-ammo', 'reloading','gold'); this.node('ammo-hud').dataset.state = 'awaiting'; write(this.node('hud-reload'), '');
   }
   health(player: Pick<PlayerState, 'health' | 'lifeState'> & Partial<Pick<PlayerState, 'maxHealth'>>) {
     const shown = healthPresentation(player.health, player.maxHealth ?? MAX_HEALTH);
@@ -80,11 +80,11 @@ export class GameplayHud {
     const state = alien ? 'alien' : gold?'gold':shown.reloading ? 'reloading' : shown.lowAmmo ? 'low' : 'ready';
     if (ammoHud.dataset.state !== state) ammoHud.dataset.state = state;
     write(this.node('hud-shield'), alien ? 'Shield unavailable · ALIEN' : `SHIELD ${clampCombatValue(s.shield, MAX_SHIELD)} / ${s.maxShield}`);
-    write(this.node('hud-ammo'), alien ? '' : gold?'GOLD GUN · ∞ AMMO':`AMMO ${clampCombatValue(s.ammo, MAX_AMMO)} / ${s.maxAmmo}`);
+    write(this.node('hud-ammo'), alien ? '' : gold?'GALAXY GUN · ∞ AMMO':`AMMO ${clampCombatValue(s.ammo,s.maxAmmo)} / ${s.maxAmmo}`);write(this.node('hud-reserve'),!alien&&!gold&&s.inventory&&activeWeapon(s)?`RESERVE ${s.inventory.reserve[WEAPONS[activeWeapon(s)!.class].ammoType]}`:'');
     write(this.node('hud-reload'), !alien && s.isReloading ? 'RELOADING' : '');
-    write(this.node('debug-weapon'), alien ? `Alien melee · range ${ALIEN_MELEE_RANGE} · damage ${ALIEN_MELEE_DAMAGE} · last applied ${s.lastMeleeDamage} · protection ${s.spawnInvulnerabilityRemainingMs.toFixed(0)}ms` : gold?`Gold Gun · damage ${BASIC_BLASTER.damage*GOLD_GUN.damageMultiplier} · infinite ammo`:`Blaster · ammo ${s.ammo} / ${s.maxAmmo} · ${s.fireCooldownRemainingMs === 0 ? 'cooldown ready' : 'cooling down'}`);
+    write(this.node('debug-weapon'), alien ? `Alien melee · range ${ALIEN_MELEE_RANGE} · damage ${ALIEN_MELEE_DAMAGE} · last applied ${s.lastMeleeDamage} · protection ${s.spawnInvulnerabilityRemainingMs.toFixed(0)}ms` : gold?`Galaxy Gun · damage ${GOLD_GUN.damage} · infinite ammo`:`${WEAPONS[activeWeapon(s)?.class??'blaster'].name} · ammo ${s.ammo} / ${s.maxAmmo} · ${s.fireCooldownRemainingMs === 0 ? 'cooldown ready' : 'cooling down'}`);
     write(this.node('debug-combat'), `${s.status} · ${s.controllerType} · kills ${s.kills}`);
-    write(this.node('debug-reload'), alien ? 'Human reload unavailable · ALIEN' : gold?'Gold Gun · no reload':s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
+    write(this.node('debug-reload'), alien ? 'Human reload unavailable · ALIEN' : gold?'Galaxy Gun · no reload':s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
     write(this.node('debug-cooldown'), alien ? 'Alien melee · no cooldown' : `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);
   }
   humans(count: number) { write(this.node('humans-remaining'), `Humans alive: ${count}`); }

@@ -1,23 +1,25 @@
-import {hasGoldGun,GOLD_GUN} from '../shared/weapons';
-import { MAX_AMMO, RELOAD_DURATION, FIRE_COOLDOWN,
+import {initializeInventory,clearInventory} from './inventory';
+import {activeWeapon,WEAPONS,fireInterval,reloadDuration,STUN_MS,hasGoldGun} from '../shared/weapons';
+import {
   initialCombatState, clampCombatValue, type DamageSource, type PlayerStatus } from '../shared/combat';
 import { ALIEN_HEALTH, ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
 import { RESPAWN_DELAY_MS } from '../shared/lifecycle';
 import { retireInputs } from './inputs';
 import { idleInput, TICK_MS } from '../shared/flight';
 import type { RoomPlayer } from './rooms';
-const RELOAD_TICKS = Math.ceil(RELOAD_DURATION / TICK_MS);
+const reloadTicks=(player:RoomPlayer)=>Math.ceil(reloadDuration(player.state)/TICK_MS);
 function syncTimers(player: RoomPlayer) {
   const s = player.state, t = player.combatTimers;
   s.isReloading = t.reload > 0;
   s.reloadRemainingMs = t.reload * TICK_MS;
-  s.reloadProgress = t.reload > 0 ? 1 - t.reload / RELOAD_TICKS : t.reloadCompleted ? 1 : 0;
-  s.fireCooldownRemainingMs = t.cooldown * TICK_MS;
-  s.fireCooldownProgress = 1 - t.cooldown / Math.max(1, Math.ceil((s.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : hasGoldGun(s)?GOLD_GUN.fireIntervalMs:FIRE_COOLDOWN) / TICK_MS));
+  s.reloadProgress = t.reload > 0 ? 1 - t.reload / reloadTicks(player) : t.reloadCompleted ? 1 : 0;
+  s.fireCooldownRemainingMs = Math.max(0,Math.ceil(t.cooldown-1e-9)) * TICK_MS;
+  s.fireCooldownProgress = Math.min(1,1-Math.max(0,t.cooldown)/Math.max(1,(s.status==='ALIEN'?ALIEN_MELEE_COOLDOWN_MS:fireInterval(s))/TICK_MS));
 }
 export function resetCombatState(player: RoomPlayer) {
   const { controllerType, kills, reloadSession, status } = player.state;
   Object.assign(player.state, initialCombatState(), { controllerType, kills, reloadSession });
+  if (!player.humanEliminated && status!=='ALIEN')initializeInventory(player);else clearInventory(player);
   if (player.humanEliminated || status === 'ALIEN') Object.assign(player.state, {status:'ALIEN', health:ALIEN_HEALTH, maxHealth:ALIEN_HEALTH, shield:0,maxShield:0,ammo:0,maxAmmo:0});
   player.invulnerableUntilMs = 0;
   player.combatTimers = { reload: 0, cooldown: 0, reloadCompleted: false }; syncTimers(player);
@@ -40,7 +42,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs): boolean {
   const s=player.state;
   if(!player.gameplayEnabled || s.lifeState!=='active' || s.status==='OUT')return false;
-  player.dropGold?.();
+  player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=0;
   s.health=0; s.lastDamageSource={...source};
   player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
   s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
@@ -56,38 +58,44 @@ export function eliminate(player: RoomPlayer, source: DamageSource, simulationTi
 export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {
   const s = player.state;
   if (!player.gameplayEnabled || !Number.isSafeInteger(amount) || amount <= 0 || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < amount) return false;
-  s.ammo = Math.max(0, Math.floor(clampCombatValue(s.ammo, MAX_AMMO)) - amount); return true;
+  s.ammo = Math.max(0, Math.floor(clampCombatValue(s.ammo, s.maxAmmo)) - amount); return true;
 }
 export function startReload(player: RoomPlayer): boolean {
   const s = player.state;
-  if (!player.gameplayEnabled || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || hasGoldGun(s) || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= MAX_AMMO) return false;
-  player.combatTimers.reload = RELOAD_TICKS; player.combatTimers.reloadCompleted = false; syncTimers(player); return true;
+  if (!player.gameplayEnabled || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || hasGoldGun(s) || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= s.maxAmmo) return false;
+  const w=activeWeapon(s),inv=s.inventory;if(!w||!inv||inv.reserve[WEAPONS[w.class].ammoType]<=0||(s.stunRemainingMs??0)>0)return false;
+  player.reloadWeaponId=w.id;player.combatTimers.reload = reloadTicks(player); player.combatTimers.reloadCompleted = false; syncTimers(player); return true;
 }
 export function completeReload(player: RoomPlayer): boolean {
   if (!player.state.isReloading || player.combatTimers.reload > 0) return false;
-  player.state.ammo = MAX_AMMO; player.combatTimers.reloadCompleted = true; syncTimers(player); return true;
+  const w=activeWeapon(player.state),inv=player.state.inventory;if(!w||!inv||w.id!==player.reloadWeaponId)return false;
+  const type=WEAPONS[w.class].ammoType,transfer=Math.min(w.capacity-w.magazine,inv.reserve[type]);w.magazine+=transfer;inv.reserve[type]-=transfer;player.reloadWeaponId=undefined;player.combatTimers.reloadCompleted = true; syncTimers(player); return true;
 }
-export function canFireFromCooldown(player: RoomPlayer): boolean { return player.combatTimers.cooldown === 0; }
+export function canFireFromCooldown(player: RoomPlayer): boolean { return player.combatTimers.cooldown <= 1e-9; }
 export function startFireCooldown(player: RoomPlayer): boolean {
   if (!player.gameplayEnabled || player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
-  player.combatTimers.cooldown = Math.ceil((player.state.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : hasGoldGun(player.state)?GOLD_GUN.fireIntervalMs:FIRE_COOLDOWN) / TICK_MS); syncTimers(player); return true;
+  player.combatTimers.cooldown = Math.max(-1,player.combatTimers.cooldown)+(player.state.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(player.state))/TICK_MS; syncTimers(player); return true;
 }
 export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   if (!['ALIVE', 'ALIEN', 'OUT'].includes(status)) return false;
   if ((player.humanEliminated || player.state.status === 'ALIEN') && status === 'ALIVE') return false;
   if (status === 'ALIEN') player.humanEliminated = true;
-  if(status!=='ALIVE')player.dropGold?.();
+  if(status!=='ALIVE'){player.dropRegular?.();player.dropGold?.();player.state.stunRemainingMs=player.state.stunImmunityRemainingMs=0;}
   player.state.status = status; if(status!=='ALIVE')player.cancelTractor?.(); return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {
   if (!player.gameplayEnabled || player.state.lifeState !== 'active') return;
   if (player.combatTimers.reload > 0 && --player.combatTimers.reload === 0) completeReload(player);
-  if (player.combatTimers.cooldown > 0) player.combatTimers.cooldown--;
+  player.combatTimers.cooldown=player.combatTimers.cooldown>1e-9?player.combatTimers.cooldown-1:0;
+  if((player.state.stunRemainingMs??0)<=0)player.state.stunImmunityRemainingMs=Math.max(0,(player.state.stunImmunityRemainingMs??0)-TICK_MS);
+  if((player.state.stunImmunityRemainingMs??0)<1e-7)player.state.stunImmunityRemainingMs=0;
   syncTimers(player);
 }
 
 // Temporary debug refill API, never a gameplay reload or fire-validation bypass.
 export function refillAmmo(player: RoomPlayer): boolean {
   if (!player.gameplayEnabled || player.state.lifeState !== 'active' || player.state.status !== 'ALIVE' || player.state.isReloading) return false;
-  player.state.ammo = MAX_AMMO; return true;
+  player.state.ammo = player.state.maxAmmo;const inv=player.state.inventory,w=activeWeapon(player.state);if(inv&&w)inv.reserve[WEAPONS[w.class].ammoType]=WEAPONS[w.class].magazine*2; return true;
 }
+
+export function applyStun(p:RoomPlayer){if(!p.gameplayEnabled||p.state.lifeState!=='active'||p.state.health<=0||(p.state.stunRemainingMs??0)>0||(p.state.stunImmunityRemainingMs??0)>0)return false;p.state.stunRemainingMs=STUN_MS;return true;}

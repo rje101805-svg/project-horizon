@@ -36,7 +36,7 @@ test('multiple queued humans cannot affect roster/combat and replace bots at res
  for(const id of ['q1','q2','q3']){const p=f.room.players.get(id)!;assert.equal(p.state.status,'OUT');assert.equal(p.gameplayEnabled,false);assert.equal(applyDamage(p,999,{type:'PLAYER',playerId:'a'}),null);}
  const winner=f.b;for(const p of activeParticipants(f.room))if(p!==winner)applyDamage(p,999,{type:'PLAYER',playerId:winner.state.id});evaluateResult(f.room,0);
  assert.deepEqual(f.room.match.result,{kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});assert.equal(advanceMatch(f.room,6000),true);assert.equal(f.room.players.size,8);assert.equal([...f.room.players.values()].filter(p=>p.state.bot).length,4);
- for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,50);assert.equal(p.state.ammo,12);assert.equal(p.state.queuedForNextRound,false);if(p.state.bot){assert.equal(p.state.controllerType,'BOT');assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
+ for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,50);assert.equal(p.state.ammo,30);assert.equal(p.state.queuedForNextRound,false);if(p.state.bot){assert.equal(p.state.controllerType,'BOT');assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
  startMatch(f.room,'a',{round:1});for(const id of ['q1','q2','q3'])assert.ok(f.room.match.roster.includes(id));assert.equal(roundHumans(f.room).length,8);
 });
 test('queue bounded by available bot backfill; disconnect frees queue and room destruction clears every bot',()=>{
@@ -51,10 +51,10 @@ test('target selection excludes self/alien/spectator and hands turn, move, aim i
 test('bot fires normal projectiles, shield-first damage, cooldown/ammo and normal reload',()=>{
  const f=fighting();Object.assign(f.b.state,{x:200,y:1800});Object.assign(f.a.state,{x:500,y:1800});f.b.state.tractor.cooldownRemainingMs=15000;
  for(const p of f.room.players.values())if(p!==f.a&&p!==f.b)Object.assign(p.state,{x:1000,y:200});
- advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,11);assert.ok([...f.room.projectiles.values()].some(p=>p.ownerId===f.b.state.id));
- for(let i=0;i<12;i++)advanceProjectiles(f.room,undefined,i);assert.equal(f.a.state.shield,25);assert.equal(f.a.state.health,100);
- advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,11);f.b.state.ammo=0;advanceBots(f.room,0,2);advanceBotActions(f.room,2);assert.equal(f.b.state.isReloading,true);
- for(let i=0;i<45;i++)simulatePlayer(f.b,f.room,0,i*TICK_MS);assert.equal(f.b.state.ammo,12);assert.equal(f.b.state.isReloading,false);
+ advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,29);assert.ok([...f.room.projectiles.values()].some(p=>p.ownerId===f.b.state.id));
+ for(let i=0;i<12;i++)advanceProjectiles(f.room,undefined,i);assert.equal(f.a.state.shield,9.5);assert.equal(f.a.state.health,100);
+ advanceBotActions(f.room,1);assert.equal(f.b.state.ammo,29);f.b.state.ammo=0;advanceBots(f.room,0,2);advanceBotActions(f.room,2);assert.equal(f.b.state.isReloading,true);
+ for(let i=0;i<69;i++)simulatePlayer(f.b,f.room,0,i*TICK_MS);assert.equal(f.b.state.ammo,30);assert.equal(f.b.state.isReloading,false);
 });
 for(const attackerBot of [false,true])test(`tractor escape overrides chase and breaks normally (${attackerBot?'bot':'human'} attacker)`,()=>{
  const f=fighting(),attacker=attackerBot?f.c:f.a;Object.assign(attacker.state,{x:200,y:1800,rotation:0});Object.assign(f.b.state,{x:350,y:1800});if(attackerBot)f.a.state.x=1000;
@@ -65,7 +65,7 @@ for(const attackerBot of [false,true])test(`tractor escape overrides chase and b
  botHands(f.room,f.b,{mode:'HUNT',target:attacker.state.id},100);assert.equal(f.b.state.bot!.override,null);assert.equal(f.b.state.bot!.mode,'HUNT');assert.equal(oldTarget,null);
 });
 test('bot tractor attack uses existing validated beam and successfully tracked bot can still die at 3s',()=>{
- const f=fighting();Object.assign(f.b.state,{x:200,y:1800});Object.assign(f.a.state,{x:350,y:1800});advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.equal(f.b.state.tractor.targetId,'a');assert.equal(f.b.state.ammo,12);
+ const f=fighting();Object.assign(f.b.state,{x:200,y:1800});Object.assign(f.a.state,{x:350,y:1800});advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.equal(f.b.state.tractor.targetId,'a');assert.equal(f.b.state.ammo,30);
  advanceTractors(f.room,2999,true);assert.equal(f.a.state.status,'ALIVE');advanceTractors(f.room,3000,true);assert.equal(f.a.state.status,'ALIEN');
  const g=fighting();g.a.state.x=1000;Object.assign(g.b.state,{x:350,y:1800});Object.assign(g.c.state,{x:200,y:1800,rotation:0});activateTractor(g.room,g.c,tractorRequest(g,g.c));
  // Keep the victim maneuvering; the attacker tracks its actual bearing.

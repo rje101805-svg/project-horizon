@@ -43,7 +43,7 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
     await page.keyboard.down('r');
     for (let i = 0; i < 5; i++) await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR', repeat: true })));
     await expect.poll(() => p.state.isReloading).toBe(true); await page.keyboard.up('r');
-    expect(p.combatTimers.reload).toBe(45); expect(p.state.ammo).toBe(7);
+    expect(p.combatTimers.reload).toBe(69); expect(p.state.ammo).toBe(7);
     expect(await page.evaluate(() => (window as unknown as DebugWindow).__reloadTrace.reload)).toBe(2);
     await frame(); await expect(page.locator('#hud-reload')).toHaveText('RELOADING');
     await page.keyboard.down('Space'); await page.waitForTimeout(400); await page.keyboard.up('Space');
@@ -59,13 +59,13 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
       c.socket.emit('fire', { sequence: 1, aim: 0, lifeGeneration: 0, teleportSequence: 0 }, () => resolve());
     }));
     const remaining = p.combatTimers.reload; await frame();
-    expect(p.state.shield).toBe(25); expect(p.state.health).toBe(100); expect(p.combatTimers.reload).toBe(remaining - 1);
+    expect(p.state.shield).toBe(9.5); expect(p.state.health).toBe(100); expect(p.combatTimers.reload).toBe(remaining - 1);
     await advance(p.combatTimers.reload - 1); expect(p.state.ammo).toBe(7); expect(p.state.isReloading).toBe(true);
-    await frame(); expect(p.state.ammo).toBe(12); await expect(page.locator('#hud-reload')).toHaveText('');
+    await frame(); expect(p.state.ammo).toBe(30); await expect(page.locator('#hud-reload')).toHaveText('');
     // Final round triggers reload before any extra input and retains its one visual.
     p.state.ammo = 1; await frame(); await page.keyboard.down('Space');
     await page.waitForTimeout(60); await page.keyboard.up('Space'); await expect.poll(() => room.projectileSequence).toBe(2);
-    expect(p.state.ammo).toBe(0); expect(p.combatTimers.reload).toBe(45); expect(room.projectiles.size).toBe(1);
+    expect(p.state.ammo).toBe(0); expect(p.combatTimers.reload).toBe(69); expect(room.projectiles.size).toBe(1);
     await frame(); await expect.poll(pending).toBe(0); await expect(page.locator('#hud-reload')).toHaveText('RELOADING');
     const visuals = await page.evaluate(() => {
       const w = window as unknown as DebugWindow, c = w.__HORIZON_FLIGHT__, now = performance.now();
@@ -75,11 +75,11 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
     await page.keyboard.down('Space'); await page.waitForTimeout(400); await page.keyboard.up('Space');
     expect(await page.evaluate(() => (window as unknown as DebugWindow).__reloadTrace)).toEqual({ reload: 2, fire: 1, adds: 1 });
     await advance(p.combatTimers.reload - 1); expect(p.state.ammo).toBe(0); await frame();
-    expect(p.state.ammo).toBe(12); await page.keyboard.down('Space'); await expect.poll(() => p.state.ammo).toBe(11); await page.keyboard.up('Space');
+    expect(p.state.ammo).toBe(30); await page.keyboard.down('Space'); await expect.poll(() => p.state.ammo).toBe(29); await page.keyboard.up('Space');
     await frame(); await expect.poll(pending).toBe(0);
     // Reset moved to authorized DEV F4, retaining ammo and shield HP.
     await page.keyboard.press('F4'); await expect.poll(() => p.reset).toBe(true); await frame();
-    expect(p.state.x).toBe(1370); expect(p.state.ammo).toBe(11); expect(p.state.shield).toBe(25);
+    expect(p.state.x).toBe(1370); expect(p.state.ammo).toBe(29); expect(p.state.shield).toBe(9.5);
   } finally { await peer.close(); await page.close(); await server.close(); }
 });
 
@@ -102,7 +102,7 @@ test('stale predicted shot rejected during reload clears, and known reload suppr
     const { startReload } = await import('../server/combat'); expect(startReload(p)).toBe(true);
     await expect.poll(() => p.lastFireSequence).toBe(1);
     await expect.poll(() => page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()))).toBe(0);
-    expect(store.roomFor(id)!.projectiles.size).toBe(0); expect(p.combatTimers.reload).toBe(45); expect(p.state.ammo).toBe(5);
+    expect(store.roomFor(id)!.projectiles.size).toBe(0); expect(p.combatTimers.reload).toBe(69); expect(p.state.ammo).toBe(5);
     server.step(); await expect(page.locator('#hud-reload')).toHaveText('RELOADING');
     await page.keyboard.down('Space'); await page.waitForTimeout(400); await page.keyboard.up('Space'); expect(p.lastFireSequence).toBe(1);
     await page.keyboard.press('F4'); await page.waitForTimeout(100); expect(p.reset).toBe(false);

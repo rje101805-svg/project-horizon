@@ -85,7 +85,7 @@ test('separate rapid hits use distinct slots, split numbers stay separate, expir
   assert.equal(model.add({ ...hit,projectileId:'next',shotSequence:2 },snapshot,'a',100),true);
   const active=model.sample(100); assert.deepEqual(active.map(v=>v.slot),[0,1]); numbers.render(active);
   assert.equal(numbers.objects.size,2); assert.equal(texts.length,4);
-  assert.deepEqual(texts.map(t=>[t.text,t.color]),[['10','#65d9ff'],['15','#ffffff'],['10','#65d9ff'],['15','#ffffff']]);
+  assert.deepEqual(texts.map(t=>[t.text,t.color]),[['10','#65d9ff'],['30.5','#ffffff'],['10','#65d9ff'],['30.5','#ffffff']]);
   assert.notEqual(texts[0].x,texts[1].x); assert.notEqual(texts[0].y,texts[2].y);
   numbers.render(model.sample(HIT_FEEDBACK_LIFETIME_MS)); assert.equal(numbers.objects.size,1); assert.equal(texts[0].destroyed,true);
   numbers.render(model.sample(HIT_FEEDBACK_LIFETIME_MS+100)); assert.equal(numbers.objects.size,0); assert.ok(texts.every(t=>t.destroyed));

@@ -3,7 +3,7 @@ import type {RoomPlayer} from './rooms';
 export function equipGoldGun(player:RoomPlayer,id:string):boolean {
  const s=player.state;
  if(typeof id!=='string'||!id||id.length>128||!player.gameplayEnabled||s.status!=='ALIVE'||s.lifeState!=='active'||s.health<=0||s.goldGunId)return false;
- s.goldGunId=id;player.combatTimers.reload=player.combatTimers.cooldown=0;player.combatTimers.reloadCompleted=false;
+ player.dropRegular?.();s.goldGunId=id;player.combatTimers.reload=player.combatTimers.cooldown=0;player.combatTimers.reloadCompleted=false;
  s.isReloading=false;s.reloadRemainingMs=s.reloadProgress=s.fireCooldownRemainingMs=0;s.fireCooldownProgress=1;
  return true;
 }

@@ -70,7 +70,7 @@ test('spawn protection is server-timed, blocks human bullets and ends before any
 test('same fire input does nearest-human melee only, fixed damage/range with no cooldown, never gun/ammo or alien damage', () => {
   const {room,a,b,c,kill,respawn,intent} = fixture(); kill(b); respawn(b); kill(c); respawn(c);
   Object.assign(b.state,{x:200,y:1800}); Object.assign(a.state,{x:200+ALIEN_MELEE_RANGE,y:1800}); Object.assign(c.state,{x:205,y:1800});
-  assert.equal(ALIEN_MELEE_DAMAGE,BASIC_BLASTER.damage*.2);
+  assert.equal(ALIEN_MELEE_DAMAGE,5);
   const attack=fire(room,b,intent(b,1),120); assert.ok(attack.ok && attack.kind==='melee'); assert.equal(attack.damageApplied,5);
   assert.equal(a.state.shield,45); assert.equal(c.state.health,40); assert.equal(room.projectiles.size,0); assert.equal(b.state.ammo,0);
   assert.equal(ALIEN_MELEE_COOLDOWN_MS,0);
@@ -90,7 +90,7 @@ test('already-fired human projectile survives elimination, resolves normally and
   const {store,room,a,b,kill,intent} = fixture(); Object.assign(b.state,{x:400,y:1800});
   assert.equal(fire(room,a,intent(a,1),0).ok,true); kill(a,0);
   const hits:unknown[]=[]; for(let n=0;n<10;n++)advanceProjectiles(room,h=>hits.push(h));
-  assert.equal(b.state.shield,25); assert.equal(hits.length,1); assert.equal(room.projectiles.size,0); assert.equal(a.state.status,'ALIEN');
+  assert.equal(b.state.shield,9.5); assert.equal(hits.length,1); assert.equal(room.projectiles.size,0); assert.equal(a.state.status,'ALIEN');
   const fresh=fixture(); assert.equal(fire(fresh.room,fresh.a,fresh.intent(fresh.a,1),0).ok,true);
   fresh.kill(fresh.a,0); fresh.store.leave('a'); advanceProjectiles(fresh.room); assert.equal(fresh.room.projectiles.size,0);
   const reset=fixture(); fire(reset.room,reset.a,reset.intent(reset.a,1),0); reset.a.state.teleportSequence++; advanceProjectiles(reset.room); assert.equal(reset.room.projectiles.size,0);
@@ -111,10 +111,8 @@ test('human projectiles kill an unprotected alien, report lethal clamped damage 
   const {room,a,b,kill,respawn,intent}=fixture();kill(b);respawn(b);respawn(b,6000);
   Object.assign(b.state,{x:270,y:1800});
   const hits:{healthDamage:number;shieldDamage:number;targetTeleportSequence:number}[]=[];
-  assert.equal(fire(room,a,intent(a,1),180).ok,true);advanceProjectiles(room,h=>hits.push(h));assert.equal(b.state.health,15);
-  for(let n=0;n<6;n++)advanceCombatTick(a);
-  assert.equal(fire(room,a,intent(a,2),186).ok,true);advanceProjectiles(room,h=>hits.push(h));
-  assert.deepEqual(hits.map(h=>[h.shieldDamage,h.healthDamage]),[[0,25],[0,15]]);
-  assert.equal(hits[1].targetTeleportSequence,b.state.teleportSequence);assert.equal(b.state.lifeState,'dead');assert.equal(b.state.status,'ALIEN');
+  assert.equal(fire(room,a,intent(a,1),180).ok,true);advanceProjectiles(room,h=>hits.push(h));assert.equal(b.state.health,0);
+  assert.deepEqual(hits.map(h=>[h.shieldDamage,h.healthDamage]),[[0,40]]);
+  assert.equal(hits[0].targetTeleportSequence,b.state.teleportSequence);assert.equal(b.state.lifeState,'dead');assert.equal(b.state.status,'ALIEN');
   respawn(b,9000);assert.equal(b.state.health,40);assert.equal(b.state.status,'ALIEN');assert.equal(survivingHumans(room),2);
 });

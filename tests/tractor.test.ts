@@ -60,7 +60,7 @@ test('nonlethal attacker/victim/third-party damage does not break beam; lethal d
 });
 test('beaming attacker cannot shoot and loses no ammo; victim remains allowed to fire/reload',()=>{
  const f=fixture();assert.equal(f.activate().ok,true);const shot=(p=f.a)=>({sequence:1,aim:0,lifeGeneration:p.state.lifeGeneration,teleportSequence:p.state.teleportSequence});
- assert.equal(fire(f.room,f.a,shot(),0).ok,false);assert.equal(f.a.state.ammo,12);assert.equal(fire(f.room,f.b,shot(f.b),0).ok,true);assert.equal(startReload(f.b),true);
+ assert.equal(fire(f.room,f.a,shot(),0).ok,false);assert.equal(f.a.state.ammo,30);assert.equal(fire(f.room,f.b,shot(f.b),0).ok,true);assert.equal(startReload(f.b),true);
 });
 test('shared pull is smooth, normal rearward/lateral escape overpowers it, and attacker retains full normal thrust',()=>{
  for(const direction of ['idle','rearward','lateral'] as const){const f=fixture(2);assert.equal(f.activate().ok,true);const x=f.b.state.x;
