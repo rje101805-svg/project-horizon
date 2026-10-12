@@ -1,5 +1,5 @@
 import {preloadWeaponAssets} from './weapon-assets';
-import {inventoryFocused} from './inventory-ui';
+import {inventoryInteracting} from './inventory-ui';
 import {LootVisuals} from './loot-visuals';
 import {drawWeaponProjectile} from './weapon-visuals';
 import {ObjectiveVisuals,GOLD_COLOR} from './objective-visuals';
@@ -104,7 +104,7 @@ class Horizon extends Phaser.Scene {
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
     const reload = (event: KeyboardEvent) => {
       const target = event.target as HTMLInputElement;
-      const typing = inventoryFocused() || target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
+      const typing = inventoryInteracting() || target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
       if (event.code === 'KeyE' && !event.repeat && !typing) this.connection.tractor();
       if(!event.repeat&&!typing&&['Digit1','Digit2','Digit3'].includes(event.code))this.connection.inventory('switch',Number(event.code.slice(-1))-1);
       if(event.code==='Space'&&!event.repeat&&!typing)this.connection.triggerFire(this.fireAim);
@@ -113,7 +113,7 @@ class Horizon extends Phaser.Scene {
       if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
     };
     window.addEventListener('keydown', reload);
-    const pointerTrigger=(pointer:Phaser.Input.Pointer)=>{if(pointer.downElement===this.game.canvas&&pointer.leftButtonDown()&&!inventoryFocused())this.connection.triggerFire(this.fireAim);};this.input.on('pointerdown',pointerTrigger);
+    const pointerTrigger=(pointer:Phaser.Input.Pointer)=>{if(pointer.downElement===this.game.canvas&&pointer.leftButtonDown()&&!inventoryInteracting())this.connection.triggerFire(this.fireAim);};this.input.on('pointerdown',pointerTrigger);
     const wheel=(event:WheelEvent)=>{if(event.target===this.game.canvas){event.preventDefault();this.connection.cycleWeapon(event.deltaY);}};this.game.canvas.addEventListener('wheel',wheel,{passive:false});
     const release = () => { this.input.keyboard!.resetKeys(); this.connection.release(); };
     const visibility = () => { if (document.hidden) release(); };
@@ -360,7 +360,7 @@ class Horizon extends Phaser.Scene {
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
-    if(inventoryFocused()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
+    if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;
     const left = this.keys.A.isDown || this.keys.LEFT.isDown;

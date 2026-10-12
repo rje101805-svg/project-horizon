@@ -2,10 +2,12 @@ import {WEAPONS,GALAXY_WEAPONS,RARITY_COLORS,type WeaponInstance} from '../share
 import type {PlayerState} from '../shared/protocol';
 import type {InventoryCommand} from '../shared/loot';
 import {weaponAssetUrl} from './weapon-assets';
-export const inventoryFocused=()=>document.getElementById('inventory-hud')?.contains(document.activeElement)??false;
+// A focusable slot keeps DOM focus after a click; that must not lock flight.
+export const inventoryInteracting=()=>owner?.interacting??false;
 let owner:InventoryUI|undefined;
 export class InventoryUI {
- private root=document.getElementById('inventory-hud')!;private slots:HTMLDivElement[]=[];private dragSlot:number|null=null;private self?:PlayerState;private signature='';
+ private root=document.getElementById('inventory-hud')!;private slots:HTMLDivElement[]=[];private dragSlot:number|null=null;private self?:PlayerState;private signature='';private pointerActive=false;
+ get interacting(){return this.pointerActive||this.dragSlot!==null;}
  constructor(private action:(action:InventoryCommand['action'],slot?:number,toSlot?:number)=>void,private release:()=>void){
   owner=this;this.root.replaceChildren();this.root.setAttribute('role','group');
   for(let i=0;i<3;i++){
@@ -20,15 +22,21 @@ export class InventoryUI {
    slot.addEventListener('dragstart',e=>{this.dragSlot=i;this.release();e.dataTransfer?.setData('text/plain',String(i));if(e.dataTransfer)e.dataTransfer.effectAllowed='move';});
    slot.addEventListener('dragover',e=>{if(this.dragSlot!==null){e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='move';}});
    slot.addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();if(this.dragSlot!==null&&!this.self?.goldGunId)this.action('reorder',this.dragSlot,i);this.dragSlot=null;});
-   slot.addEventListener('dragend',()=>{this.dragSlot=null;});
+   slot.addEventListener('dragend',()=>{this.dragSlot=null;this.pointerActive=false;});
   }
   this.root.addEventListener('pointerdown',this.block);this.root.addEventListener('mousedown',this.block);this.root.addEventListener('mouseup',this.block);this.root.addEventListener('keydown',this.keyBlock);this.root.addEventListener('wheel',this.block,{passive:false});
+  window.addEventListener('pointerup',this.finishPointer,true);window.addEventListener('pointercancel',this.finishPointer,true);window.addEventListener('mouseup',this.finishPointer,true);window.addEventListener('blur',this.finishPointer);
   document.addEventListener('dragover',this.outsideOver);document.addEventListener('drop',this.outsideDrop);
  }
- private block=(e:Event)=>{e.stopPropagation();if(e.type==='wheel')e.preventDefault();this.release();};
- private keyBlock=(e:KeyboardEvent)=>{if(e.code==='F3')return;e.stopPropagation();if(e.code==='Space')e.preventDefault();};
+ private finishPointer=(e:Event)=>{this.pointerActive=false;if(e.type==='blur')this.dragSlot=null;};
+ private block=(e:Event)=>{if(e.type==='pointerdown'||e.type==='mousedown')this.pointerActive=true;else if(e.type==='mouseup')this.pointerActive=false;e.stopPropagation();if(e.type==='wheel')e.preventDefault();this.release();};
+ private keyBlock=(e:KeyboardEvent)=>{
+  // Space/Enter belong to the focused UI control. WASD, slot selection, F/G/R/E
+  // and F3 keep reaching the existing game handlers after the gesture ends.
+  if(e.code==='Space'||e.code==='Enter'){e.stopPropagation();if(e.code==='Space')e.preventDefault();}
+ };
  private outsideOver=(e:DragEvent)=>{if(this.dragSlot!==null&&!this.root.contains(e.target as Node))e.preventDefault();};
- private outsideDrop=(e:DragEvent)=>{if(this.dragSlot===null)return;e.preventDefault();if(!this.root.contains(e.target as Node))this.action('drop',this.dragSlot);this.dragSlot=null;};
+ private outsideDrop=(e:DragEvent)=>{if(this.dragSlot===null)return;e.preventDefault();if(!this.root.contains(e.target as Node))this.action('drop',this.dragSlot);this.dragSlot=null;this.pointerActive=false;};
  accept(self:PlayerState|undefined){
   this.self=self;this.root.hidden=!self||self.status!=='ALIVE'||self.lifeState!=='active';if(!self)return;
   const inv=self.inventory,signature=JSON.stringify([inv,self.goldGunId,self.galaxyType,self.isReloading]);if(signature===this.signature)return;this.signature=signature;
@@ -40,5 +48,5 @@ export class InventoryUI {
    slot.querySelector('span')!.textContent=(active?'▶ ':'')+text;slot.querySelector('button')!.hidden=!galaxy&&!w;
   });
  }
- destroy(){document.removeEventListener('dragover',this.outsideOver);document.removeEventListener('drop',this.outsideDrop);this.root.removeEventListener('pointerdown',this.block);this.root.removeEventListener('mousedown',this.block);this.root.removeEventListener('mouseup',this.block);this.root.removeEventListener('keydown',this.keyBlock);this.root.removeEventListener('wheel',this.block);if(owner===this){owner=undefined;this.root.hidden=true;this.root.replaceChildren();}}
+ destroy(){window.removeEventListener('pointerup',this.finishPointer,true);window.removeEventListener('pointercancel',this.finishPointer,true);window.removeEventListener('mouseup',this.finishPointer,true);window.removeEventListener('blur',this.finishPointer);document.removeEventListener('dragover',this.outsideOver);document.removeEventListener('drop',this.outsideDrop);this.root.removeEventListener('pointerdown',this.block);this.root.removeEventListener('mousedown',this.block);this.root.removeEventListener('mouseup',this.block);this.root.removeEventListener('keydown',this.keyBlock);this.root.removeEventListener('wheel',this.block);if(owner===this){owner=undefined;this.root.hidden=true;this.root.replaceChildren();}}
 }
