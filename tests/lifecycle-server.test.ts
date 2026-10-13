@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { MAX_HEALTH, RESPAWN_DELAY_MS } from '../shared/lifecycle';
 import { idleInput, TICK_MS } from '../shared/flight';
 import { classifyRegion } from '../shared/black-hole';
@@ -43,7 +43,7 @@ test('real sockets receive same-identity death/respawn and late-join health; cli
   const t = await setup();
   try {
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
-    await t.join(b, result.room.code); const keeper=await t.connect(); await t.join(keeper,result.room.code,'Third human');assert.equal((await new Promise<{ok:boolean}>(resolve=>a.emit('startMatch',{round:0},resolve))).ok,true); const id = a.id!;
+    await t.join(b, result.room.code); const keeper=await t.connect(); await t.join(keeper,result.room.code,'Third human'); const id = a.id!;
     const room = t.store.roomFor(id)!, player = room.players.get(id)!;
     a.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, health: 0, lifeState: 'dead', respawnRemainingMs: 0 } as InputMessage);
     const [initial] = await t.frame([a, b]); assert.equal(initial.players.find(p => p.id === id)!.health, MAX_HEALTH);

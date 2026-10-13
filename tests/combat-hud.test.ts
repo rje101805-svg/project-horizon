@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type Phaser from 'phaser';
 import { initialCombatState } from '../shared/combat';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { fire, advanceProjectiles } from '../server/projectiles';
 import { parseProjectileHit, type ProjectileHit } from '../shared/hit-feedback';
 import { combatPresentation, HIT_FEEDBACK_LIFETIME_MS, MAX_HIT_FEEDBACK, SHIELD_COLOR, LOW_HEALTH_COLOR } from '../src/combat-presentation';

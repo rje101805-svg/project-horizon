@@ -2,7 +2,7 @@ import { initialMatchState } from '../shared/match';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ProjectilePrediction,PREDICTED_SHOT_TIMEOUT_MS} from '../src/projectile-prediction';
-import {RoomStore} from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import {fire,projectileSnapshot} from '../server/projectiles';
 import {BASIC_BLASTER} from '../shared/projectiles';
 function fixture(){

@@ -8,7 +8,7 @@ export function triggerIntent(room:GameRoom|undefined,p:RoomPlayer|undefined,raw
  const r=raw as TriggerRequest;
  if(Object.keys(r).some(k=>!['sequence','held','roomCode','round','reloadSession','lifeGeneration','teleportSequence'].includes(k))||!Number.isSafeInteger(r.sequence)||r.sequence<=0||typeof r.held!=='boolean'||r.sequence<=(p.lastTriggerSequence??0))return false;
  p.lastTriggerSequence=r.sequence;
- if(room.players.get(p.state.id)!==p||r.roomCode!==room.code||r.round!==room.match.round||r.reloadSession!==p.state.reloadSession||r.lifeGeneration!==p.state.lifeGeneration||r.teleportSequence!==p.state.teleportSequence||!p.gameplayEnabled||room.match.state==='ended'||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||p.state.galaxyType!=='titan'||!p.state.goldGunId)return false;
+ if(room.players.get(p.state.id)!==p||r.roomCode!==room.code||r.round!==room.match.round||r.reloadSession!==p.state.reloadSession||r.lifeGeneration!==p.state.lifeGeneration||r.teleportSequence!==p.state.teleportSequence||!p.gameplayEnabled||room.match.state!=='active'||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||p.state.galaxyType!=='titan'||!p.state.goldGunId)return false;
  p.titanTriggerUntilMs=r.held?room.simulationTimeMs+300:0;return true;
 }
 export function advanceGalaxyTick(room:GameRoom,p:RoomPlayer){

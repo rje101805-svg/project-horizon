@@ -13,8 +13,9 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   if (request.sequence <= player.lastFireSequence) return reject('Duplicate or stale shot');
   player.lastFireSequence = request.sequence; // Rejections cannot be replayed later.
   const s = player.state;
-  if (!player.gameplayEnabled || room.match.state === 'ended' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
+  if (!player.gameplayEnabled || room.match.state !== 'active' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
+  if(room.simulationTimeMs<(player.launchProtectionUntilMs??0))return reject('Launch protection');
   if (s.tractor.targetId) return reject('Tractor active');
   if((s.stunRemainingMs??0)>0)return reject('Stunned');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
@@ -50,7 +51,7 @@ function boundaryEntry(a: ProjectileState, b: {x:number;y:number}) {
   return t;
 }
 export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) => void, tick = 0) {
-  if (room.match.state === 'ended') { room.projectiles.clear(); return; }
+  if (room.match.state !== 'active') { room.projectiles.clear(); return; }
   for (const [id, p] of room.projectiles) {
     const owner = room.players.get(p.ownerId)?.state;
     if (!owner || owner.lifeGeneration !== p.lifeGeneration || !(owner.teleportSequence === p.teleportSequence && owner.lifeState === 'active' || owner.status === 'ALIEN' && owner.lifeState === 'dead' && owner.teleportSequence === p.teleportSequence + 1)) { room.projectiles.delete(id); continue; }

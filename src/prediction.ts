@@ -1,3 +1,4 @@
+import {stepLobby} from '../shared/lobby';
 import type { BlackHoleState } from '../shared/black-hole';
 import { parseInput, type PlayerInput } from '../shared/flight';
 import { stepMovement } from '../shared/movement';
@@ -6,6 +7,7 @@ import type { InputMessage, PlayerState } from '../shared/protocol';
 export const MAX_PENDING_INPUTS = 90;
 export const SNAP_CORRECTION_DISTANCE = 64;
 export class LocalPredictor {
+  lobby=false;
   state: PlayerState | null = null;
   pending: InputMessage[] = [];
   sequence = 0;
@@ -32,7 +34,7 @@ export class LocalPredictor {
     this.pending = teleport ? [] : this.pending.filter(input => input.sequence > this.acknowledged);
     this.state = { ...authority }; this.contact = false;
     if (authority.lifeState === 'active') for (const input of this.pending) {
-      if (!this.contact) this.contact = stepMovement(this.state, input, this.hole);
+      if (!this.contact) this.contact = this.move(input);
     }
     this.correction = old ? Math.hypot(old.x - this.state.x, old.y - this.state.y) : 0;
     if (!teleport && old && this.correction < SNAP_CORRECTION_DISTANCE) {
@@ -46,6 +48,7 @@ export class LocalPredictor {
     if (this.pending.length < MAX_PENDING_INPUTS) this.overflow = false;
     return teleport;
   }
+  private move(input:PlayerInput){if(this.lobby){stepLobby(this.state!,input);return false;}return stepMovement(this.state!,input,this.hole!);}
   tick(input: PlayerInput, release = false): InputMessage | null {
     if (!this.state || !this.hole || this.state.lifeState !== 'active') return null;
     if (this.pending.length >= MAX_PENDING_INPUTS) { this.overflow = true; return null; }
@@ -56,7 +59,7 @@ export class LocalPredictor {
       ...(release ? { release: true } : {}) };
     this.pending.push(message);
     this.previous = { ...this.state };
-    if (!this.contact) this.contact = stepMovement(this.state, message, this.hole);
+    if (!this.contact) this.contact = this.move(message);
     return message;
   }
   render(alpha: number, elapsedMs: number): PlayerState | null {

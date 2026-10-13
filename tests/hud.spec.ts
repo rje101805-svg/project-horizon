@@ -4,8 +4,9 @@ import { MAX_HEALTH } from '../shared/lifecycle';
 import type { FlightConnection } from '../src/network';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection };
 test('compact HUD, F3 controls, actual RTT/metrics and room-scoped roster updates work', async ({ page, context }) => {
+  test.setTimeout(60000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#server-url').fill('http://127.0.0.1:3002');
+  await page.goto('/?devrooms=1'); await page.locator('#server-url').fill('http://127.0.0.1:3002');
   await page.locator('#create').click();
   await expect(page.locator('#hud-health-value')).toHaveText(`${MAX_HEALTH} / ${MAX_HEALTH}`);
   await expect(page.locator('#hud-health-bar')).toHaveJSProperty('value', MAX_HEALTH);
@@ -39,14 +40,17 @@ test('compact HUD, F3 controls, actual RTT/metrics and room-scoped roster update
   expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest!.players[0].x)).toBeGreaterThan(before);
   await page.keyboard.press('F3');
   const code = (await page.locator('#room-code-display').textContent())!;
-  const peer = await context.newPage(); await peer.goto('/'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');
+  const peer = await context.newPage(); await peer.goto('/?devrooms=1'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');
   await peer.locator('#room-code').fill(code); await peer.locator('#join').click();
   await expect(page.locator('#debug-players')).toHaveText('Players: 2');
-  const isolated = await context.newPage(); await isolated.goto('/'); await isolated.locator('#server-url').fill('http://127.0.0.1:3002'); await isolated.locator('#create').click();
+  const isolated = await context.newPage(); await isolated.goto('/?devrooms=1'); await isolated.locator('#server-url').fill('http://127.0.0.1:3002'); await isolated.locator('#create').click();
   await expect(isolated.locator('#debug-players')).toHaveText('Players: 1');
   await expect(page.locator('#debug-players')).toHaveText('Players: 2');
   await page.screenshot({ path: 'test-results/step7-hud.png', fullPage: true });
   await page.setViewportSize({ width: 680, height: 960 });
+  // Lobby suppresses combat UI; F3 remains available over the full viewport.
+  await expect(page.locator('.gameplay-hud')).toBeHidden();
+  await peer.locator('#ready-match').click();await expect(page.locator('#start-match')).toBeEnabled();await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
   const hudBox = await page.locator('.gameplay-hud').boundingBox();
   const debugBox = await page.locator('#debug-overlay').boundingBox();
   const gameBox = await page.locator('#game').boundingBox();
@@ -54,7 +58,7 @@ test('compact HUD, F3 controls, actual RTT/metrics and room-scoped roster update
   expect(hudBox!.y).toBeGreaterThan(gameBox!.y + 90);
   expect(hudBox!.x + hudBox!.width).toBeLessThanOrEqual(gameBox!.x + gameBox!.width);
   expect(hudBox!.y + hudBox!.height).toBeLessThanOrEqual(gameBox!.y + gameBox!.height);
-  expect(debugBox!.y).toBeGreaterThanOrEqual(gameBox!.y + gameBox!.height);
+  expect(debugBox!.y).toBeGreaterThanOrEqual(gameBox!.y);expect(debugBox!.y+debugBox!.height).toBeLessThanOrEqual(gameBox!.y+gameBox!.height);expect(debugBox!.x+debugBox!.width<=hudBox!.x||debugBox!.y>=hudBox!.y+hudBox!.height).toBe(true);
   await peer.close(); await expect(page.locator('#debug-players')).toHaveText('Players: 1');
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.disconnect());
   await expect(page.locator('#ping')).toHaveText('Ping: —');

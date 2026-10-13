@@ -27,9 +27,9 @@ export function activateTractor(room:GameRoom|undefined,p:RoomPlayer|undefined,r
  if(!r || !room || !p || room.players.get(p.state.id)!==p)return reject('Invalid tractor request');
  if(r.reloadSession!==p.state.reloadSession || r.round!==room.match.round || r.lifeGeneration!==p.state.lifeGeneration || r.teleportSequence!==p.state.teleportSequence || r.sequence<=(p.lastTractorSequence??0))return reject('Stale tractor request');
  p.lastTractorSequence=r.sequence;
- if(!human(room,p) || (p.state.stunRemainingMs??0)>0 || room.tractorBeams?.has(p.state.id) || (room.tractorCooldowns?.get(p.state.id)??0)>room.simulationTimeMs)return reject('Tractor unavailable');
+ if(room.simulationTimeMs<(p.launchProtectionUntilMs??0) || !human(room,p) || (p.state.stunRemainingMs??0)>0 || room.tractorBeams?.has(p.state.id) || (room.tractorCooldowns?.get(p.state.id)??0)>room.simulationTimeMs)return reject('Tractor unavailable');
  const los=room.tractorLOS??clearTractorLOS;
- const targets=[...room.players.values()].filter(t=>t!==p && human(room,t) && !t.state.tractor.attackerId && inTractorCone(p.state,t.state) && los(p.state,t.state));
+ const targets=[...room.players.values()].filter(t=>t!==p && room.simulationTimeMs>=(t.launchProtectionUntilMs??0) && human(room,t) && !t.state.tractor.attackerId && inTractorCone(p.state,t.state) && los(p.state,t.state));
  targets.sort((a,b)=>Math.hypot(a.state.x-p.state.x,a.state.y-p.state.y)-Math.hypot(b.state.x-p.state.x,b.state.y-p.state.y));
  const target=targets[0];if(!target)return reject('No human in tractor cone');
  const beam:TractorBeam={attackerId:p.state.id,targetId:target.state.id,round:room.match.round,startedAtMs:room.simulationTimeMs,attackerLife:p.state.lifeGeneration,attackerTeleport:p.state.teleportSequence,targetLife:target.state.lifeGeneration,targetTeleport:target.state.teleportSequence};

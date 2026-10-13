@@ -1,3 +1,4 @@
+import {startActiveFixture,replayFixture} from './active-fixture';
 import {test,expect} from '@playwright/test';
 import {RoomStore,roomChannel} from '../server/rooms';
 import {createGameServer} from '../server/game';
@@ -6,7 +7,7 @@ for(const focusedSlot of [false,true])test(`weapon pickup preserves flying and f
  const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store);
  await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const addr=server.http.address();if(!addr||typeof addr==='string')throw Error('port');const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${addr.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const room=[...store.rooms.values()][0],a=[...room.players.values()][0];store.join('b',room.code,'B',0);store.join('c',room.code,'C',0);server.io.to(roomChannel(room.code)).emit('roomState',store.info(room));await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');
+  await page.goto('/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${addr.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const room=[...store.rooms.values()][0],a=[...room.players.values()][0];store.join('b',room.code,'B',0);store.join('c',room.code,'C',0);server.io.to(roomChannel(room.code)).emit('roomState',store.info(room));startActiveFixture(room,room.match.hostId!,{round:room.match.round});
   lootState(room).pickups.clear();Object.assign(a.state,{x:4000,y:8000,vx:0,vy:0});a.state.teleportSequence++;await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest.players.find((p:any)=>p.id===(window as any).__HORIZON_FLIGHT__.socket.id).teleportSequence)).toBe(a.state.teleportSequence);
   const inventory=a.state.inventory!,markers={life:a.state.lifeGeneration,teleport:a.state.teleportSequence};
   const add=(kind:'smg'|'shotgun')=>{const weapon=freshWeapon(kind),pickup={id:weapon.id,kind:'weapon' as const,weapon,x:a.state.x,y:a.state.y-40,spawnTimeMs:0,source:'world' as const};lootState(room).pickups.set(pickup.id,pickup);return weapon;};

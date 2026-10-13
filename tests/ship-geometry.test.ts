@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {SHIP_HITBOX_RADIUS} from '../shared/ship-geometry';
 import {BASIC_BLASTER,circleEntry} from '../shared/projectiles';
-import {RoomStore} from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import {fire,advanceProjectiles} from '../server/projectiles';
 import {MAX_SHIELD} from '../shared/combat';
 import {SHIP_COLORS} from '../shared/rooms';

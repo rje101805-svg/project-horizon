@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import type { FlightConnection } from '../src/network';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection };
 
 test('development controls report default server rejection without changing HUD', async ({ page }) => {
-  await page.goto('/'); await page.locator('#server-url').fill('http://127.0.0.1:3002'); await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
+  await page.goto('/?devrooms=1'); await page.locator('#server-url').fill('http://127.0.0.1:3002'); await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
   await page.keyboard.press('F3'); await page.locator('[data-combat-action="damage"]').click();
   await expect(page.locator('#combat-debug-result')).toHaveText('Combat debug disabled by server');
   await expect(page.locator('#hud-health-value')).toHaveText('100 / 100');
@@ -18,10 +18,10 @@ test('enabled controls use authoritative snapshots for damage, ammo, reload', as
   const address = server.http.address(); if (!address || typeof address === 'string') throw new Error('Missing address');
   const peer = await context.newPage();
   try {
-    await page.goto('/'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
+    await page.goto('/?devrooms=1'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
     await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
     const code = (await page.locator('#room-code-display').textContent())!;
-    await peer.goto('/'); await peer.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
+    await peer.goto('/?devrooms=1'); await peer.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
     await peer.locator('#room-code').fill(code); await peer.locator('#join').click(); await expect(peer.locator('canvas')).toBeVisible();
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
     const p = store.rooms.get(code)!.players.get(id!)!;

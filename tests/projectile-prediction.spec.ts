@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {createGameServer} from '../server/game';
-import {RoomStore} from '../server/rooms';
+import {CombatBrowserStore as RoomStore} from './active-fixture';
 import type {FlightConnection} from '../src/network';
 import type {ProjectileView} from '../src/projectile-view';
 type DebugWindow=Window & {__HORIZON_FLIGHT__:FlightConnection;__HORIZON_GAME__:{scene:{scenes:{projectileView:ProjectileView}[]}}};
@@ -14,7 +14,7 @@ test('local predicted bullet precedes delayed acceptance, replaces without dupli
   server.step();tick++;await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);
  };
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
+  await page.goto('/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
   const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
   const room=store.roomFor(id!)!,p=room.players.get(id!)!;
   await page.keyboard.press('F3'); await page.locator('#fake-jitter').uncheck();await page.locator('#fake-lag').check();await frame();

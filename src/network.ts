@@ -98,6 +98,7 @@ export class FlightConnection {
         if (!previous || local.lifeState !== previous.lifeState || local.lifeGeneration !== previous.lifeGeneration || local.teleportSequence !== previous.teleportSequence) {
           this.lag?.clear(); this.input = idleInput();
         }
+        this.prediction.lobby=snapshot.match.state==='waiting';
         const teleport = this.prediction.reconcile(local, snapshot.blackHole);
         if (teleport) this.accumulator = 0;
         this.projectilePrediction.reconcile(snapshot, this.socket.id!, performance.now());
@@ -131,7 +132,7 @@ export class FlightConnection {
       }
     }, 5);
   }
-  async enter(mode: 'create' | 'join', name: string, code = ''): Promise<RoomResult> {
+  async enter(mode: 'create' | 'join' | 'fill' | 'wait', name: string, code = ''): Promise<RoomResult> {
     this.name = name;
     if (!this.socket.connected) {
       this.callbacks.status('Connecting to server…');
@@ -150,7 +151,7 @@ export class FlightConnection {
     }
     return this.request(mode, name, code);
   }
-  private request(mode: 'create' | 'join', name: string, code: string): Promise<RoomResult> {
+  private request(mode: 'create' | 'join' | 'fill' | 'wait', name: string, code: string): Promise<RoomResult> {
     return new Promise(resolve => {
       const epoch = this.epoch;
       const reply = (error: Error | null, result: RoomResult) => {
@@ -161,7 +162,8 @@ export class FlightConnection {
         }
         resolve(result);
       };
-      if (mode === 'create') this.socket.timeout(4000).emit('createRoom', { name }, reply);
+      if(mode==='fill'||mode==='wait')this.socket.timeout(4000).emit('play',{name,mode},reply);
+      else if (mode === 'create') this.socket.timeout(4000).emit('createRoom', { name }, reply);
       else this.socket.timeout(4000).emit('joinRoom', { name, code }, reply);
     });
   }
@@ -209,7 +211,9 @@ export class FlightConnection {
     };
     if(this.lag)this.lag.schedule('input',send);else send();
   }
-  canPlay() { return !!this.latest && this.latest.match.state !== 'ended' && (this.latest.match.state === 'waiting' || this.latest.match.roster.includes(this.socket.id ?? '')); }
+  ready(){const match=this.room?.match.state==='waiting'?this.room.match:this.latest?.match;if(match?.state!=='waiting')return;this.socket.emit('ready',{round:match.round,ready:!match.readyIds.includes(this.socket.id!)},result=>this.callbacks.status(result.message));}
+  playAgain(){const match=this.latest?.match;if(match?.state==='ended')this.socket.emit('playAgain',{round:match.round},result=>this.callbacks.status(result.message));}
+  canPlay() { return !!this.latest && (this.latest.match.state === 'waiting' || this.latest.match.state==='active') && (this.latest.match.state === 'waiting' || this.latest.match.roster.includes(this.socket.id ?? '')); }
   setInput(input: PlayerInput) { this.input = this.canPlay() && this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
   setFakeLag(enabled: boolean, delayMs = 150, jitterMs = 30) { this.lag?.setEnabled(enabled, delayMs, jitterMs); this.release(); }
   scheduleDevelopmentAction(action: () => void) {
@@ -222,7 +226,7 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { if(held!==this.firing||held&&performance.now()-this.lastTriggerAt>100)this.sendTrigger(held); if(held&&!this.firing&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=true;if(!held&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=false;this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if (!this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (!activeWeapon(local)||local.ammo <= 0 || local.isReloading)) return;
+    if ((local?.launchProtectionRemainingMs??0)>0 || this.latest?.match.state!=='active' || !this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (!activeWeapon(local)||local.ammo <= 0 || local.isReloading)) return;
     if(!hasGoldGun(local)&&!WEAPONS[activeWeapon(local)?.class??'blaster'].automatic&&!this.triggerPending)return;this.triggerPending=false;
     this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(local));
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
@@ -250,7 +254,7 @@ export class FlightConnection {
     this.pendingRelease = true;if(wasFiring)this.sendTrigger(false);
   }
   inventory(action:InventoryCommand['action'],slot?:number,pickupId?:string,toSlot?:number){
-    const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room;if(!this.canPlay()||!local?.inventory||!room)return;
+    const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room;if(this.latest?.match.state!=='active'||!this.canPlay()||!local?.inventory||!room)return;
     const request={action,...(pickupId===undefined?{}:{pickupId}),...(toSlot===undefined?{}:{toSlot}),...(slot===undefined?{}:{slot}),sequence:++this.inventorySequence,roomCode:room.code,round:this.latest!.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence,revision:local.inventory.revision};
     const epoch=this.epoch;const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('inventory',request,()=>{});};if(this.lag)this.lag.schedule('input',send);else send();
   }
@@ -263,7 +267,7 @@ export class FlightConnection {
   reload() {
     if(this.latest?.players.find(p=>p.id===this.socket.id)?.goldGunId)return;
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;
-    if (!this.canPlay() || !this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
+    if ((local?.launchProtectionRemainingMs??0)>0 || this.latest?.match.state!=='active' || !this.canPlay() || !this.socket.connected || !room || !local || local.lifeState !== 'active' || local.status !== 'ALIVE') return;
     const request = { sequence: ++this.reloadSequence, lifeGeneration: local.lifeGeneration,
       teleportSequence: local.teleportSequence, roomCode: room.code, reloadSession: local.reloadSession }, epoch = this.epoch;
     const send = () => {

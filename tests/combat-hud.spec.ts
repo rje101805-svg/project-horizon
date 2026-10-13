@@ -1,3 +1,4 @@
+import {startActiveFixture,replayFixture} from './active-fixture';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
@@ -30,14 +31,14 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
   const advance=async(n:number)=>{for(let i=0;i<n;i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}};
   try{
     const url=`http://127.0.0.1:${address.port}`;
-    for(const p of pages){await p.goto('/');await p.locator('#server-url').fill(url);}
+    for(const p of pages){await p.goto('/?devrooms=1');await p.locator('#server-url').fill(url);}
     await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const code=(await page.locator('#room-code-display').textContent())!;
     for(const p of [peer,spectator]){await p.locator('#room-code').fill(code);await p.locator('#join').click();await expect(p.locator('canvas')).toBeVisible();}
     const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const targetId=await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const room=store.roomFor(id)!,a=room.players.get(id)!,b=room.players.get(targetId)!;
     Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});
-    Object.assign([...room.players.values()].find(p=>p!==a&&p!==b)!.state,{x:500,y:200});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();
+    Object.assign([...room.players.values()].find(p=>p!==a&&p!==b)!.state,{x:500,y:200});await frame();startActiveFixture(room,room.match.hostId!,{round:room.match.round});await frame();
     await page.bringToFront();
     if(lag){await page.keyboard.press('F3');await page.locator('#fake-lag').check();await page.keyboard.press('F3');}
     await expect(page.locator('#debug-overlay')).toBeHidden();await expect(page.locator('#debug-network')).toBeVisible();
@@ -88,7 +89,7 @@ for (const lag of [false,true]) test(`local HUD and shooter-only split/rapid hit
       await page.setViewportSize({width,height:960});
       const ammo=(await page.locator('#ammo-hud').boundingBox())!,debug=(await page.locator('#debug-overlay').boundingBox())!,game=(await page.locator('#game').boundingBox())!;
       expect(ammo.width).toBeLessThan(190);expect(ammo.y+ammo.height).toBeLessThanOrEqual(game.y+game.height);
-      expect(debug.y).toBeGreaterThanOrEqual(game.y+game.height);expect(debug.y).toBeGreaterThan(ammo.y+ammo.height);
+      expect(debug.y).toBeGreaterThanOrEqual(game.y);expect(debug.y+debug.height).toBeLessThanOrEqual(game.y+game.height);expect(debug.x+debug.width<=ammo.x||debug.y>=ammo.y+ammo.height).toBe(true);
     }
     await page.locator('#leave').click();await expect(page.locator('#home')).toBeVisible();
   }finally{await peer.close();await spectator.close();await page.close();await server.close();}

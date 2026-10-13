@@ -1,3 +1,4 @@
+import {startActiveFixture} from './active-fixture';
 import {test,expect} from '@playwright/test';
 import {RoomStore} from '../server/rooms';
 import {createGameServer} from '../server/game';
@@ -16,7 +17,7 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
   server.step();await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__?.latest?.tick)).toBe(++tick);
  };
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();
+  await page.goto('/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('[data-hotspot=fill]').click();await page.locator('[data-hotspot=play]').click();await expect(page.locator('canvas')).toBeVisible();await frame();
   await expect(page.locator('#debug-fps')).toBeHidden();await page.keyboard.press('F3');await expect(page.locator('#debug-fps')).toHaveText(/FPS: \d+ \(3s avg\)/);await expect(page.locator('#visual-rendering')).toContainText('Canvas · low');
   await page.locator('#visual-quality').selectOption('standard');await expect(page.locator('#visual-rendering')).toContainText('Canvas · standard');
   const motion=await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0],sky=s.deepSpace;
@@ -41,7 +42,7 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
    if(index===12){await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.celestial.decorations.some((g:any)=>g.visible);})).toBe(true);await page.locator('canvas').screenshot({path:'/tmp/p3s26-debris.png'});}
   }
   expect([...room.players.values()][0].state).toEqual(initial);await page.locator('#visual-view').selectOption('-1');await page.locator('#visual-open').click();await page.locator('canvas').screenshot({path:'/tmp/p3s26-open.png'});await page.locator('#visual-auto').click();
-  await page.locator('#fill-game').click();await expect.poll(()=>room.players.size).toBe(8);await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');
+  expect(room.players.size).toBe(8);startActiveFixture(room,room.match.hostId!,{round:room.match.round});await frame();
   const players=[...room.players.values()],a=players[0],ghost=players[7];applyDamage(ghost,999,{type:'PLAYER',playerId:a.state.id},room.simulationTimeMs);ghost.respawnAtMs=room.simulationTimeMs;await frame();
   // Test-only authoritative fixtures place combat over real planet limbs and
   // bright purple/cyan formations, including the unchanged lilac alien body.
@@ -69,7 +70,7 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
   }expect(players.map(p=>p.state)).toEqual(gameplayBefore);await page.setViewportSize({width:1280,height:720});
   for(let i=0;i<3;i++){
    await page.getByRole('button',{name:'Back to home'}).click();await expect(page.locator('#visual-controls')).toHaveCount(0);await expect.poll(()=>page.evaluate(()=>Object.keys((window as any).__HORIZON_GAME__?.textures?.list??{}).filter(k=>/^(space-|surface-|planet-|ice-|distant-|debris-)/.test(k)))).toEqual([]);
-   await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await frame();await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return {children:s.children.length,keys:Object.keys(s.textures.list).filter(k=>/^(space-|surface-|planet-|ice-|distant-|debris-)/.test(k)).sort()};})).toEqual({children:baseline.children,keys:baseline.keys});
+   await page.locator('[data-hotspot=fill]').click();await page.locator('[data-hotspot=play]').click();await expect(page.locator('canvas')).toBeVisible();await frame();await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return {children:s.children.length,keys:Object.keys(s.textures.list).filter(k=>/^(space-|surface-|planet-|ice-|distant-|debris-)/.test(k)).sort()};})).toEqual({children:baseline.children,keys:baseline.keys});
   }
   expect(errors).toEqual([]);
  }finally{await page.close();await server.close();}

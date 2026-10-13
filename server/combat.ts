@@ -28,9 +28,9 @@ export function resetCombatState(player: RoomPlayer) {
 export function applyDamage(player: RoomPlayer, amount: number, source: DamageSource, simulationTimeMs = player.simulationTimeMs) {
   const validSource = source && ((source.type === 'PLAYER' && typeof source.playerId === 'string' && source.playerId.length > 0) ||
     (source.type === 'ENVIRONMENT' && ['BLACK_HOLE', 'HAZARD'].includes(source.cause)));
-  if (!player.gameplayEnabled || !validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || !validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
   // All damage shares the server-owned protection deadline.
-  if (simulationTimeMs < player.invulnerableUntilMs) return null;
+  if (simulationTimeMs < Math.max(player.invulnerableUntilMs,player.launchProtectionUntilMs??0)) return null;
   const s = player.state;
   s.health = clampCombatValue(s.health, s.maxHealth); s.shield = clampCombatValue(s.shield, s.maxShield);
   const shieldAbsorbed = Math.min(s.shield, amount), healthDamage = Math.min(s.health, amount - shieldAbsorbed);
@@ -42,28 +42,28 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 // Explicit lethal transition shared by ordinary depletion and tractor lock finisher.
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs): boolean {
   const s=player.state;
-  if(!player.gameplayEnabled || s.lifeState!=='active' || s.status==='OUT')return false;
+  if((!player.gameplayEnabled || player.combatEnabled===false) || simulationTimeMs<(player.launchProtectionUntilMs??0) || s.lifeState!=='active' || s.status==='OUT')return false;
   player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
   s.health=0; s.lastDamageSource={...source};
   player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
   s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
   player.respawnAtMs = simulationTimeMs + RESPAWN_DELAY_MS;
   s.vx = s.vy = 0; retireInputs(player); player.input = idleInput(); player.lastInput = -Infinity; player.reset = false;
-  player.invulnerableUntilMs = 0; s.spawnInvulnerabilityRemainingMs = 0;
+  player.invulnerableUntilMs = 0;player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0; s.spawnInvulnerabilityRemainingMs = 0;
   player.combatTimers = {reload:0,cooldown:0,reloadCompleted:false}; syncTimers(player);
   // Clear human resources immediately, including during the respawn delay.
   s.maxHealth = ALIEN_HEALTH; s.shield = s.maxShield = s.ammo = s.maxAmmo = 0;
-  player.cancelTractor?.();
+  player.cancelTractor?.();player.onEliminated?.(source,simulationTimeMs);
   return true;
 }
 export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {
   const s = player.state;
-  if (!player.gameplayEnabled || !Number.isSafeInteger(amount) || amount <= 0 || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < amount) return false;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || !Number.isSafeInteger(amount) || amount <= 0 || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < amount) return false;
   s.ammo = Math.max(0, Math.floor(clampCombatValue(s.ammo, s.maxAmmo)) - amount); return true;
 }
 export function startReload(player: RoomPlayer): boolean {
   const s = player.state;
-  if (!player.gameplayEnabled || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || hasGoldGun(s) || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= s.maxAmmo) return false;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || s.lifeState !== 'active' || s.status !== 'ALIVE' || s.health <= 0 || hasGoldGun(s) || s.isReloading || !Number.isSafeInteger(s.ammo) || s.ammo < 0 || s.ammo >= s.maxAmmo) return false;
   const w=activeWeapon(s),inv=s.inventory;if(!w||!inv||inv.reserve[WEAPONS[w.class].ammoType]<=0||(s.stunRemainingMs??0)>0)return false;
   player.reloadWeaponId=w.id;player.combatTimers.reload = reloadTicks(player); player.combatTimers.reloadCompleted = false; syncTimers(player); return true;
 }
@@ -74,7 +74,7 @@ export function completeReload(player: RoomPlayer): boolean {
 }
 export function canFireFromCooldown(player: RoomPlayer): boolean { return player.combatTimers.cooldown <= 1e-9; }
 export function startFireCooldown(player: RoomPlayer): boolean {
-  if (!player.gameplayEnabled || player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || player.state.lifeState !== 'active' || !canFireFromCooldown(player)) return false;
   player.combatTimers.cooldown = Math.max(-1,player.combatTimers.cooldown)+(player.state.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(player.state))/TICK_MS; syncTimers(player); return true;
 }
 export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
@@ -85,7 +85,7 @@ export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   player.state.status = status; if(status!=='ALIVE')player.cancelTractor?.(); return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {
-  if (!player.gameplayEnabled || player.state.lifeState !== 'active') return;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || player.state.lifeState !== 'active') return;
   if (player.combatTimers.reload > 0 && --player.combatTimers.reload === 0) completeReload(player);
   player.combatTimers.cooldown=player.combatTimers.cooldown>1e-9?player.combatTimers.cooldown-1:0;
   if((player.state.stunRemainingMs??0)<=0)player.state.stunImmunityRemainingMs=Math.max(0,(player.state.stunImmunityRemainingMs??0)-TICK_MS);
@@ -95,8 +95,8 @@ export function advanceCombatTick(player: RoomPlayer) {
 
 // Temporary debug refill API, never a gameplay reload or fire-validation bypass.
 export function refillAmmo(player: RoomPlayer): boolean {
-  if (!player.gameplayEnabled || player.state.lifeState !== 'active' || player.state.status !== 'ALIVE' || player.state.isReloading) return false;
+  if ((!player.gameplayEnabled || player.combatEnabled===false) || player.state.lifeState !== 'active' || player.state.status !== 'ALIVE' || player.state.isReloading) return false;
   player.state.ammo = player.state.maxAmmo;const inv=player.state.inventory,w=activeWeapon(player.state);if(inv&&w)inv.reserve[WEAPONS[w.class].ammoType]=WEAPONS[w.class].magazine*2; return true;
 }
 
-export function applyStun(p:RoomPlayer){if(!p.gameplayEnabled||p.state.lifeState!=='active'||p.state.health<=0||(p.state.stunRemainingMs??0)>0||(p.state.stunImmunityRemainingMs??0)>0)return false;p.state.stunRemainingMs=STUN_MS;return true;}
+export function applyStun(p:RoomPlayer){if((!p.gameplayEnabled||p.combatEnabled===false)||p.state.lifeState!=='active'||p.state.health<=0||(p.state.stunRemainingMs??0)>0||(p.state.stunImmunityRemainingMs??0)>0)return false;p.state.stunRemainingMs=STUN_MS;return true;}

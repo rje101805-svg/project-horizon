@@ -1,7 +1,8 @@
+import {startActiveFixture as startMatch,replayFixture} from './active-fixture';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore } from '../server/rooms';
-import { startMatch, evaluateResult, advanceMatch } from '../server/match';
+import {  evaluateResult, advanceMatch } from '../server/match';
 import { activateTractor, advanceTractors } from '../server/tractor';
 import { applyDamage, startReload } from '../server/combat';
 import { fire } from '../server/projectiles';
@@ -37,7 +38,8 @@ test('tractor rejects waiting/ended, aliens, spectators, stale/malformed/forged 
 });
 test('aliens and late spectators cannot be acquired or activate even when nearer than valid humans',()=>{
  const f=fixture();f.c.state.status='ALIEN';f.c.humanEliminated=true;f.c.state.x=240;
- f.store.join('d',f.room.code,'Spectator',0);const d=f.room.players.get('d')!;Object.assign(d.state,{x:230,y:1800});
+ // Synthetic OUT fixture checks combat eligibility; public WAIT now rejects late joins.
+ const d={...f.c,state:{...f.c.state,id:'d',status:'OUT' as const}};d.cancelTractor=undefined;f.room.players.set('d',d);Object.assign(d.state,{x:230,y:1800,status:'OUT'});d.gameplayEnabled=false;
  assert.equal(activateTractor(f.room,d,f.request(d)).ok,false);assert.equal(activateTractor(f.room,f.c,f.request(f.c)).ok,false);
  assert.equal(f.activate().ok,true);assert.equal(f.a.state.tractor.targetId,'b');
 });
@@ -86,7 +88,7 @@ test('idle victim earns continuous-lock finisher ignoring full shield/health/pro
  const f=fixture(2);f.b.invulnerableUntilMs=100000;assert.equal(f.activate().ok,true);
  let time=0;while(f.room.match.state==='active' && time<5000){time+=TICK_MS;f.tick(time);}
  assert.equal(f.b.state.status,'ALIEN');assert.equal(f.b.state.deathSource?.type,'TRACTOR');assert.equal(f.b.state.health,0);assert.equal(f.room.match.result?.kind,'winner');assert.equal(f.a.state.tractor.targetId,null);assert.equal(f.b.state.tractor.attackerId,null);assert.ok(f.a.state.tractor.cooldownRemainingMs>0);
- advanceMatch(f.room,time+6000);assert.equal(f.room.match.state,'waiting');for(const p of [f.a,f.b]){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.tractor.cooldownRemainingMs,0);assert.equal(p.state.tractor.attackerId,null);}
+ replayFixture(f.room,time+6000);assert.equal(f.room.match.state,'waiting');for(const p of [f.a,f.b]){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.tractor.cooldownRemainingMs,0);assert.equal(p.state.tractor.attackerId,null);}
  assert.equal(startMatch(f.room,'a',{round:1}).ok,true);Object.assign(f.a.state,{x:200,y:1800});Object.assign(f.b.state,{x:300,y:1800});assert.equal(f.activate().ok,true);for(let i=1;i<=91;i++)f.tick(time+6000+i*TICK_MS);assert.equal(f.b.state.deathSource?.type,'TRACTOR');
 });
 for(const id of ['a','b'])test(`disconnect ${id} immediately clears tractor and preserves lifecycle`,()=>{const f=fixture();f.activate();f.store.leave(id);assert.equal(f.room.tractorBeams!.size,0);for(const p of f.room.players.values()){assert.equal(p.state.tractor.targetId,null);assert.equal(p.state.tractor.attackerId,null);}});

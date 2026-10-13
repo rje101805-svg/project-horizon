@@ -1,8 +1,9 @@
+import {startActiveFixture as startMatch,replayFixture} from './active-fixture';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { WORLD, EDGE_MARGIN, idleInput, stepFlight } from '../shared/flight';
-import { RoomStore } from '../server/rooms';
-import { startMatch } from '../server/match';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
+
 import { advanceBots } from '../server/bots';
 import { fire, advanceProjectiles } from '../server/projectiles';
 test('expanded bounds support all corners without changing flight speed',()=>{

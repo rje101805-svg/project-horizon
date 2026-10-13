@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-import {RoomStore} from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import {createGameServer} from '../server/game';
 import {VIEW_POINTS} from '../src/visual/solar-layout';
 import {WORLD} from '../shared/flight';
@@ -7,7 +7,7 @@ test('large authoritative coordinates replicate to two clients; DEV camera inspe
  test.setTimeout(60000);const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const address=server.http.address();if(!address||typeof address==='string')throw Error('port');const second=await context.newPage();let tick=0;
  const frame=async()=>{server.step();tick++;for(const p of [page,second])await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__?.latest?.tick)).toBe(tick);};
  try{
- for(const p of [page,second]){await p.goto('/');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
+ for(const p of [page,second]){await p.goto('/?devrooms=1');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
  await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const room=[...store.rooms.values()][0];await second.locator('#room-code').fill(room.code);await second.locator('#join').click();await expect(second.locator('canvas')).toBeVisible();
  const [a,b]=[...room.players.values()];Object.assign(a.state,{x:10500,y:10500});Object.assign(b.state,{x:10700,y:10500});a.state.teleportSequence++;b.state.teleportSequence++;await frame();
  for(const p of [page,second])await expect.poll(()=>p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return [...s.ships.values()].every((ship:any)=>ship.body.x>10000)&&s.ships.size===2;})).toBe(true);

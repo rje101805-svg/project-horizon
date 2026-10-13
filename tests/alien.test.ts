@@ -4,7 +4,8 @@ import { ALIEN_HEALTH, ALIEN_MELEE_DAMAGE, ALIEN_MELEE_RANGE, ALIEN_SPAWN_PROTEC
 import { BASIC_BLASTER } from '../shared/projectiles';
 import { EDGE_MARGIN, WORLD, idleInput } from '../shared/flight';
 import { RESPAWN_DELAY_MS } from '../shared/lifecycle';
-import { RoomStore, chooseAlienSpawn, survivingHumans } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
+import { chooseAlienSpawn, survivingHumans } from '../server/rooms';
 import { applyDamage, startReload, resetCombatState, setStatus, advanceCombatTick, refillAmmo } from '../server/combat';
 import { fire, advanceProjectiles } from '../server/projectiles';
 import { simulatePlayer } from '../server/simulation';

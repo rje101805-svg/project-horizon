@@ -5,7 +5,7 @@ import { createBlackHole } from '../shared/black-hole';
 import { idleInput, spawnFlight, TICK_MS } from '../shared/flight';
 import { initialLifeState } from '../shared/lifecycle';
 import { stepMovement } from '../shared/movement';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { simulatePlayer } from '../server/simulation';
 import { acceptMovementInput, MAX_SERVER_INPUTS } from '../server/inputs';
 import type { PlayerState, InputMessage } from '../shared/protocol';

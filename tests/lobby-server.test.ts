@@ -23,10 +23,12 @@ test('real sockets cannot spoof host/start; host migration and stale-start rejec
   const nextHost=new Promise<void>(resolve=>b.once('roomState',info=>{assert.equal(info.match.hostId,b.id);resolve();}));
   await new Promise<void>(resolve=>a.emit('leaveRoom',resolve));await nextHost;assert.equal((await start(b,0)).ok,false);
   assert.ok((await new Promise<RoomResult>(resolve=>c.emit('joinRoom',{code:room.code,name:'C'},resolve))).ok);
+  assert.equal((await start(b,0)).ok,false);assert.equal((await new Promise<StartMatchResult>(resolve=>c.emit('ready',{round:0,ready:true},resolve))).ok,true);
   assert.equal((await start(b,0)).ok,true);assert.deepEqual(room.match.roster,[b.id,c.id]);assert.equal(room.match.round,1);
   assert.equal((await start(b,0)).ok,false);assert.equal((await start(b,1)).ok,false);
+  for(let i=0;i<250;i++)server.step();assert.equal(room.match.state,'active');
   applyDamage(room.players.get(c.id!)!,200,{type:'PLAYER',playerId:b.id!});server.step();assert.equal(room.match.state,'ended');assert.equal((await start(b,1)).ok,false);
-  for(let i=0;i<181;i++)server.step();assert.equal(room.match.state,'waiting');assert.equal(room.match.round,1);assert.deepEqual(room.match.roster,[]);
-  assert.equal((await start(b,0)).ok,false);assert.equal((await start(c,1)).ok,false);assert.equal((await start(b,1)).ok,true);assert.equal(room.match.round,2);
+  for(let i=0;i<181;i++)server.step();assert.equal(room.match.state,'ended');assert.equal((await new Promise<StartMatchResult>(resolve=>b.emit('playAgain',{round:1},resolve))).ok,true);assert.equal(room.match.state,'waiting');assert.equal(room.match.round,1);assert.deepEqual(room.match.roster,[]);
+  assert.equal((await start(b,0)).ok,false);assert.equal((await start(c,1)).ok,false);assert.equal((await start(b,1)).ok,false);await new Promise<StartMatchResult>(resolve=>c.emit('ready',{round:1,ready:true},resolve));assert.equal((await start(b,1)).ok,true);assert.equal(room.match.round,2);
  }finally{for(const s of sockets)s.disconnect();await server.close();}
 });

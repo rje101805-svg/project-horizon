@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {CombatBrowserStore as RoomStore} from './active-fixture';
 import { SNAP_CORRECTION_DISTANCE } from '../src/prediction';
 import type { FlightConnection } from '../src/network';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __HORIZON_GAME__: {
@@ -18,7 +18,7 @@ for (const [label, enabled, jitter] of [['normal', false, 0], ['150ms', true, 0]
     const peer = await peerContext.newPage(); const errors: string[] = [];
     for (const p of [page, peer]) {
       p.on('pageerror', e => errors.push(e.message));
-      await p.goto('/'); await p.locator('#server-url').fill('http://127.0.0.1:3002');
+      await p.goto('/?devrooms=1'); await p.locator('#server-url').fill('http://127.0.0.1:3002');
     }
     await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
     const code = (await page.locator('#room-code-display').textContent())!;
@@ -80,7 +80,7 @@ test('gravity predictions stay stable and reset/respawn discard old inputs under
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); if (!address || typeof address === 'string') throw Error('Missing server');
   try {
-    await page.goto('/'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
+    await page.goto('/?devrooms=1'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);
     await page.locator('#create').click(); await page.waitForFunction(() => !!(window as unknown as DebugWindow).__HORIZON_FLIGHT__?.latest); await expect.poll(() => metrics(page).then(m => m.ack)).toBeGreaterThan(0);
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const room = store.roomFor(id)!, player = room.players.get(id)!;

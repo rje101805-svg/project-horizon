@@ -1,6 +1,7 @@
+import {CombatBrowserStore} from './active-fixture';
 import { test, expect } from '@playwright/test';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import type { FlightConnection } from '../src/network';
 import type { ProjectileView } from '../src/projectile-view';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __reloadTrace: { reload: number; fire: number; adds: number };
@@ -21,10 +22,10 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
   const pending = () => page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.projectilePrediction.count(performance.now()));
   try {
     const url = `http://127.0.0.1:${address.port}`;
-    await page.goto('/'); await page.locator('#server-url').fill(url); await page.locator('#create').click();
+    await page.goto('/?devrooms=1'); await page.locator('#server-url').fill(url); await page.locator('#create').click();
     await expect(page.locator('canvas')).toBeVisible();
     const code = (await page.locator('#room-code-display').textContent())!;
-    await peer.goto('/'); await peer.locator('#server-url').fill(url); await peer.locator('#room-code').fill(code); await peer.locator('#join').click(); await expect(peer.locator('canvas')).toBeVisible();
+    await peer.goto('/?devrooms=1'); await peer.locator('#server-url').fill(url); await peer.locator('#room-code').fill(code); await peer.locator('#join').click(); await expect(peer.locator('canvas')).toBeVisible();
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
     const room = store.roomFor(id)!, p = room.players.get(id)!, b = [...room.players.values()].find(p => p.state.id !== id)!;
     Object.assign(p.state, { x: 200, y: 1800 }); Object.assign(b.state, { x: 130, y: 1800 }); await frame();
@@ -84,11 +85,11 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
 });
 
 test('stale predicted shot rejected during reload clears, and known reload suppresses further predictions', async ({ page }) => {
-  const store = new RoomStore(), server = createGameServer(['http://127.0.0.1:5175'], store, { autoTick: false });
+  const store = new CombatBrowserStore(), server = createGameServer(['http://127.0.0.1:5175'], store, { autoTick: false });
   await new Promise<void>(resolve => server.http.listen(0, '127.0.0.1', resolve));
   const address = server.http.address(); if (!address || typeof address === 'string') throw Error('Missing server');
   try {
-    await page.goto('/'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`); await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
+    await page.goto('/?devrooms=1'); await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`); await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();
     await page.evaluate(() => new Promise<void>(resolve => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.emit('latencyProbe', resolve)));
     server.step(); await page.waitForFunction(() => !!(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest);
     const id = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);

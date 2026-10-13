@@ -78,6 +78,7 @@ function dropPoint(room:GameRoom,p:RoomPlayer,index:number){
 }
 export function dropWeapon(room:GameRoom,p:RoomPlayer,weapon:WeaponInstance,index=0){return addPickup(room,{...dropPoint(room,p,index),kind:'weapon',weapon,source:'drop',spawnTimeMs:room.simulationTimeMs,blockedId:p.state.id,blockedUntilMs:room.simulationTimeMs+LOOT_CONFIG.pickupGraceMs} as Omit<LootPickup,'id'>);}
 export function dropRegularInventory(room:GameRoom,p:RoomPlayer){
+ if(room.match.state!=='active'){clearInventory(p);cancelReload(p);return;}
  const inv=p.state.inventory;if(!inv)return;let scatter=0;
  for(const weapon of inv.slots){if(!weapon)continue;dropWeapon(room,p,weapon,scatter++);
   const type=WEAPONS[weapon.class].ammoType,quantity=Math.min(inv.reserve[type],Math.ceil(AMMO_PACKS[type]/2));
@@ -140,7 +141,7 @@ export function reorderSlots(p:RoomPlayer,from:number,to:number){
 export function inventoryCommand(room:GameRoom|undefined,p:RoomPlayer|undefined,raw:unknown):InventoryResult {
  const r=parseInventoryCommand(raw),reject=(reason:string)=>({ok:false,reason});if(!r||!room||!p||room.players.get(p.state.id)!==p)return reject('Invalid inventory request');
  if(r.sequence<=(p.lastInventorySequence??0))return reject('Duplicate inventory request');p.lastInventorySequence=r.sequence;
- if(r.roomCode!==room.code||r.round!==room.match.round||r.reloadSession!==p.state.reloadSession||r.lifeGeneration!==p.state.lifeGeneration||r.teleportSequence!==p.state.teleportSequence||r.revision!==p.state.inventory?.revision||room.match.state==='ended'||!p.gameplayEnabled||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||(p.state.stunRemainingMs??0)>0)return reject('Inactive or stale inventory');
+ if(r.roomCode!==room.code||r.round!==room.match.round||r.reloadSession!==p.state.reloadSession||r.lifeGeneration!==p.state.lifeGeneration||r.teleportSequence!==p.state.teleportSequence||r.revision!==p.state.inventory?.revision||room.match.state!=='active'||!p.gameplayEnabled||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||(p.state.stunRemainingMs??0)>0)return reject('Inactive or stale inventory');
  const ok=r.action==='switch'?switchSlot(p,r.slot!):r.action==='drop'?dropSlot(room,p,r.slot):r.action==='reorder'?reorderSlots(p,r.slot!,r.toSlot!):pickupWeapon(room,p,r.pickupId);return {ok,reason:ok?'Inventory updated':'Inventory action unavailable'};
 }
 export function advanceLoot(room:GameRoom){

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {createGameServer} from '../server/game';
-import {RoomStore} from '../server/rooms';
+import {CombatBrowserStore as RoomStore} from './active-fixture';
 import {refillAmmo} from '../server/combat';
 import type {FlightConnection} from '../src/network';
 import type {FireResult} from '../shared/projectiles';
@@ -11,7 +11,7 @@ for(const lag of [false,true])test(`ten Space taps and held fire preserve one co
  const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store);
  await new Promise<void>(resolve=>server.http.listen(0,'127.0.0.1',resolve));const address=server.http.address();if(!address || typeof address==='string')throw new Error('Missing server');
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();
+  await page.goto('/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();
   const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
   const room=store.roomFor(id!)!,p=room.players.get(id!)!;
   Object.assign(p.state,{x:200,y:1800});p.state.teleportSequence++;

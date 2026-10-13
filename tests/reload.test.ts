@@ -2,7 +2,7 @@ import {BASIC_BLASTER} from '../shared/projectiles';
 import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { reload } from '../server/reload';
 import { startReload, advanceCombatTick, applyDamage, completeReload } from '../server/combat';
 import { fire, advanceProjectiles, projectileSnapshot } from '../server/projectiles';

@@ -1,3 +1,4 @@
+import {startActiveFixture,replayFixture} from './active-fixture';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
@@ -21,13 +22,13 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
  };
  const advance=async(n:number)=>{for(let i=0;i<n;i++){server.step();tick++;await new Promise<void>(resolve=>setImmediate(resolve));}};
  try{
-  for(const p of pages){p.on('pageerror',e=>errors.push(e.message));await p.goto('/');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
+  for(const p of pages){p.on('pageerror',e=>errors.push(e.message));await p.goto('/?devrooms=1');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
   await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const code=(await page.locator('#room-code-display').textContent())!;
   for(const p of [peer,observer]){await p.locator('#room-code').fill(code);await p.locator('#join').click();await expect(p.locator('canvas')).toBeVisible();}
   const aid=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const bid=await peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id!);
   const room=store.roomFor(aid)!,a=room.players.get(aid)!,b=room.players.get(bid)!,c=[...room.players.values()].find(p=>p!==a&&p!==b)!;
-  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');b.state.ammo=29;await frame();
+  Object.assign(a.state,{x:200,y:1800});Object.assign(b.state,{x:270,y:1800});Object.assign(c.state,{x:600,y:1800});await frame();startActiveFixture(room,room.match.hostId!,{round:room.match.round});b.state.ammo=29;await frame();
   if(lag)for(const p of pages){await p.bringToFront();await p.keyboard.press('F3');await p.locator('#fake-lag').check();await p.keyboard.press('F3');}
   await peer.bringToFront();await peer.keyboard.press('r');await expect.poll(()=>b.state.isReloading).toBe(true);await frame();
   for(let seq=1;seq<=5;seq++){

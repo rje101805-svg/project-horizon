@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { fire, advanceProjectiles } from '../server/projectiles';
 import { advanceCombatTick } from '../server/combat';
 import type { ClientEvents, ServerEvents, RoomResult, Snapshot } from '../shared/protocol';

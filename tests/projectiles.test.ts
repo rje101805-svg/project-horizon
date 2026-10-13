@@ -1,7 +1,7 @@
 import { initialMatchState } from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { fire, advanceProjectiles, projectileSnapshot } from '../server/projectiles';
 import { BASIC_BLASTER, parseFire, circleEntry } from '../shared/projectiles';
 import { advanceCombatTick, consumeAmmo, startReload, refillAmmo } from '../server/combat';

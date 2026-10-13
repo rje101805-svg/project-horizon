@@ -1,9 +1,10 @@
+import {LOBBY_HOLE} from '../shared/match';
 import {triggerIntent} from './galaxy';
 import {inventoryCommand,advanceLoot,lootSnapshot} from './inventory';
 import {advanceObjectives,objectivesSnapshot} from './objectives';
 import { advanceBots, advanceBotActions } from './bots';
 import { activateTractor, advanceTractors } from './tractor';
-import { advanceMatch, evaluateResult, matchSnapshot, startMatch } from './match';
+import { advanceMatch, evaluateResult, matchSnapshot, startMatch, setReady, playAgain } from './match';
 import { reload } from './reload';
 import { fire, advanceProjectiles, projectileSnapshot } from './projectiles';
 import { combatDebugEnabled, runCombatDebug } from './combat-debug';
@@ -51,6 +52,12 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
+    socket.on('play',(request,reply)=>{
+      if(typeof reply!=='function')return;const result=store.play(socket.id,request?.name,request?.mode,performance.now());
+      if(result.ok){const room=store.roomFor(socket.id)!;room.simulationTimeMs=tick*TICK_MS;void socket.join(roomChannel(room.code));notify(room.code);}reply(result);
+    });
+    socket.on('ready',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=setReady(room,socket.id,request);if(result.ok&&room)notify(room.code);reply(result);});
+    socket.on('playAgain',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=playAgain(room,socket.id,request);if(result.ok&&room)notify(room.code);reply(result);});
     socket.on('fillGame',(request,reply)=>{
       if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=store.fill(room,socket.id,request);
       if(result.ok && room)notify(room.code);reply(result);
@@ -92,6 +99,9 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       const admitting=room.match.state==='ended' && [...room.players.values()].some(p=>p.state.queuedForNextRound);
       const reset = advanceMatch(room, tick * TICK_MS);
       advanceTractors(room,tick*TICK_MS);
+      if(!reset && room.match.state==='waiting'){
+        let i=0;for(const p of room.players.values()){if(p.state.controllerType!=='BOT')continue;const a=tick*.012+i++*Math.PI*2/7;const tx=LOBBY_HOLE.x+Math.cos(a)*240,ty=LOBBY_HOLE.y+Math.sin(a)*240,dx=tx-p.state.x,dy=ty-p.state.y;p.input={up:dy<-8,down:dy>8,left:dx<-8,right:dx>8,boost:false,aim:Math.atan2(dy,dx)};p.lastInput=now;}
+      }
       if(!reset)advanceBots(room,now,tick);
       for (const player of room.players.values()) {
         if (!reset) simulatePlayer(player, room, now, tick * TICK_MS);
@@ -102,10 +112,11 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       advanceTractors(room,tick*TICK_MS,true);
       if(!reset){advanceObjectives(room);advanceLoot(room);}
       room.combatEffects=room.combatEffects?.filter(e=>room.simulationTimeMs-e.timeMs<400);
+      room.killFeed=room.killFeed?.filter(entry=>room.simulationTimeMs-entry.timeMs<5000);
       evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
-        effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
+        killFeed:room.killFeed??[],effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => ({ ...p.state })),
       });
       // Replacement membership is reliable, but follows the volatile snapshot

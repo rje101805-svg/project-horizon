@@ -1,8 +1,9 @@
+import {startActiveFixture as startMatch,replayFixture} from './active-fixture';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { performance } from 'node:perf_hooks';
 import { RoomStore, activeParticipants } from '../server/rooms';
-import { startMatch, evaluateResult, advanceMatch, roundHumans } from '../server/match';
+import { evaluateResult, advanceMatch, roundHumans } from '../server/match';
 import { advanceBots, advanceBotActions, botHands, selectBotStrategy } from '../server/bots';
 import { activateTractor, advanceTractors } from '../server/tractor';
 import { applyDamage } from '../server/combat';
@@ -12,36 +13,31 @@ import { createGameServer } from '../server/game';
 import { idleInput, TICK_MS } from '../shared/flight';
 import { stepMovement } from '../shared/movement';
 
-function fixture(humans=1){const store=new RoomStore();store.create('a','A',0);const room=store.roomFor('a')!;for(let i=1;i<humans;i++)store.join(`h${i}`,room.code,`Human ${i}`,0);const fill=()=>store.fill(room,'a',{roomCode:room.code,round:room.match.round});return {store,room,fill};}
+function fixture(humans=1){const store=new RoomStore();store.create('a','A',0,humans===1?'fill':'wait');const room=store.roomFor('a')!;for(let i=1;i<humans;i++)store.join(`h${i}`,room.code,`Human ${i}`,0);const fill=()=>store.fill(room,'a',{roomCode:room.code,round:room.match.round});return {store,room,fill};}
 function fighting(){const f=fixture();f.fill();startMatch(f.room,'a',{round:0});const [a,b,c]=[...f.room.players.values()];for(const [i,p] of [...f.room.players.values()].entries())Object.assign(p.state,{x:200+i*100,y:1800,rotation:0});return {...f,a,b,c};}
 const tractorRequest=(f:ReturnType<typeof fighting>,p=f.a)=>({sequence:(p.lastTractorSequence??0)+1,round:f.room.match.round,reloadSession:p.state.reloadSession,lifeGeneration:p.state.lifeGeneration,teleportSequence:p.state.teleportSequence});
-for(const humans of [1,3,7,8])test(`FILL ${humans} humans produces exactly ${8-humans} socket-free bots`,()=>{
- const f=fixture(humans);assert.equal(f.fill().ok,true);assert.equal(f.room.players.size,8);const bots=[...f.room.players.values()].filter(p=>p.state.controllerType==='BOT');assert.equal(bots.length,8-humans);
- const ids=bots.map(p=>p.state.id);assert.equal(new Set(ids).size,ids.length);for(const b of bots){assert.ok(b.state.bot);assert.equal(f.store.roomFor(b.state.id),undefined);assert.equal(b.gameplayEnabled,false);}
- for(let i=0;i<10;i++)assert.equal(f.fill().ok,true);assert.deepEqual([...f.room.players.values()].filter(p=>p.state.bot).map(p=>p.state.id),ids);
- startMatch(f.room,'a',{round:0});assert.equal(f.room.match.roster.length,8);assert.equal(roundHumans(f.room).length,8);
+for(const humans of [1,3,7,8])test(`${humans===1?'FILL':'WAIT'} ${humans} humans respects fixed mode and socket-free bots`,()=>{
+ const f=fixture(humans);assert.equal(f.fill().ok,humans===1);const bots=[...f.room.players.values()].filter(p=>p.state.controllerType==='BOT');assert.equal(bots.length,humans===1?7:0);assert.equal(f.room.players.size,humans===1?8:humans);
+ const ids=bots.map(p=>p.state.id);assert.equal(new Set(ids).size,ids.length);for(const b of bots){assert.ok(b.state.bot);assert.equal(f.store.roomFor(b.state.id),undefined);assert.equal(b.gameplayEnabled,true);assert.equal(b.combatEnabled,false);}
+ for(let i=0;i<10;i++)assert.equal(f.fill().ok,humans===1);assert.deepEqual([...f.room.players.values()].filter(p=>p.state.bot).map(p=>p.state.id),ids);
+ startMatch(f.room,'a',{round:0});assert.equal(f.room.match.roster.length,humans===1?8:humans);assert.equal(roundHumans(f.room).length,humans===1?8:humans);
 });
-test('fill rejects forgery, stale tokens, non-host, active and ended; reassigned human host can fill',()=>{
- const f=fixture(2);for(const raw of [null,[],{}, {roomCode:f.room.code,round:1},{roomCode:f.room.code,round:0,target:'bot'}])assert.equal(f.store.fill(f.room,'a',raw).ok,false);
- assert.equal(f.store.fill(f.room,'h1',{roomCode:f.room.code,round:0}).ok,false);f.store.leave('a');assert.equal(f.room.match.hostId,'h1');assert.equal(f.store.fill(f.room,'h1',{roomCode:f.room.code,round:0}).ok,true);
- startMatch(f.room,'h1',{round:0});assert.equal(f.store.fill(f.room,'h1',{roomCode:f.room.code,round:1}).ok,false);f.room.match.state='ended';assert.equal(f.store.fill(f.room,'h1',{roomCode:f.room.code,round:1}).ok,false);
+test('fill rejects forgery, stale tokens, non-host, WAIT, active and ended',()=>{
+ const f=fixture();for(const raw of [null,[],{}, {roomCode:f.room.code,round:1},{roomCode:f.room.code,round:0,target:'bot'}])assert.equal(f.store.fill(f.room,'a',raw).ok,false);
+ assert.equal(f.store.fill(f.room,'stranger',{roomCode:f.room.code,round:0}).ok,false);assert.equal(f.fill().ok,true);startMatch(f.room,'a',{round:0});assert.equal(f.fill().ok,false);f.room.match.state='ended';assert.equal(f.fill().ok,false);assert.equal(fixture(2).fill().ok,false);
 });
-test('waiting human atomically replaces one bot and clears removed controller/projectile state',()=>{
- const f=fixture();f.fill();const removed=[...f.room.players.values()].at(-1)!;f.room.projectiles.set('stale',{id:'stale',ownerId:removed.state.id,shotSequence:1,lifeGeneration:0,teleportSequence:0,x:0,y:0,vx:0,vy:0,damage:25,spawnTick:0,remainingMs:1,remainingTicks:1});
- assert.equal(f.store.join('b',f.room.code,'B',0).ok,true);assert.equal(f.room.players.size,8);assert.equal(f.room.players.has(removed.state.id),false);assert.equal(removed.state.bot,undefined);assert.equal(f.room.projectiles.size,0);assert.equal(f.room.players.get('b')!.gameplayEnabled,true);assert.equal(activeParticipants(f.room).length,8);
+test('FILL cannot replace a lobby bot with another human; rejection preserves bots and projectiles',()=>{
+ const f=fixture();f.fill();const bot=[...f.room.players.values()].at(-1)!;const ids=[...f.room.players.keys()];assert.equal(f.store.join('b',f.room.code,'B',0).ok,false);assert.deepEqual([...f.room.players.keys()],ids);assert.equal(bot.state.controllerType,'BOT');assert.equal(f.room.players.size,8);
 });
-test('multiple queued humans cannot affect roster/combat and replace bots at reset',()=>{
- const f=fighting(),original=[...f.room.match.roster];for(const id of ['q1','q2','q3'])assert.equal(f.store.join(id,f.room.code,id,0).ok,true);
- assert.deepEqual(f.room.match.roster,original);assert.equal(activeParticipants(f.room).length,8);assert.equal(roundHumans(f.room).length,8);
- for(const id of ['q1','q2','q3']){const p=f.room.players.get(id)!;assert.equal(p.state.status,'OUT');assert.equal(p.gameplayEnabled,false);assert.equal(applyDamage(p,999,{type:'PLAYER',playerId:'a'}),null);}
- const winner=f.b;for(const p of activeParticipants(f.room))if(p!==winner)applyDamage(p,999,{type:'PLAYER',playerId:winner.state.id});evaluateResult(f.room,0);
- assert.deepEqual(f.room.match.result,{kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});assert.equal(advanceMatch(f.room,6000),true);assert.equal(f.room.players.size,8);assert.equal([...f.room.players.values()].filter(p=>p.state.bot).length,4);
- for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(p.state.ammo,30);assert.equal(p.state.queuedForNextRound,false);if(p.state.bot){assert.equal(p.state.controllerType,'BOT');assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
- startMatch(f.room,'a',{round:1});for(const id of ['q1','q2','q3'])assert.ok(f.room.match.roster.includes(id));assert.equal(roundHumans(f.room).length,8);
+test('late humans cannot affect FILL roster; explicit replay preserves every bot ID and resets controller state',()=>{
+ const f=fighting(),original=[...f.room.match.roster];for(const id of ['q1','q2','q3'])assert.equal(f.store.join(id,f.room.code,id,0).ok,false);
+ assert.deepEqual(f.room.match.roster,original);assert.equal(activeParticipants(f.room).length,8);const winner=f.b;for(const p of activeParticipants(f.room))if(p!==winner)applyDamage(p,999,{type:'PLAYER',playerId:winner.state.id});evaluateResult(f.room,0);
+ assert.deepEqual(f.room.match.result,{kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});assert.equal(replayFixture(f.room,6000),true);assert.deepEqual([...f.room.players.keys()],original);assert.equal([...f.room.players.values()].filter(p=>p.state.bot).length,7);
+ for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(p.state.ammo,30);if(p.state.bot){assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
+ startMatch(f.room,'a',{round:1});assert.equal(roundHumans(f.room).length,8);
 });
-test('queue bounded by available bot backfill; disconnect frees queue and room destruction clears every bot',()=>{
- const f=fighting();for(let i=0;i<7;i++)assert.equal(f.store.join(`q${i}`,f.room.code,'Q',0).ok,true);assert.equal(f.store.join('ninth',f.room.code,'N',0).ok,false);f.store.leave('q0');assert.equal(f.store.join('replacement',f.room.code,'R',0).ok,true);
- const refs=[...f.room.players.values()].filter(p=>p.state.bot);for(const p of [...f.room.players.values()])if(p.state.controllerType==='HUMAN')f.store.leave(p.state.id);assert.equal(f.store.rooms.size,0);assert.equal(f.room.players.size,0);for(const b of refs){assert.equal(b.state.bot,undefined);assert.equal(b.gameplayEnabled,false);}
+test('FILL rejects queued humans; final human disconnect destroys every bot and its controller state',()=>{
+ const f=fighting();for(let i=0;i<7;i++)assert.equal(f.store.join(`q${i}`,f.room.code,'Q',0).ok,false);const refs=[...f.room.players.values()].filter(p=>p.state.bot);f.store.leave('a');assert.equal(f.store.rooms.size,0);assert.equal(f.room.players.size,0);for(const b of refs){assert.equal(b.state.bot,undefined);assert.equal(b.gameplayEnabled,false);}
 });
 test('target selection excludes self/alien/spectator and hands turn, move, aim imperfectly and reacquire',()=>{
  const f=fighting();f.c.state.status='ALIEN';f.room.players.get([...f.room.players.keys()][3])!.state.status='OUT';
@@ -84,7 +80,7 @@ for(const boost of [false,true])test(`tractor attacker has identical normal thru
 });
 test('eight-participant production loop is bounded over multiple rounds with no socket bots',async()=>{
  const f=fixture();f.fill();const ids=[...f.room.players.keys()],server=createGameServer([],f.store,{autoTick:false});const begin=performance.now();let rounds=0;
- try{for(let i=0;i<3600;i++){if(f.room.match.state==='waiting'){startMatch(f.room,'a',{round:f.room.match.round});rounds++;}server.step();assert.ok(activeParticipants(f.room).length<=8);for(const p of f.room.players.values()){assert.ok(Number.isFinite(p.state.x)&&Number.isFinite(p.state.y));assert.ok(p.state.ammo>=0);assert.ok(p.pendingInputs.length<=8);}}
+ try{for(let i=0;i<3600;i++){if(f.room.match.state==='ended')replayFixture(f.room,f.room.simulationTimeMs);if(f.room.match.state==='waiting'){startMatch(f.room,'a',{round:f.room.match.round});rounds++;}server.step();assert.ok(activeParticipants(f.room).length<=8);for(const p of f.room.players.values()){assert.ok(Number.isFinite(p.state.x)&&Number.isFinite(p.state.y));assert.ok(p.state.ammo>=0);assert.ok(p.pendingInputs.length<=8);}}
  assert.ok(rounds>=2);assert.deepEqual([...f.room.players.keys()],ids);assert.equal(server.io.sockets.sockets.size,0);console.log(`8-participant 3600-tick run: ${(performance.now()-begin).toFixed(1)}ms, ${rounds} rounds`);
  }finally{await server.close();}
 });

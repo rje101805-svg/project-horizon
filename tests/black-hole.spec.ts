@@ -2,21 +2,22 @@ import { test, expect } from '@playwright/test';
 import type { FlightConnection } from '../src/network';
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection };
 test('two browsers see gravity/death and reconnect recovers safely', async ({ page, context }) => {
+  test.setTimeout(45000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#server-url').fill('http://127.0.0.1:3002');
+  await page.goto('/?devrooms=1'); await page.locator('#server-url').fill('http://127.0.0.1:3002');
   await page.locator('#display-name').fill('Falling'); await page.locator('#create').click();
   await expect(page.locator('#black-hole-status')).toHaveText('Safe space');
   const code = (await page.locator('#room-code-display').textContent())!;
   const peer = await context.newPage(); peer.on('pageerror', e => errors.push(e.message));
-  await peer.goto('/'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');
+  await peer.goto('/?devrooms=1'); await peer.locator('#server-url').fill('http://127.0.0.1:3002');
   await peer.locator('#room-code').fill(code); await peer.locator('#join').click();
   await expect(peer.locator('#black-hole-status')).toHaveText('Safe space');
-  await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('active');
+  await peer.locator('#ready-match').click();await expect(page.locator('#start-match')).toBeEnabled();await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
   const hole = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.blackHole);
   expect(await peer.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.blackHole)).toEqual(hole);
   // Use ordinary movement inputs, never a server-position fixture in this test.
   let sawDanger = false;
-  await page.keyboard.down('w');
+
   await expect.poll(async () => {
     const local = await page.evaluate(() => {
       const connection = (window as unknown as DebugWindow).__HORIZON_FLIGHT__;
@@ -24,6 +25,7 @@ test('two browsers see gravity/death and reconnect recovers safely', async ({ pa
     });
     if (!local || !hole) return 'waiting';
     sawDanger ||= local.region === 'danger';
+    if(local.y>hole.y+15){await page.keyboard.up('s');await page.keyboard.down('w');}else if(local.y<hole.y-15){await page.keyboard.up('w');await page.keyboard.down('s');}else{await page.keyboard.up('w');await page.keyboard.up('s');}
     // Steer with keys toward the center instead of timing a turn; CI frame
     // scheduling varies, and residual sideways inertia can miss a small circle.
     if (local.x > hole.x + 15) { await page.keyboard.up('d'); await page.keyboard.down('a'); }
@@ -42,6 +44,7 @@ test('two browsers see gravity/death and reconnect recovers safely', async ({ pa
   const oldId = await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.disconnect());
   await expect(page.locator('#status')).toContainText('Disconnected');
+  await peer.locator('#play-again').click();
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connect());
   await expect(page.locator('#black-hole-status')).toHaveText('Safe space');
   // Reconnect during ended is waiting; the authoritative reset restores access.

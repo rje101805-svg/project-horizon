@@ -6,7 +6,7 @@ type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text
 type DebugScene = Phaser.Scene & { ships: Map<string, Ship> };
 type DebugWindow = Window & { __HORIZON_FLIGHT__: FlightConnection; __HORIZON_GAME__: Phaser.Game };
 async function home(page: Page, name: string, path = '/') {
-  await page.goto(path); await page.locator('#server-url').fill('http://127.0.0.1:3002'); await page.locator('#display-name').fill(name);
+  await page.goto(`${path}${path.includes('?')?'&':'?'}devrooms=1`); await page.locator('#server-url').fill('http://127.0.0.1:3002'); await page.locator('#display-name').fill(name);
 }
 async function ships(page: Page) {
   return page.evaluate(() => {
@@ -28,10 +28,11 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   for (const page of [a, b]) await expect(page.locator('#player-count')).toHaveText('2 / 8 players');
   await expect.poll(() => ships(b)).toHaveLength(2);
   await a.bringToFront(); await expect.poll(() => ships(a)).toHaveLength(2);
-  await a.locator('#start-match').click();await expect.poll(()=>a.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state)).toBe('active');
+  // Independent flight is allowed in the new lobby; no automatic BR start.
+  await expect(a.locator('#start-match')).toBeDisabled();
   const identities = await a.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest!.players);
   expect(new Set(identities.map(p => p.id)).size).toBe(2); expect(new Set(identities.map(p => p.color)).size).toBe(2);
-  expect((await ships(a)).map(p => p.name)).toContain('<b>A</b> (you)');
+  expect((await ships(a)).map(p => p.name)).toContain('<b>A</b> (you) · HOST');
   expect(await a.locator('b').count()).toBe(0); // name is Phaser text, never HTML
   const beforeA = await a.locator('#position').textContent(); const beforeB = await b.locator('#position').textContent();
   await a.keyboard.down('d'); await expect.poll(() => a.locator('#position').textContent()).not.toBe(beforeA); await a.keyboard.up('d');
@@ -48,11 +49,8 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   await a.locator('#fake-lag').uncheck(); await b.bringToFront(); await b.locator('#fake-lag').uncheck();
   await b.close(); await a.bringToFront();
   await expect(a.locator('#player-count')).toHaveText('1 / 8 players'); await expect.poll(() => ships(a)).toHaveLength(1);
-  // Disconnect now awards the remaining human a locked victory/freeze.
-  await expect(a.locator('#match-result')).toHaveText('VICTORY');
-  await expect(a.locator('#match-overlay')).toBeVisible();
-  await expect(a.locator('#match-status')).toHaveText('Waiting for host start', {timeout:10000});
-  await expect(a.locator('#match-overlay')).toBeHidden();
+  // Lobby departures preserve a noncombat solo lobby and never award victory.
+  await expect(a.locator('#match-overlay')).toBeHidden();await expect(a.locator('#match-status')).toHaveText('Waiting for host start');
   const after = await a.locator('#position').textContent(); await a.keyboard.down('w');
   await expect.poll(() => a.locator('#position').textContent()).not.toBe(after); await a.keyboard.up('w');
   expect(errors).toEqual([]);
@@ -73,5 +71,5 @@ test('fake lag is disabled by default, code/link clipboard actions preserve the 
   await page.getByRole('button', { name: 'Copy code', exact: true }).click(); await expect(page.locator('#share-status')).toHaveText('Copied');
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(code);
   await page.getByRole('button', { name: 'Copy join link', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(`?room=${code}`);
+  await expect.poll(() => page.evaluate(async() => new URL(await navigator.clipboard.readText()).searchParams.get('room'))).toBe(code);expect(new URL(await page.evaluate(() => navigator.clipboard.readText())).pathname).toBe('/');
 });

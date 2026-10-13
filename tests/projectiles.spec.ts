@@ -1,3 +1,4 @@
+import {startActiveFixture,replayFixture} from './active-fixture';
 import { test, expect } from '@playwright/test';
 import { createGameServer } from '../server/game';
 import { RoomStore } from '../server/rooms';
@@ -15,7 +16,7 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);
   };
   try{
-    for(const p of [page,peer,keeper]){await p.goto('/');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
+    for(const p of [page,peer,keeper]){await p.goto('/?devrooms=1');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
     await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();
     const code=(await page.locator('#room-code-display').textContent())!;
     await peer.locator('#room-code').fill(code);await peer.locator('#join').click();await expect(peer.locator('canvas')).toBeVisible();
@@ -24,8 +25,11 @@ test('two browsers hold fire through authoritative cooldown, receive bullets/dam
     await keeper.locator('#room-code').fill(code);await keeper.locator('#join').click();await expect(keeper.locator('canvas')).toBeVisible();
     const id=await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.id);
     const room=store.rooms.get(code)!,a=room.players.get(id!)!,b=[...room.players.values()].find(p=>p!==a)!;
-    Object.assign([...room.players.values()].find(p=>p!==a && p!==b)!.state,{x:200,y:1800});
-    Object.assign(b.state,{x:1600,y:1200});await frame();await page.locator('#start-match').click();await expect.poll(()=>room.match.state).toBe('active');await frame();await page.bringToFront();await page.keyboard.press('F3');
+    startActiveFixture(room,room.match.hostId!,{round:room.match.round});
+    Object.assign([...room.players.values()].find(p=>p!==a && p!==b)!.state,{x:200,y:1800,vx:0,vy:0});
+    Object.assign(a.state,{x:1370,y:1200,vx:0,vy:0});Object.assign(b.state,{x:1600,y:1200,vx:0,vy:0});for(const p of room.players.values())p.state.teleportSequence++;await frame();await page.bringToFront();await page.keyboard.press('F3');
+    // Aim through the actual canvas pointer pipeline after the active teleport.
+    const target=await page.evaluate(id=>{const w=window as unknown as DebugWindow,c=w.__HORIZON_FLIGHT__,s=(w as unknown as {__HORIZON_GAME__:{scene:{scenes:{cameras:{main:{scrollX:number;scrollY:number;zoom:number}}}[]};canvas:HTMLCanvasElement;scale:{width:number;height:number}}}).__HORIZON_GAME__,camera=s.scene.scenes[0].cameras.main,rect=s.canvas.getBoundingClientRect(),p=c.latest!.players.find(p=>p.id===id)!;return {x:rect.left+(p.x-camera.scrollX)*camera.zoom*rect.width/s.scale.width,y:rect.top+(p.y-camera.scrollY)*camera.zoom*rect.height/s.scale.height};},b.state.id);await page.mouse.move(target.x,target.y);
     await page.keyboard.down('Space');await expect.poll(()=>a.state.ammo).toBe(29);await frame();
     await expect.poll(()=>peer.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.projectiles.length)).toBe(1);
     await frame(12);

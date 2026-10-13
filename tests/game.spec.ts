@@ -14,19 +14,19 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   try {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/?devrooms=1');
   await page.locator('#server-url').fill(url);
   await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('#status')).toContainText('server-authoritative');
-  await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
+  await expect(page.locator('#position')).toHaveText('X 6240.0 · Y 6000.0');
   await page.keyboard.down('d');
-  await expect.poll(() => page.locator('#position').textContent()).not.toBe('X 1370.0 · Y 1200.0');
+  await expect.poll(() => page.locator('#position').textContent()).not.toBe('X 6240.0 · Y 6000.0');
   await page.keyboard.down('Shift');
   await expect.poll(async () => Number((await page.locator('#velocity').textContent())?.split(' ')[1])).toBeGreaterThan(350);
   await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.getByRole('button', { name: 'DEV reset flight [F4]', exact: true }).click();
-  await expect(page.locator('#position')).toHaveText('X 1370.0 · Y 1200.0');
+  await expect(page.locator('#position')).toHaveText('X 6240.0 · Y 6000.0');
   // Mutating the render object is overwritten by the next predicted render.
   await page.evaluate(() => {
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
@@ -35,7 +35,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await expect.poll(() => page.evaluate(() => {
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
     return scene.rocket.x;
-  })).toBe(1370);
+  })).toBe(6240);
   // Keep the room alive through the tested reconnect (identity is ephemeral).
   const peer = io(url);
   await new Promise<void>(resolve => peer.once('connect', () => resolve()));
@@ -57,7 +57,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   } finally { await page.close(); await server.close(); }
 });
 test('missing server never falls back to local movement', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?devrooms=1');
   await page.locator('#server-url').fill('http://127.0.0.1:39999');
   await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.locator('#home-status')).toContainText('Cannot reach', { timeout: 7000 });

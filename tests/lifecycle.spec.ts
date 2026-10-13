@@ -1,3 +1,4 @@
+import {startActiveFixture,replayFixture} from './active-fixture';
 import { ALIEN_HEALTH } from '../shared/alien';
 import { consumeAmmo, startReload, startFireCooldown } from '../server/combat';
 import { applyDamage } from '../server/health';
@@ -35,7 +36,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     for (const [p, skew] of [[page, 86400000], [peer, -86400000]] as const) {
       p.on('pageerror', e => errors.push(e.message));
       await p.addInitScript(offset => { const original = Date.now; Date.now = () => original() + offset; }, skew);
-      await p.goto('/'); await p.locator('#server-url').fill(url);
+      await p.goto('/?devrooms=1'); await p.locator('#server-url').fill(url);
     }
     await page.locator('#display-name').fill('Dying'); await page.locator('#create').click();
     await expect(page.locator('canvas')).toBeVisible();
@@ -43,8 +44,8 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
     await peer.locator('#display-name').fill('Watching'); await peer.locator('#room-code').fill(code); await peer.locator('#join').click();
     await expect(peer.locator('canvas')).toBeVisible();
     // A third living human keeps the round active for both alien respawn cycles.
-    await keeper.goto('/');await keeper.locator('#server-url').fill(url);await keeper.locator('#room-code').fill(code);await keeper.locator('#join').click();await expect(keeper.locator('canvas')).toBeVisible();
-    await frame();await page.locator('#start-match').click();await expect.poll(()=>store.rooms.get(code)!.match.state).toBe('active');await frame();
+    await keeper.goto('/?devrooms=1');await keeper.locator('#server-url').fill(url);await keeper.locator('#room-code').fill(code);await keeper.locator('#join').click();await expect(keeper.locator('canvas')).toBeVisible();
+    await frame();startActiveFixture(store.rooms.get(code)!,store.rooms.get(code)!.match.hostId!,{round:store.rooms.get(code)!.match.round});await frame();
     await expect(page.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     await expect(peer.locator('#life-status')).toHaveText(`Alive · health ${MAX_HEALTH} / ${MAX_HEALTH}`);
     const id = (await localState(page))!.id, room = store.rooms.get(code)!, player = room.players.get(id)!;
@@ -69,7 +70,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       await expect.poll(() => peer.evaluate(id => {
         const ship = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].ships.get(id);
         return { alpha: ship?.body.alpha, label: ship?.label.text };
-      }, id)).toEqual({ alpha: .5, label: 'Dying · ALIEN · DEAD' });
+      }, id)).toEqual({ alpha: .5, label: 'Dying · HOST · ALIEN · DEAD' });
       const death = { x: player.state.x, y: player.state.y };
       await page.keyboard.down('d'); await page.keyboard.press('r'); await frame();
       expect({ x: player.state.x, y: player.state.y }).toEqual(death); expect(player.state.health).toBe(0);
@@ -98,7 +99,7 @@ test('controlled server ticks drive skew-safe death UI, automatic respawn snap a
       }, id)).toEqual({ x: player.state.x, y: player.state.y, alpha: .5 });
       // Held key from the old life was cleared; fresh press restores movement.
       const spawnX = player.state.x, key = spawnX < 2000 ? 'd' : 'a'; await frame(); expect(player.state.x).toBe(spawnX);
-      await page.locator('canvas').click({ position: { x: 400, y: 300 } });
+      await page.locator('canvas').click({ position: { x: 800, y: 300 } });
       await page.keyboard.up('d'); await page.keyboard.down(key);
       // Ordered tick commands can follow queued neutral ticks. Drive the real
       // simulation while waiting, as a running server does (no wall-time respawn).

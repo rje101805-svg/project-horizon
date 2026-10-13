@@ -1,7 +1,7 @@
 import { ALIEN_HEALTH } from '../shared/alien';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { applyDamage, consumeAmmo, startReload, completeReload, startFireCooldown, canFireFromCooldown,
   setStatus, resetCombatState, advanceCombatTick } from '../server/combat';
 import { combatDebugEnabled, runCombatDebug } from '../server/combat-debug';

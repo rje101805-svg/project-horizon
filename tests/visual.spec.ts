@@ -1,3 +1,4 @@
+import {startActiveFixture} from './active-fixture';
 import { test, expect, chromium } from '@playwright/test';
 import { existsSync } from 'node:fs';
 test('WebGL sphere initializes and Canvas fallback remains visible without gameplay errors', async ({ page }) => {
@@ -6,7 +7,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
  const gpu=await browser.newPage();
  try{for(const [p,webgl] of [[page,false],[gpu,true]] as const){
   const errors:string[]=[];p.on('pageerror',e=>errors.push(e.message));
-  await p.goto('http://127.0.0.1:5175');await p.locator('#server-url').fill('http://127.0.0.1:3002');const started=Date.now();await p.getByRole('button',{name:'Create room',exact:true}).click();
+  await p.goto('http://127.0.0.1:5175/?devrooms=1');await p.locator('#server-url').fill('http://127.0.0.1:3002');const started=Date.now();await p.locator('[data-hotspot=fill]').click();await p.locator('[data-hotspot=play]').click();
   // Software-GPU cold bakes can exceed five seconds; match the solar fixture's
   // bounded readiness budget without changing any rendering assertions.
   await expect(p.locator('canvas')).toBeVisible({timeout:15000});console.log('P3S2.6 visual cold readiness ms',webgl?'SwiftShader':'Canvas',Date.now()-started);
@@ -53,9 +54,9 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
   await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].celestial.fallback.visible)).toBe(true);
   if(webgl){await p.locator('#visual-quality').selectOption('standard');await p.locator('#visual-intensity').fill('0');await p.locator('#visual-open').click();await p.locator('canvas').screenshot({path:'/tmp/p3s1-space.png'});}
   if(webgl){
-   await p.locator('#visual-combat').click();await p.locator('#fill-game').click();
+   await p.locator('#visual-combat').click();
    await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.players.length)).toBe(8);
-   await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state)).toBe('active');
+   await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
    await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].ships.size)).toBe(8);
    await p.locator('canvas').screenshot({path:'/tmp/p3s1-combat.png'});
   }
@@ -64,7 +65,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
   expect(resources).toBe(18);
   expect(errors).toEqual([]);
   await p.getByRole('button',{name:'Back to home'}).click();await expect(p.locator('#visual-controls')).toHaveCount(0);
-  await p.getByRole('button',{name:'Create room',exact:true}).click();await expect(p.locator('canvas')).toBeVisible({timeout:15000});
+  await p.locator('[data-hotspot=fill]').click();await p.locator('[data-hotspot=play]').click();await expect(p.locator('canvas')).toBeVisible({timeout:15000});
   await expect.poll(()=>p.evaluate(()=>{const g=(window as any).__HORIZON_GAME__;return Object.keys(g.textures.list).filter(k=>/^(space-|ice-|distant-|horizon-)/.test(k)).length;})).toBe(17);
   await expect(p.locator('#visual-controls')).toHaveCount(1);
   await p.getByRole('button',{name:'Back to home'}).click();
@@ -82,8 +83,8 @@ test('eight-participant visual studies retain authoritative combat, alien identi
  const address=server.http.address();if(!address||typeof address==='string')throw Error('Missing port');let tick=0;const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  const frame=async()=>{await page.evaluate(()=>new Promise<void>(r=>(window as any).__HORIZON_FLIGHT__.socket.emit('latencyProbe',r)));server.step();tick++;await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
  try{
-  await page.goto('/');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();await expect.poll(()=>page.evaluate(()=>!!(window as any).__HORIZON_FLIGHT__)).toBe(true);await frame();
-  await page.locator('#fill-game').click();await expect.poll(()=>[...store.rooms.values()][0].players.size).toBe(8);await frame();await page.locator('#start-match').click();await expect.poll(()=>[...store.rooms.values()][0].match.state).toBe('active');
+  await page.goto('/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('[data-hotspot=fill]').click();await page.locator('[data-hotspot=play]').click();await expect(page.locator('canvas')).toBeVisible();await expect.poll(()=>page.evaluate(()=>!!(window as any).__HORIZON_FLIGHT__)).toBe(true);await frame();
+  expect([...store.rooms.values()][0].players.size).toBe(8);startActiveFixture([...store.rooms.values()][0],[...store.rooms.values()][0].match.hostId!,{round:0});await frame();
   const room=[...store.rooms.values()][0],players=[...room.players.values()],a=players[0],b=players[1],ghost=players[7];
   applyDamage(ghost,999,{type:'PLAYER',playerId:a.state.id},room.simulationTimeMs);ghost.respawnAtMs=room.simulationTimeMs;await frame();expect(ghost.state.status).toBe('ALIEN');expect(ghost.state.lifeState).toBe('active');
   for(const [i,p]of players.entries()){Object.assign(p.state,{x:1370+(i===0?0:100+(i%3)*110),y:1200+(i<2?0:(i%3-1)*105),vx:0,vy:0,rotation:0});p.state.teleportSequence++;}

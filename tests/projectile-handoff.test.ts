@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ProjectileView,LOCAL_PROJECTILE_EXTRAPOLATION_MS} from '../src/projectile-view';
 import {ProjectilePrediction} from '../src/projectile-prediction';
-import {RoomStore} from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import {fire,projectileSnapshot} from '../server/projectiles';
 import type {Snapshot} from '../shared/protocol';
 function fixture(){

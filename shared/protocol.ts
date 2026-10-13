@@ -9,10 +9,11 @@ import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
-export interface PlayerState extends FlightState, LifeState { queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
+export interface PlayerState extends FlightState, LifeState { launchProtectionRemainingMs?:number; queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
 export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; participantIds?: string[]; queuedIds?: string[]; maxPlayers: number; blackHole: BlackHoleState }
 export interface CombatEffect {color?:number;id:number;kind:'explosion'|'shock'|'frost'|'burn';x:number;y:number;radius:number;timeMs:number}
-export interface Snapshot {effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
+export interface KillAnnouncement { id:string; timeMs:number; text:string }
+export interface Snapshot {killFeed?:KillAnnouncement[];effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }
@@ -24,6 +25,9 @@ export interface ServerEvents {
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface TriggerRequest {sequence:number;held:boolean;roomCode:string;round:number;reloadSession:string;lifeGeneration:number;teleportSequence:number}
 export interface ClientEvents {
+  play: (request:{name:string;mode:import('./match').RoomMode}, reply:(result:RoomResult)=>void)=>void;
+  ready: (request:{round:number;ready:boolean}, reply:(result:StartMatchResult)=>void)=>void;
+  playAgain: (request:StartMatchRequest, reply:(result:StartMatchResult)=>void)=>void;
   trigger:(request:TriggerRequest)=>void;
   inventory:(request:InventoryCommand,reply:(result:InventoryResult)=>void)=>void;
   fillGame:(request:{roomCode:string;round:number},reply:(result:StartMatchResult)=>void)=>void;

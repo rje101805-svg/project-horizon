@@ -58,3 +58,58 @@
 .inventory-hud{pointer-events:auto;display:flex;gap:5px;max-width:450px;padding:5px;white-space:normal}
 .inventory-hud[hidden]{display:none}.weapon-slot{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;width:130px;min-height:100px;padding:3px;border:1px solid;border-radius:4px;background:#07101df0;cursor:pointer;user-select:none}.weapon-slot.equipped{box-shadow:inset 0 0 0 2px #ecf6ff}.weapon-slot img{width:105px;height:42px;object-fit:contain;pointer-events:none}.weapon-slot-label{font:10px/1.4 monospace;white-space:pre-line;text-align:center;pointer-events:none}.weapon-drop{padding:2px 6px;margin:4px 0 0;font-size:9px;background:#283448;color:#fff;cursor:pointer}.swap-prompt{bottom:135px}
 @media(max-width:700px){.inventory-hud{left:8px;right:auto;max-width:calc(100% - 16px)}.weapon-slot{width:100px;min-height:96px}.weapon-slot img{width:84px}.weapon-slot-label{font-size:9px}}
+/* Artwork and controls share one fitted 1672 × 941 coordinate surface. */
+body.cinematic-menu:not(.in-mission){background:#02040a;overflow:hidden}
+.cinematic-menu:not(.in-mission) #app{max-width:none;padding:0}
+.cinematic-menu:not(.in-mission) header,.cinematic-menu:not(.in-mission) footer{display:none}
+.cinematic-menu #home{position:fixed;inset:0;padding:0;display:flex;align-items:center;justify-content:center;background:#02040a}
+#menu-art{position:relative;flex:none;overflow:hidden;background:radial-gradient(ellipse at 75% 25%,#54203b,#070d18 70%)}
+#menu-art>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.menu-hotspot{position:absolute;border:0;border-radius:0;padding:0;background:transparent;color:transparent;font-size:clamp(8px,1.2vw,20px);cursor:pointer}
+.menu-hotspot:hover{box-shadow:inset 0 0 18px #ff667755;filter:none}
+.menu-hotspot:focus-visible{outline:2px solid #fcdfce;outline-offset:0}
+.menu-hotspot[data-hotspot=fill],.menu-hotspot[data-hotspot=wait]{background:linear-gradient(#272733,#14151e);border:1px solid #77727d;color:#d8d3d3;font-weight:800}
+.menu-hotspot.selected{background:linear-gradient(#ed4536,#892328);border-color:#ff8b79;color:#fff}
+#display-name.menu-hotspot{color:#e8ecf5;background:linear-gradient(#1d2430,#10151e);font:bold clamp(8px,1.1vw,19px) Arial;padding:0 8px;border:1px solid #5a6678;cursor:text}
+#home>.eyebrow,#home>h1,#home>.intro,#home>.selection,#home>#name-help,#home>.endpoint,#home>#server-help,#home>.room-entry{display:none}
+#home-status,#cancel-connect{position:absolute;bottom:1%;left:50%;transform:translateX(-50%);background:#07101ee8;padding:8px;z-index:4}
+#cancel-connect{bottom:6%}
+.dev-rooms #home>.endpoint,.dev-rooms #home>.room-entry{display:flex;position:absolute;right:1%;bottom:8%;background:#07101ef5;z-index:8;padding:8px}
+.dev-rooms #home>.endpoint{bottom:20%;width:350px}
+#menu-modal{position:fixed;inset:0;display:grid;place-items:center;background:#000b;z-index:50;padding:20px}
+#menu-modal>section{position:relative;max-width:660px;padding:40px;background:#0a1223;border:1px solid #c86c73;box-shadow:0 0 60px #db425044}
+#menu-modal-close{position:absolute;top:8px;right:8px;background:#662432;color:#fff;padding:4px 12px}
+#menu-modal-body{white-space:pre-line;line-height:1.7}
+.show-hotspots .menu-hotspot{outline:2px solid #41ffd1}
+.show-hotspots .menu-hotspot:after{content:attr(data-label);position:absolute;left:0;top:0;background:#001c15;color:#41ffd1;font:12px monospace}
+.art-missing>img{display:none}.art-missing .menu-hotspot{color:#fff;background:#1b2537;border:1px solid #5b7285}.art-missing h1{margin-left:4%;font-size:clamp(18px,4vw,60px)}
+#cinematic-status{position:absolute;z-index:25;left:50%;top:25%;transform:translateX(-50%);font:bold 48px Arial;color:#fff;text-shadow:0 0 25px #ff8080;pointer-events:none}
+#cinematic-flash{position:absolute;inset:0;z-index:26;background:#fff;pointer-events:none}
+.match-overlay{pointer-events:auto;z-index:30}.match-overlay button{margin:8px;background:#bb3642;color:#fff}
+#lobby-roster{display:block;width:100%;color:#cad7e8;font-size:12px}
+/* Lobby and game use the available screen; controls sit over its margins. */
+.in-mission #app{max-width:none;padding:0}.in-mission header,.in-mission footer{display:none}
+.in-mission #mission{position:fixed;inset:0;padding:0}.in-mission .game-stage{position:absolute;inset:0}.in-mission .game-viewport,.in-mission #game{width:100%;height:100%}.in-mission #game{border:0;border-radius:0}
+.in-mission .mission-top{position:absolute;right:12px;top:12px;z-index:22}.in-mission .mission-top>div:first-child{display:none}
+.in-mission .room-bar{position:absolute;left:12px;top:8px;z-index:22;margin:0;font-size:12px;background:#07101dcc;padding:4px;max-width:70%}.in-mission .room-bar button{padding:4px 8px;font-size:10px}
+.in-mission .lobby-controls{position:absolute;left:12px;bottom:42px;z-index:22;margin:0;padding:8px;background:#07101de8;max-width:calc(100% - 24px)}
+.in-mission #debug-network{position:absolute;top:52px;left:12px;z-index:22;margin:0;background:#07101dcc;padding:4px;font-size:10px}
+.in-mission #black-hole-status{position:absolute;left:12px;bottom:8px;z-index:22;font-size:12px;pointer-events:none}
+.in-mission .mission-bottom{position:absolute;right:12px;bottom:8px;z-index:22;padding:0;font-size:10px;max-width:70%;pointer-events:none}.in-mission .mission-bottom>span:last-child{display:none}
+.in-mission .debug-overlay{position:absolute;left:12px;top:110px;z-index:23;max-height:70%;overflow:auto;max-width:460px;margin:0;background:#07101de8}
+body[data-phase=waiting] #ammo-hud,body[data-phase=countdown] #ammo-hud,body[data-phase=collapse] #ammo-hud,body[data-phase=launch] #ammo-hud{display:none}
+body[data-phase=active] .lobby-controls,body[data-phase=ended] .lobby-controls{display:none}
+#display-name.menu-name-field{position:absolute;left:38%;top:47%;width:59%;height:47%;margin:0;padding:0 4px;border:0;border-radius:2px;color:#f3f4f8;background:#151c29;font:bold clamp(8px,1.1vw,19px) Arial;min-width:0}
+.art-missing [data-hotspot=name]:before{content:'PLAYER NAME';position:absolute;left:5%;top:5%;color:#fff;font-size:10px}
+.in-mission .gameplay-hud{max-width:180px;overflow-wrap:anywhere}
+body[data-phase=waiting] .debug-overlay{max-height:calc(100% - 350px)}
+@media(max-width:800px){.in-mission .debug-overlay{top:auto;bottom:44px;max-height:45%;max-width:calc(100% - 24px);overflow-wrap:anywhere}}
+.kill-feed{position:absolute;z-index:12;left:12px;top:96px;max-width:280px;padding:5px 8px;background:#07101de0;border-left:2px solid #b45b65;color:#dedfe9;white-space:pre-line;overflow-wrap:anywhere;font:11px/1.5 Arial;pointer-events:none}
+.art-missing .menu-hotspot.selected{background:#bb3642}
+@media(max-width:800px){body[data-phase=waiting] .debug-overlay{top:auto;bottom:220px;max-height:calc(100% - 350px)}}
+/* Keep the initial eight-ship orbit clear of opaque lobby controls. */
+.in-mission .lobby-controls{left:auto;right:12px;top:66px;bottom:auto;width:290px;font-size:12px;gap:8px;border:1px solid #35475b;border-radius:5px}
+.in-mission .lobby-controls button{padding:10px;font-size:13px;width:100%}
+.in-mission #lobby-roster{font:11px/1.4 Arial;max-height:120px;overflow:auto}
+.in-mission #lobby-status{line-height:1.4}
+body[data-phase]:not([data-phase=waiting]) .lobby-controls,body[data-phase]:not([data-phase=active]) #inventory-hud,body[data-phase]:not([data-phase=active]) #swap-prompt{display:none}

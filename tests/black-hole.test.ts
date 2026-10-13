@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createBlackHole, gravityAt, classifyRegion, crossesHorizon, GRAVITY_CAP, SPAWN_CLEARANCE } from '../shared/black-hole';
-import { RoomStore, chooseSpawn } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
+import { chooseSpawn } from '../server/rooms';
 import { simulatePlayer } from '../server/simulation';
 import { idleInput } from '../shared/flight';
 const hole = createBlackHole();

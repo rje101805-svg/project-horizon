@@ -30,14 +30,14 @@ function spawnPoint(room:GameRoom,record:CaptureRecord,p:RoomPlayer){
  return null;
 }
 export function dropGoldGun(room:GameRoom,p:RoomPlayer){
- const galaxyType=p.state.galaxyType??'cryo',id=clearGoldGun(p);if(!id)return;
+ const galaxyType=p.state.galaxyType??'cryo',id=clearGoldGun(p);if(!id||room.match.state!=='active')return;
  const s=objectiveState(room);s.pickups.set(id,{id,galaxyType,blockedId:p.state.id,blockedUntilMs:room.simulationTimeMs+LOOT_CONFIG.pickupGraceMs,x:Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,p.state.x)),y:Math.max(EDGE_MARGIN,Math.min(WORLD-EDGE_MARGIN,p.state.y)),source:'drop',planetId:null,spawnTimeMs:room.simulationTimeMs});
  announce(room,{kind:'dropped',text:`${GALAXY_WEAPONS[galaxyType].name.toUpperCase()} HAS DROPPED`,participantId:p.state.id});
 }
 export function removeObjectiveParticipant(room:GameRoom,p:RoomPlayer){
  dropGoldGun(room,p);
  for(const record of objectiveState(room).planets){record.ticks.delete(p.state.id);if(record.planet.capturingId===p.state.id)record.planet.capturingId=null;}
- // Successful history remains until reset; rejoining an active round is OUT.
+ // Successful history remains until replay; active WAIT admission is locked.
 }
 export function collectGoldGun(room:GameRoom,p:RoomPlayer,id:string,recentValidated=false):boolean {
  const s=objectiveState(room),pickup=s.pickups.get(id);

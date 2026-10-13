@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import type { ClientEvents, ServerEvents, RoomResult, Snapshot } from '../shared/protocol';
 import type { FireResult } from '../shared/projectiles';
 test('real sockets reject hit/state claims, enforce fire spam, replicate room projectiles and debug refill', async () => {

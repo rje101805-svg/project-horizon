@@ -1,3 +1,4 @@
+import {stepLobby} from '../shared/lobby';
 import {advanceGalaxyTick} from './galaxy';
 import { advanceCombatTick, resetCombatState } from './combat';
 import { stepMovement } from '../shared/movement';
@@ -6,13 +7,14 @@ import { applyDamage } from './health';
 import { classifyRegion } from '../shared/black-hole';
 import { idleInput, INPUT_TIMEOUT_MS } from '../shared/flight';
 import { ALIEN_SPAWN_PROTECTION_MS } from '../shared/alien';
-import { chooseAlienSpawn, chooseSpawn, type GameRoom, type RoomPlayer } from './rooms';
+import { chooseAlienSpawn, chooseSpawn,chooseLobbySpawn, type GameRoom, type RoomPlayer } from './rooms';
 // Called exactly once by the existing 30Hz loop. No additional clock/physics loop.
 export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, simulationTimeMs = now) {
   // No stale reference can respawn a player after leave/disconnect.
   if (room.players.get(player.state.id) !== player || !player.gameplayEnabled) return;
   player.simulationTimeMs = simulationTimeMs;
-  player.state.spawnInvulnerabilityRemainingMs = Math.max(0, player.invulnerableUntilMs - simulationTimeMs);
+  player.state.spawnInvulnerabilityRemainingMs = Math.max(0, Math.max(player.invulnerableUntilMs,player.launchProtectionUntilMs??0) - simulationTimeMs);
+  player.state.launchProtectionRemainingMs=Math.max(0,(player.launchProtectionUntilMs??0)-simulationTimeMs);
   if (player.state.lifeState === 'dead') {
     player.reset = false;
     retireInputs(player);
@@ -31,10 +33,9 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
     player.input = idleInput(); player.lastInput = -Infinity;
     return; // teleport only; no movement integration on the respawn tick
   }
-  advanceGalaxyTick(room,player);if(player.state.health<=0)return;
-  advanceCombatTick(player);
+  if(room.match.state==='active'){advanceGalaxyTick(room,player);if(player.state.health<=0)return;advanceCombatTick(player);}
   if (player.reset) {
-    const spawn = chooseSpawn([...room.players.values()].filter(p => p !== player && !p.state.queuedForNextRound).map(p => p.state), room.blackHole);
+    const spawn = room.match.state==='waiting'?chooseLobbySpawn([...room.players.values()].filter(p=>p!==player).map(p=>p.state)):chooseSpawn([...room.players.values()].filter(p=>p!==player&&!p.state.queuedForNextRound).map(p=>p.state),room.blackHole);
     if (spawn) { Object.assign(player.state, spawn); player.state.teleportSequence++; }
     retireInputs(player);
     player.input = idleInput(); player.reset = false;
@@ -51,10 +52,12 @@ export function simulatePlayer(player: RoomPlayer, room: GameRoom, now: number, 
     player.lastInput = queued.receivedAt;
   }
   if (now - player.lastInput > INPUT_TIMEOUT_MS) player.input = { ...idleInput(), aim: player.state.rotation };
+  if(room.match.state==='waiting'){stepLobby(player.state,player.input);player.state.region='safe';return;}
   if (stepMovement(player.state, player.input, room.blackHole)) {
     applyDamage(player, player.state.maxHealth + player.state.maxShield, { type: 'ENVIRONMENT', cause: 'BLACK_HOLE' }, simulationTimeMs);
     player.state.region = 'lethal';
     return;
   }
+  player.state.launchProtectionRemainingMs=Math.max(0,(player.launchProtectionUntilMs??0)-simulationTimeMs);
   player.state.region = classifyRegion(player.state, room.blackHole);
 }

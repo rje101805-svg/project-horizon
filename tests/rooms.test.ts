@@ -1,3 +1,4 @@
+import {LOBBY_HOLE} from '../shared/match';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RoomStore, generateRoomCode, chooseSpawn } from '../server/rooms';
@@ -21,7 +22,7 @@ test('create allocates identity, room membership and first spawn', () => {
   assert.ok(result.ok); assert.equal(result.selfId, 'id-a'); assert.deepEqual(result.room.playerIds, ['id-a']);
   assert.equal(store.roomFor('id-a')?.players.get('id-a')?.state.name, 'A');
   assert.equal(store.rooms.size, 1); assert.equal(result.room.maxPlayers, MAX_ROOM_PLAYERS);
-  assert.equal(store.roomFor('id-a')?.players.get('id-a')?.state.x, spawnFlight().x);
+  assert.equal(store.roomFor('id-a')?.players.get('id-a')?.state.x, LOBBY_HOLE.x+240);
 });
 test('code collisions retry safely and exhausted generator fails cleanly', () => {
   const codes = ['ABCD', 'ABCD', 'EFGH']; const store = new RoomStore(() => codes.shift() ?? 'ABCD');

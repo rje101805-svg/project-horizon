@@ -1,3 +1,4 @@
+import {ActiveFixtureStore} from './active-fixture';
 import { RoomStore } from '../server/rooms';
 import { createBlackHole, classifyRegion } from '../shared/black-hole';
 import { test } from 'node:test';
@@ -11,7 +12,7 @@ import type { ClientEvents, ServerEvents, Snapshot, RoomResult, InputMessage } f
 let inputSequence = 0;
 function nextSnapshot(socket: Socket<ServerEvents, ClientEvents>, condition: (s: Snapshot) => boolean = () => true): Promise<Snapshot> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { socket.off('snapshot', listener); reject(new Error('Snapshot timeout')); }, 4000);
+    const timer = setTimeout(() => { socket.off('snapshot', listener); reject(new Error(`Snapshot timeout: ${condition.toString()}`)); }, 4000);
     const listener = (snapshot: Snapshot) => { if (condition(snapshot)) { clearTimeout(timer); socket.off('snapshot', listener); resolve(snapshot); } };
     socket.on('snapshot', listener);
   });
@@ -47,15 +48,15 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
   const firstPromise = nextSnapshot(socket);
   try {
     const first = await firstPromise;
-    assert.equal(first.players[0].x, 1370);
+    assert.equal(first.players[0].x, 6240);
     // Type assertion only bypasses compile-time checking; the server must reject
     // the forged runtime fields as an authority boundary.
     socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, x: 99999, vx: 99999, speed: 99999 } as InputMessage);
     const unchanged = await nextSnapshot(socket, s => s.tick > first.tick + 2);
-    assert.equal(unchanged.players[0].x, 1370);
+    assert.equal(unchanged.players[0].x, 6240);
     const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true }), 30);
     try {
-      const moving = await nextSnapshot(socket, s => s.players[0].x > 1420);
+      const moving = await nextSnapshot(socket, s => s.players[0].x > 6290);
       assert.ok(moving.players[0].vx <= 290);
       assert.ok(moving.players[0].lastProcessedInput > 0);
       const start = performance.now();
@@ -67,7 +68,7 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
     const expired = await nextSnapshot(socket, s => Math.abs(s.players[0].vx) < 1);
     assert.ok(expired.players[0].x < WORLD - EDGE_MARGIN);
     socket.emit('resetFlight', 0);
-    const reset = await nextSnapshot(socket, s => s.players[0].x === 1370);
+    const reset = await nextSnapshot(socket, s => s.players[0].x === 6240);
     assert.equal(reset.players[0].vx, 0);
     socket.disconnect();
     await new Promise(r => setTimeout(r, 100));
@@ -168,13 +169,13 @@ test('origin policy admits Pages-style HTTPS origin and rejects unrelated WebSoc
 });
 
 test('room snapshots agree on black hole/death; late join and reconnect get complete state and safe new identity', async () => {
-  const store = new RoomStore(() => 'ABCD'); const t = await setup(store);
+  const store = new ActiveFixtureStore(() => 'ABCD'); const t = await setup(store);
   try {
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
     assert.deepEqual(result.room.blackHole, createBlackHole());
     await t.join(b, result.room.code);
     const keeper=await t.connect();await t.join(keeper,result.room.code);
-    assert.equal((await new Promise<{ok:boolean}>(resolve=>a.emit('startMatch',{round:0},resolve))).ok,true);
+
     await nextSnapshot(a, s=>s.match.state==='active' && s.match.roster.length===3);
     const room = store.rooms.get(result.room.code)!;
     // A server-side fixture, never a network position command. Customize state

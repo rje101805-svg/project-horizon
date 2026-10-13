@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { createGameServer } from '../server/game';
 import type { ClientEvents, ServerEvents, RoomResult, Snapshot } from '../shared/protocol';
 import type { ReloadRequest, ReloadResult } from '../shared/combat';

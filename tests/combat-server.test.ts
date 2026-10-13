@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { io, type Socket } from 'socket.io-client';
 import { createGameServer } from '../server/game';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import type { ClientEvents, ServerEvents, RoomResult, Snapshot } from '../shared/protocol';
 import type { CombatDebugAction, CombatDebugResult } from '../shared/combat';
 
@@ -25,6 +25,7 @@ for (const mode of ['default', 'enabled', 'production'] as const) {
       const room = await new Promise<RoomResult>(resolve => a.emit('createRoom', { name: 'A' }, resolve)); assert.ok(room.ok);
       assert.ok((await new Promise<RoomResult>(resolve => b.emit('joinRoom', { name: 'B', code: room.room.code }, resolve))).ok);
       const p = store.roomFor(a.id!)!.players.get(a.id!)!, peer = store.roomFor(b.id!)!.players.get(b.id!)!;
+      p.state.launchProtectionRemainingMs=0;peer.state.launchProtectionRemainingMs=0;
       const initial = structuredClone(p.state), peerInitial = structuredClone(peer.state);
       const request = (action: CombatDebugAction, markers = { lifeGeneration: 0, teleportSequence: 0 }) =>
         new Promise<CombatDebugResult>(resolve => a.emit('combatDebug', { action, ...markers, targetId: b.id, health: 9999 } as Parameters<ClientEvents['combatDebug']>[0], resolve));

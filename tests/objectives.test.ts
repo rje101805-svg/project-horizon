@@ -1,7 +1,8 @@
+import {startActiveFixture as startMatch,replayFixture} from './active-fixture';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {RoomStore} from '../server/rooms';
-import {startMatch,advanceMatch,evaluateResult} from '../server/match';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
+import {advanceMatch,evaluateResult} from '../server/match';
 import {applyDamage,advanceCombatTick} from '../server/combat';
 import {advanceObjectives,objectiveState,objectivesSnapshot,collectGoldGun,eligibleShip} from '../server/objectives';
 import {equipGoldGun} from '../server/equipment';
@@ -76,12 +77,12 @@ test('death drops exactly once, clears equipment, preserves history, and dropped
 });
 test('disconnect stops progress, drops ownership, and active-round rejoin cannot bypass limits',()=>{
  const f=fixture();f.inside();f.tick(100);f.store.leave('a');f.tick();assert.equal(f.record.ticks.has('a'),false);assert.notEqual(f.planet.status,'CAPTURING');
- assert.equal(f.store.join('new-a',f.room.code,'Redline',0).ok,true);const rejoined=f.room.players.get('new-a')!;f.inside(rejoined);f.tick(300);assert.equal(eligibleShip(f.room,rejoined),false);assert.equal(f.record.completed.has('new-a'),false);
+ assert.equal(f.store.join('new-a',f.room.code,'Redline',0).ok,true);const rejoined=f.room.players.get('new-a')!;rejoined.state.status='OUT';rejoined.gameplayEnabled=false;f.inside(rejoined);f.tick(300);assert.equal(eligibleShip(f.room,rejoined),false);assert.equal(f.record.completed.has('new-a'),false);
  const g=fixture();g.inside();g.tick(300);const gun=g.pickup()!;Object.assign(g.b.state,{x:gun.x,y:gun.y});collectGoldGun(g.room,g.b,gun.id);g.store.leave('b');assert.equal(g.pickup()!.source,'drop');assert.equal(g.record.completed.has('a'),true);
 });
 test('completed history survives disconnect and a reconnecting spectator cannot claim the abandoned reward',()=>{
  const f=fixture();f.inside();f.tick(300);const gun=f.pickup()!;f.store.leave('a');assert.equal(f.record.completed.has('a'),true);assert.equal(f.pickup()!.id,gun.id);
- assert.equal(f.store.join('new-a',f.room.code,'Redline',0).ok,true);const returned=f.room.players.get('new-a')!;Object.assign(returned.state,{x:gun.x,y:gun.y});assert.equal(collectGoldGun(f.room,returned,gun.id),false);
+ assert.equal(f.store.join('new-a',f.room.code,'Redline',0).ok,true);const returned=f.room.players.get('new-a')!;returned.state.status='OUT';returned.gameplayEnabled=false;Object.assign(returned.state,{x:gun.x,y:gun.y});assert.equal(collectGoldGun(f.room,returned,gun.id),false);
  Object.assign(f.b.state,{x:gun.x,y:gun.y});assert.equal(collectGoldGun(f.room,f.b,gun.id),true);f.outside(f.b);f.inside(returned);f.tick(300);assert.equal(f.record.completed.has('new-a'),false);assert.equal(f.pickup(),undefined);
 });
 test('a Gold holder can earn an unused capture but cannot auto-collect the second reward',()=>{
@@ -90,7 +91,7 @@ test('a Gold holder can earn an unused capture but cannot auto-collect the secon
 });
 test('multiple planetary completions produce one reward each; reset removes all history and gear',()=>{
  const f=fixture();Object.assign(f.a.state,{x:PLANET_REGIONS[0].x,y:PLANET_REGIONS[0].y});Object.assign(f.b.state,{x:PLANET_REGIONS[1].x,y:PLANET_REGIONS[1].y});f.tick(300);assert.equal(objectiveState(f.room).pickups.size,2);
- const gun=f.pickup()!;Object.assign(f.c.state,{x:gun.x,y:gun.y});collectGoldGun(f.room,f.c,gun.id);applyDamage(f.a,999,{type:'PLAYER',playerId:'c'});applyDamage(f.b,999,{type:'PLAYER',playerId:'c'});evaluateResult(f.room,f.room.simulationTimeMs);assert.equal(f.room.match.state,'ended');assert.equal(advanceMatch(f.room,f.room.simulationTimeMs+6000),true);
+ const gun=f.pickup()!;Object.assign(f.c.state,{x:gun.x,y:gun.y});collectGoldGun(f.room,f.c,gun.id);applyDamage(f.a,999,{type:'PLAYER',playerId:'c'});applyDamage(f.b,999,{type:'PLAYER',playerId:'c'});evaluateResult(f.room,f.room.simulationTimeMs);assert.equal(f.room.match.state,'ended');assert.equal(replayFixture(f.room,f.room.simulationTimeMs+6000),true);
  assert.equal(objectiveState(f.room).pickups.size,0);assert.ok(objectiveState(f.room).planets.every(p=>p.completed.size===0&&p.ticks.size===0));assert.ok([...f.room.players.values()].every(p=>!p.state.goldGunId));assert.equal(objectiveState(f.room).announcements.length,0);
 });
 test('meaningful starts/restarts are announced once rather than on every tick',()=>{

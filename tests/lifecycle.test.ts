@@ -2,7 +2,7 @@ import { ALIEN_HEALTH } from '../shared/alien';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MAX_HEALTH, RESPAWN_DELAY_MS, clampHealth } from '../shared/lifecycle';
-import { RoomStore } from '../server/rooms';
+import {ActiveFixtureStore as RoomStore} from './active-fixture';
 import { simulatePlayer } from '../server/simulation';
 import { applyDamage } from '../server/health';
 import { WORLD, idleInput } from '../shared/flight';

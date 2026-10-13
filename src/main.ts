@@ -1,3 +1,5 @@
+import {installMenu} from './menu';
+import {LOBBY_HOLE,LOBBY_RADIUS} from '../shared/match';
 import {preloadWeaponAssets} from './weapon-assets';
 import {inventoryInteracting} from './inventory-ui';
 import {LootVisuals} from './loot-visuals';
@@ -40,7 +42,7 @@ let game: Phaser.Game | undefined;
 let connection: FlightConnection | undefined;
 let busy = false;
 let attemptId = 0;
-type Ship = { body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Image; art: ShipArt; alien: boolean };
+type Ship = { protection:Phaser.GameObjects.Graphics; body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Image; art: ShipArt; alien: boolean };
 class Horizon extends Phaser.Scene {
   private composition:Composition='auto';
   private inspectionPoint:{x:number;y:number}|null=null;
@@ -68,6 +70,7 @@ class Horizon extends Phaser.Scene {
   private connection!: FlightConnection;
   private aim = 0;
   private ready = false;
+  get loaded(){return this.ready;}
   private spectatedId: string | null = null;
   private lastLocalLife: string | null = null;
   private lastLocalGeneration = -1;
@@ -92,7 +95,7 @@ class Horizon extends Phaser.Scene {
     if(import.meta.env.DEV)this.hitboxGraphics=this.add.graphics().setDepth(7).setVisible(false);
     this.horizonVisual=new HorizonVisual(this);
     this.holeVisual = this.add.graphics().setDepth(2);
-    if (connection?.room) this.drawBlackHole(connection.room.blackHole);
+    if (connection?.room) this.drawBlackHole(LOBBY_HOLE);
     const spawn = spawnFlight();
     this.rocket = this.add.container(spawn.x, spawn.y).setDepth(4);
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
@@ -163,11 +166,12 @@ class Horizon extends Phaser.Scene {
     const body = local ? this.rocket : this.add.container(player.x, player.y).setDepth(4);
     const art=shipArtForColor(player.color);
     const sprite=this.add.image(0,0,art.textureKey).setOrigin(art.originX,art.originY).setScale(art.visualScale).setRotation(art.rotationOffset).setName('custom-ship');
-    hull.setVisible(false);body.add([sprite,hull]);
+    const protection=this.add.graphics().lineStyle(2,0x9deaff,.8).strokeCircle(0,0,45).setVisible(false);
+    hull.setVisible(false);body.add([sprite,hull,protection]);
     const label = this.add.text(player.x, player.y + 44, player.name + (local ? ' (you)' : ''), {
       fontSize: '13px', color: '#ffffff', backgroundColor: '#0e1729', padding: { x: 4, y: 2 },
     }).setOrigin(.5, 0).setDepth(5);
-    const ship = { body, label, hull, sprite, art, alien:false }; this.ships.set(player.id, ship); return ship;
+    const ship = { protection,body, label, hull, sprite, art, alien:false }; this.ships.set(player.id, ship); return ship;
   }
   private placeShip(player: PlayerState) {
     if (player.status === 'OUT') return;
@@ -181,8 +185,9 @@ class Horizon extends Phaser.Scene {
       this.drawHull(ship.hull, player.color, alien);
       ship.sprite.setVisible(!alien);ship.hull.setVisible(alien);
     }
+    ship.protection.setVisible((player.launchProtectionRemainingMs??0)>0).setAlpha(this.visualIntensity.quality==='low'?.7:.65+.3*Math.sin(performance.now()*.018));
     ship.body.setAlpha(alien ? ALIEN_OPACITY : player.lifeState === 'dead' ? .25 : 1);
-    ship.label.setPosition(player.x, player.y + (alien?27:44)).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
+    ship.label.setPosition(player.x, player.y + (alien?27:this.connection.latest?.match.state==='waiting'?34:44)).setText(player.name + (player.controllerType==='BOT' ? ' [BOT]' : '') + (player.id === this.connection.socket.id ? ' (you)' : '') + (this.connection.latest?.match.hostId===player.id?' · HOST':'') + (this.connection.latest?.match.state==='waiting'&&this.connection.latest.match.readyIds.includes(player.id)?' · READY':'') + (alien ? ' · ALIEN' : '') + (player.lifeState === 'dead' ? ' · DEAD' : ''));
     // Edge-spawned ghosts keep their tag readable without moving the ship/camera.
     const view = this.cameras.main.worldView;
     if (alien && view.contains(player.x, player.y)) ship.label.setPosition(
@@ -197,18 +202,20 @@ class Horizon extends Phaser.Scene {
     if (!local) return;
     // Lifecycle/HUD stay authoritative; only local movement is predicted.
     this.removeShips(snapshot.players.filter(p => p.status !== 'OUT').map(p => p.id));
-    this.drawBlackHole(snapshot.blackHole);
+    this.drawBlackHole(snapshot.match.state==='waiting'||snapshot.match.state==='countdown'||snapshot.match.state==='collapse'?LOBBY_HOLE:snapshot.blackHole);
     if (local.status !== 'OUT') this.placeShip(this.connection.renderedLocal(0) ?? local);
     this.localHud.accept(local, performance.now());
     this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
     hud.combat(local); hud.humans(snapshot.survivingHumans);
+    const feed=(snapshot.killFeed??[]).map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;if(el('kill-feed').textContent!==feed)el('kill-feed').textContent=feed;
     const match = snapshot.match, spectator = local.status === 'OUT';
-    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}`;
+    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
+    document.body.dataset.phase=match.state;
     updateLobby();
     el('match-overlay').hidden = match.state !== 'ended';
     el('match-result').textContent = match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
-    el('match-reset').textContent = `Return to lobby in ${(match.resetRemainingMs / 1000).toFixed(1)}s`;
+    el('match-reset').textContent = 'Play again returns everyone to the lobby. A new START is required.';
     if (match.state === 'ended' || spectator) { this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
     if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
@@ -340,14 +347,24 @@ class Horizon extends Phaser.Scene {
     const camera=this.cameras.main;
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
     camera.setZoom(easeZoom(camera.zoom,this.visualIntensity.camera?cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat):1,elapsed));
-    const intensity=this.visualIntensity.update(elapsed),hole=this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
+    const match=this.connection.latest?.match??this.connection.room?.match,phase=match?.state,lobby=phase==='waiting'||phase==='countdown'||phase==='collapse';
+    const intensity=this.visualIntensity.update(elapsed),hole=lobby?LOBBY_HOLE:this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
+    this.celestial.enabled=!lobby;
+    const cinematic=phase==='countdown'||phase==='collapse'||phase==='launch';
+    el('cinematic-status').hidden=!cinematic;el('cinematic-status').textContent=phase==='countdown'?String(Math.max(1,Math.ceil((match?.phaseRemainingMs??0)/1000))):phase==='collapse'?'COLLAPSE':phase==='launch'?'LAUNCH':'';
+    const flash=el('cinematic-flash');flash.hidden=!(phase==='collapse'&&(match?.phaseRemainingMs??9999)<240||phase==='launch'&&(match?.phaseRemainingMs??0)>1150);
+    const lobbyPan=Math.min(260,Math.max(80,this.scale.width/2-302/(this.scale.displaySize.width/this.scale.width)-SHIP_HITBOX_RADIUS-12));
+    if(lobby){camera.stopFollow();camera.centerOn(LOBBY_HOLE.x+Math.sign((local?.x??LOBBY_HOLE.x)-LOBBY_HOLE.x)*Math.max(0,Math.abs((local?.x??LOBBY_HOLE.x)-LOBBY_HOLE.x)-lobbyPan),LOBBY_HOLE.y+Math.sign((local?.y??LOBBY_HOLE.y)-LOBBY_HOLE.y)*Math.max(0,Math.abs((local?.y??LOBBY_HOLE.y)-LOBBY_HOLE.y)-210));this.holeVisual.clear().lineStyle(2,0x6cb8dc,.18).strokeCircle(LOBBY_HOLE.x,LOBBY_HOLE.y,LOBBY_RADIUS);}
+    else if(cinematic){camera.stopFollow();if(hole)camera.centerOn(hole.x,hole.y);}
+    else if(!this.inspectionPoint)camera.startFollow(this.rocket,true,.12,.12);
     this.deepSpace.update(camera,this.visualIntensity.parallax,this.visualIntensity.quality==='standard',now);
+    if(lobby&&!(import.meta.env.DEV&&(this.inspectionPoint||this.composition!=='auto')))for(const image of this.deepSpace.cosmic.images)image.setVisible(false);
     this.celestial.quality=this.visualIntensity.quality;
     let light=hole??{x:1200,y:450};
     if(import.meta.env.DEV){
       if(this.inspectionPoint)camera.centerOn(this.inspectionPoint.x,this.inspectionPoint.y);
       const c=this.composition,study=c==='horizon'||c==='combat';
-      this.celestial.enabled=c!=='open'&&c!=='horizon';
+      this.celestial.enabled=(!lobby||!!this.inspectionPoint||c!=='auto')&&c!=='open'&&c!=='horizon';
       this.celestial.distant[0].setVisible(c!=='horizon');
       this.celestial.study=c!=='auto';
       for(const [i,body]of this.celestial.bodies.entries()){const p=PLANET_REGIONS[i];body.planet.x=c==='auto'?p.x:this.rocket.x+(c==='dark'?-240:240);body.planet.y=c==='auto'?p.y:this.rocket.y+35;body.planet.radius=c==='auto'?p.radius:380;}
@@ -356,7 +373,9 @@ class Horizon extends Phaser.Scene {
       this.previewHorizon?.update(camera,now,preview,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     }
     this.celestial.update(camera,now,light,intensity);
-    this.horizonVisual.update(camera,now,hole,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
+    const collapseProgress=phase==='collapse'?1-(match?.phaseRemainingMs??1800)/1800:0;
+    this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
+    this.map.setVisible(phase==='active'||phase==='ended');
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
     this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
@@ -400,6 +419,7 @@ function launch() {
   el('velocity').textContent = 'Speed —';
   el('tick').textContent = 'Server tick —';
   el('status').textContent = 'Connecting to flight server…';
+  document.body.classList.add('in-mission');(document.activeElement as HTMLElement)?.blur();
   el('home').hidden = true; el('mission').hidden = false;
   if (game) { game.destroy(true); game = undefined; }
   el('game').style.visibility='hidden';
@@ -408,11 +428,16 @@ function launch() {
 }
 function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
 function updateLobby() {
-  const c=connection,match=c?.latest?.match,button=el<HTMLButtonElement>('start-match');
-  const waiting=match?.state==='waiting',host=c?.room?.match.hostId===c?.socket.id;
-  const fill=el<HTMLButtonElement>('fill-game');fill.hidden=!waiting || !host;fill.disabled=(c?.room?.participantIds?.length ?? c?.room?.playerIds.length ?? 0)>=8;
-  button.hidden=!waiting || !host;button.disabled=!!c?.starting || (c?.latest?.survivingHumans ?? 0)<2;
-  el('lobby-status').textContent=waiting ? host ? button.disabled ? 'Waiting for at least 2 humans' : 'Ready to start' : 'WAITING FOR HOST' : '';
+  const c=connection,snapshotMatch=c?.latest?.match,match=snapshotMatch?.state==='waiting'&&c?.room?.match.state==='waiting'&&snapshotMatch.round===c.room.match.round?c.room.match:snapshotMatch??c?.room?.match,button=el<HTMLButtonElement>('start-match');
+  const waiting=match?.state==='waiting',host=match?.hostId===c?.socket.id;
+  el('fill-game').hidden=true;
+  const humans=c?.latest?.players.filter(p=>p.controllerType==='HUMAN')??[];
+  const eligible=match?.mode==='fill'||humans.length>=2&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
+  button.hidden=!waiting||!host;button.disabled=!!c?.starting||!eligible||!scene()?.loaded;
+  const ready=el<HTMLButtonElement>('ready-match');ready.hidden=!waiting||host||match?.mode!=='wait';ready.disabled=!scene()?.loaded;ready.setAttribute('aria-pressed',String(match?.readyIds.includes(c?.socket.id??'')));ready.textContent=match?.readyIds.includes(c?.socket.id??'')?'NOT READY':'READY';
+  el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} humans · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
+  el('lobby-roster').textContent=waiting?(c?.latest?.players.map(p=>`${p.name}${p.id===match?.hostId?' [HOST]':p.controllerType==='BOT'?' [BOT · READY]':match?.readyIds.includes(p.id)?' [READY]':' [NOT READY]'}`).join(' · ')??''):'';
+
 }
 function updateRoom(room: RoomInfo) {
   updateLobby();
@@ -428,10 +453,11 @@ function goHome(message = '') {
   connection?.close(); connection = undefined;
   hud.setRoom(0, false);
   game?.destroy(true); game = undefined;
+  document.body.classList.remove('in-mission');
   el('mission').hidden = true; el('home').hidden = false;
   el('home-status').textContent = message;
 }
-async function enterRoom(mode: 'create' | 'join') {
+async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait') {
   if (busy) return;
   const field = el<HTMLInputElement>('server-url');
   try {
@@ -471,6 +497,10 @@ async function enterRoom(mode: 'create' | 'join') {
     if (attempt === attemptId) { busy = false; el('cancel-connect').hidden = true; el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false; }
   }
 }
+el('ready-match').onclick=()=>connection?.ready();
+el('play-again').onclick=()=>connection?.playAgain();
+el('result-menu').onclick=()=>goHome();
+installMenu(mode=>{void enterRoom(mode);});
 el('fill-game').onclick=()=>connection?.fillGame();
 el('start-match').onclick=()=>{connection?.startMatch();updateLobby();};
 el('create').onclick = () => { void enterRoom('create'); };
