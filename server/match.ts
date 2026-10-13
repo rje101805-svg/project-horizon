@@ -26,6 +26,9 @@ function freeze(player: RoomPlayer) {
 }
 export function evaluateResult(room: GameRoom, timeMs: number) {
   if (room.match.state !== 'active') return;
+  // The locked launch roster distinguishes solo sessions from multiplayer
+  // rounds reduced to one survivor by elimination or disconnection.
+  if (room.match.mode === 'wait' && room.match.roster.length === 1) return;
   const humans = roundHumans(room);
   if (humans.length > 1) return;
   clearAllTractors(room);
@@ -137,7 +140,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
       !Number.isSafeInteger((raw as {round?:unknown}).round) || (raw as {round:number}).round !== room.match.round) return reject('Invalid or stale start request');
   if (room.match.state!=='waiting') return reject('Match is not waiting');
   const humans=roundHumans(room);
-  if (room.match.mode==='wait' && (humans.filter(p=>p.state.controllerType==='HUMAN').length<2 || humans.some(p=>p.state.id!==senderId&&!room.match.readyIds.includes(p.state.id))))return reject('WAIT requires at least 2 humans and all guests READY');
+  if (room.match.mode==='wait' && (humans.filter(p=>p.state.controllerType==='HUMAN').length<1 || humans.some(p=>p.state.id!==senderId&&!room.match.readyIds.includes(p.state.id))))return reject('WAIT requires a human host and all guests READY');
   if(room.match.mode==='fill' && (humans.filter(p=>p.state.controllerType==='HUMAN').length!==1 || humans.length!==8))return reject('FILL requires its host and seven bots');
   room.match.state='countdown';room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=COUNTDOWN_MS;room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];room.killFeed=[];clearAllTractors(room,true);room.projectiles.clear();
   assignLaunchAngles(room,humans);room.match.readyIds=humans.map(p=>p.state.id);

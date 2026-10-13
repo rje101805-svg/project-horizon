@@ -16,12 +16,12 @@ test('real sockets cannot spoof host/start; host migration and stale-start rejec
  try{
   const [a,b,c,unjoined]=await Promise.all([connect(),connect(),connect(),connect()]);
   const created=await new Promise<RoomResult>(resolve=>a.emit('createRoom',{name:'A'},resolve));assert.ok(created.ok);const room=store.rooms.get(created.room.code)!;
-  assert.equal(created.room.match.hostId,a.id);assert.equal((await start(a,0)).ok,false);assert.equal((await start(unjoined,0)).ok,false);
+  assert.equal(created.room.match.hostId,a.id);assert.equal((await start(a,1)).ok,false);assert.equal((await start(unjoined,0)).ok,false);
   assert.ok((await new Promise<RoomResult>(resolve=>b.emit('joinRoom',{code:room.code,name:'B'},resolve))).ok);
   server.step();assert.equal(room.match.state,'waiting');assert.equal((await start(b,0)).ok,false);
   const forged=await new Promise<StartMatchResult>(resolve=>(b as unknown as {emit:(event:string,raw:unknown,reply:(r:StartMatchResult)=>void)=>void}).emit('startMatch',{round:0,hostId:a.id,playerId:a.id,roomCode:room.code},resolve));assert.equal(forged.ok,false);
   const nextHost=new Promise<void>(resolve=>b.once('roomState',info=>{assert.equal(info.match.hostId,b.id);resolve();}));
-  await new Promise<void>(resolve=>a.emit('leaveRoom',resolve));await nextHost;assert.equal((await start(b,0)).ok,false);
+  await new Promise<void>(resolve=>a.emit('leaveRoom',resolve));await nextHost;assert.equal((await start(b,1)).ok,false);
   assert.ok((await new Promise<RoomResult>(resolve=>c.emit('joinRoom',{code:room.code,name:'C'},resolve))).ok);
   assert.equal((await start(b,0)).ok,false);assert.equal((await new Promise<StartMatchResult>(resolve=>c.emit('ready',{round:0,ready:true},resolve))).ok,true);
   assert.equal((await start(b,0)).ok,true);assert.deepEqual(room.match.roster,[b.id,c.id]);assert.equal(room.match.round,1);

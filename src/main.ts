@@ -446,10 +446,10 @@ function updateLobby() {
   const waiting=match?.state==='waiting',host=match?.hostId===c?.socket.id;
   el('fill-game').hidden=true;
   const humans=c?.latest?.players.filter(p=>p.controllerType==='HUMAN')??[];
-  const eligible=match?.mode==='fill'||humans.length>=2&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
+  const eligible=match?.mode==='fill'||humans.length>=1&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
   button.hidden=!waiting||!host;button.disabled=!!c?.starting||!eligible||!scene()?.loaded;
   const ready=el<HTMLButtonElement>('ready-match');ready.hidden=!waiting||host||match?.mode!=='wait';ready.disabled=!scene()?.loaded;ready.setAttribute('aria-pressed',String(match?.readyIds.includes(c?.socket.id??'')));ready.textContent=match?.readyIds.includes(c?.socket.id??'')?'NOT READY':'READY';
-  el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} humans · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
+  el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} humans · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?humans.length===1&&match?.mode==='wait'?'START solo or wait for players':'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
   el('lobby-roster').textContent=waiting?(c?.latest?.players.map(p=>`${p.name}${p.id===match?.hostId?' [HOST]':p.controllerType==='BOT'?' [BOT · READY]':match?.readyIds.includes(p.id)?' [READY]':' [NOT READY]'}`).join(' · ')??''):'';
 
 }

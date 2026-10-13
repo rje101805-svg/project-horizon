@@ -8,7 +8,7 @@ export function installMenu(play:(mode:RoomMode)=>void){
  document.body.dataset.quality=stored('horizon-menu-quality','standard');playCinematicCue('menu');
  const debris=document.createElement('div');debris.className='menu-debris';debris.setAttribute('aria-hidden','true');for(const [x,y,size]of [[48,18,5],[64,9,3],[83,11,5],[55,33,3],[92,49,4],[68,40,2]]){const rock=document.createElement('span');Object.assign(rock.style,{left:`${x}%`,top:`${y}%`,width:`${size}px`,height:`${size}px`});debris.append(rock);}stage.append(debris);
  const image=document.createElement('img');image.src=`${import.meta.env.BASE_URL}assets/ui/main-menu.png`;image.alt='Project Horizon cinematic main menu';image.draggable=false;stage.append(image);home.prepend(stage);
- let mode:RoomMode=stored('horizon-mode','fill')==='wait'?'wait':'fill';
+ let mode:RoomMode=stored('horizon-mode','wait')==='fill'?'fill':'wait';
  const name=document.getElementById('display-name') as HTMLInputElement;name.value=stored('horizon-name','');name.placeholder='Pilot_XX';name.autocomplete='off';name.setAttribute('aria-label','Player name');
  const overlay=document.createElement('div');overlay.id='menu-modal';overlay.hidden=true;overlay.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="menu-modal-title"><button id="menu-modal-close" aria-label="Close">×</button><h2 id="menu-modal-title"></h2><div id="menu-modal-body"></div></section>';home.append(overlay);
  const close=()=>{overlay.hidden=true;(document.activeElement as HTMLElement)?.blur();};
@@ -23,7 +23,7 @@ export function installMenu(play:(mode:RoomMode)=>void){
    button.onclick=()=>{
     if(id==='fill'||id==='wait'){mode=id;save('horizon-mode',mode);update();}
     else if(id==='play'){name.blur();save('horizon-name',name.value);play(mode);}
-    else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay.\n\nCapture an uncontested planet for 10 seconds to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. WAIT: public human lobby; guests READY, host START.');
+    else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay.\n\nCapture an uncontested planet for 10 seconds to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. PLAY defaults to a human-only lobby. START alone for solo play, or wait for guests to READY before host START. FILL remains optional.');
     else show(button.title.toUpperCase(),'COMING SOON');
    };
  }
