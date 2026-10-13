@@ -18,7 +18,7 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   await page.locator('#create').click(); await expect(page.locator('canvas')).toBeVisible();const code=(await page.locator('#room-code-display').textContent())!;
   for(const p of pages.slice(1,3)){await p.locator('#room-code').fill(code);await p.locator('#join').click();await expect(p.locator('canvas')).toBeVisible();}
   await frame();const room=store.rooms.get(code)!,[a,b,c]=[...room.players.values()];startActiveFixture(room,room.match.hostId!,{round:room.match.round});await frame();
-  const spectatorPage=pages[3];await spectatorPage.locator('#room-code').fill(code);await spectatorPage.locator('#join').click();await expect(spectatorPage.locator('#home-status')).toContainText('already started');await expect(spectatorPage.locator('canvas')).toHaveCount(0);expect(room.match.roster).toEqual([a.state.id,b.state.id,c.state.id]);
+  const spectatorPage=pages[3];await spectatorPage.locator('#room-code').fill(code);await spectatorPage.locator('#join').click();await expect(spectatorPage.locator('#home-status')).toContainText('Match in progress');await expect(spectatorPage.locator('canvas')).toHaveCount(0);expect(room.match.roster).toEqual([a.state.id,b.state.id,c.state.id]);
   if(lag)for(const p of clients)await p.locator('#fake-lag').check();
   applyDamage(c,200,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');for(const p of clients)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
   Object.assign(a.state,{x:200,y:1800,health:25,shield:0});Object.assign(b.state,{x:270,y:1800,health:25,shield:0});

@@ -1,3 +1,4 @@
+import {horizonAt,HORIZON_CORNERS,HORIZON_CONFIG} from '../shared/horizon';
 import {triggerIntent} from './galaxy';
 import {activeWeapon,WEAPONS,RARITIES,GALAXY_WEAPONS} from '../shared/weapons';
 import {lootState,nearestWeapon,swapWeapon,pickupWeapon,switchSlot,lootEligible} from './inventory';
@@ -41,11 +42,33 @@ export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotS
   if(nearest)return {...combat,mode:'GOLD_GUN',goal:{kind:'pickup',id:nearest.id,x:nearest.x,y:nearest.y}};
  }
  const elapsed=Math.max(0,room.simulationTimeMs-objectives.startedAtMs),slot=Math.max(0,SHIP_COLORS.findIndex(color=>color===bot.state.color));
- const continuing=objectives.planets.find(r=>!r.completed.has(bot.state.id)&&!r.planet.pickupId&&(r.ticks.get(bot.state.id)??0)>0);
+ const continuing=objectives.planets.find(r=>r.planet.status!=='CONSUMED'&&!r.completed.has(bot.state.id)&&!r.planet.pickupId&&(r.ticks.get(bot.state.id)??0)>0);
  if(!continuing&&(elapsed+slot*5000)%45000>=30000)return combat;
- const candidates=objectives.planets.filter(r=>!r.completed.has(bot.state.id)&&!r.planet.pickupId);
+ const candidates=objectives.planets.filter(r=>r.planet.status!=='CONSUMED'&&!r.completed.has(bot.state.id)&&!r.planet.pickupId);
  const record=continuing??candidates[(slot+Math.floor(elapsed/45000))%Math.max(1,candidates.length)];
  return record?{...combat,mode:'CAPTURE',goal:{kind:'capture',id:record.planet.id,x:record.planet.x,y:record.planet.y}}:combat;
+}
+
+function effectiveRange(bot:RoomPlayer){return bot.state.goldGunId?GALAXY_WEAPONS[bot.state.galaxyType??'cryo'].range:WEAPONS[activeWeapon(bot.state)?.class??'blaster'].range;}
+export function lootFirst(room:GameRoom,bot:RoomPlayer){return !bot.botLootEnded&&!!room.horizon&&room.simulationTimeMs-room.horizon.startedAtMs<30000&&(bot.state.inventory?.slots.filter(Boolean).length??0)<2;}
+function safeGoal(room:GameRoom,point:{x:number;y:number}){const h=room.horizon;if(!h)return true;const future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),corner=HORIZON_CORNERS[h.corner];return Math.hypot(point.x-corner.x,point.y-corner.y)>Math.max(future.radius,h.phase==='calm'?0:h.nextRadius)+350;}
+export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotStrategy):BotStrategy{
+ const s=bot.state,h=room.horizon;
+ if(s.status==='ALIVE'&&h){const corner=HORIZON_CORNERS[h.corner],future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),distance=Math.hypot(s.x-corner.x,s.y-corner.y);
+  if(distance<Math.max(future.radius,h.phase==='calm'?0:h.nextRadius)+450){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'horizon',x:corner.x===0?11900:100,y:corner.y===0?11900:100}};}
+ }
+ if(s.status==='ALIVE'&&s.health+s.shield<(s.maxHealth+s.maxShield)*.3&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)<5000){const target=combat.target?room.players.get(combat.target):undefined;if(target){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'retreat',x:Math.max(20,Math.min(11980,s.x+(s.x-target.state.x))),y:Math.max(20,Math.min(11980,s.y+(s.y-target.state.y)))}};}}
+ const blocked=bot.botLootBlocked??=new Map();for(const [id,until]of blocked)if(until<=room.simulationTimeMs)blocked.delete(id);
+ const previous=bot.botLootTarget;if(previous){const item=lootState(room).pickups.get(previous.id);if(!item){bot.botLootTarget=undefined;}else{const d=Math.hypot(item.x-s.x,item.y-s.y);if(d<previous.best-20){previous.best=d;previous.progressAtMs=room.simulationTimeMs;}else if(room.simulationTimeMs-previous.progressAtMs>5000){blocked.set(previous.id,room.simulationTimeMs+10000);bot.botLootTarget=undefined;}}}
+ let strategy=selectObjectiveStrategy(room,bot,combat);
+ if(lootFirst(room,bot)){
+  const items=[...lootState(room).pickups.values()].filter(p=>!blocked.has(p.id)&&safeGoal(room,p)&&(p.kind==='weapon'||s.inventory?.slots.some(w=>w&&WEAPONS[w.class].ammoType===p.ammoType))).sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y)||a.id.localeCompare(b.id));
+  if(items[0])strategy={...combat,mode:'LOOT',goal:{kind:'loot',id:items[0].id,x:items[0].x,y:items[0].y}};else{bot.botLootEnded=true;strategy=combat;}
+ }
+ if(strategy.goal&&(!safeGoal(room,strategy.goal)||blocked.has(strategy.goal.id)))strategy=combat;
+ if(strategy.goal?.kind==='loot'&&bot.botLootTarget?.id!==strategy.goal.id)bot.botLootTarget={id:strategy.goal.id,best:Math.hypot(strategy.goal.x-s.x,strategy.goal.y-s.y),progressAtMs:room.simulationTimeMs};
+ if(!strategy.goal)bot.botLootTarget=undefined;
+ return strategy;
 }
 
 // Normal keyboard-style controls, bounded turning, and imperfect heading aim.
@@ -74,7 +97,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
  }
  if(strategy.goal&&s.status==='ALIVE'){
   dx=strategy.goal.x-s.x;dy=strategy.goal.y-s.y;const distance=Math.hypot(dx,dy);
-  if(distance<(strategy.goal.kind==='capture'?80:10))dx=dy=0;
+  if(distance<(strategy.goal.kind==='capture'?80:20))dx=dy=0;
   input.boost=distance>500;
   if(!target||d.distance>(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
  }
@@ -89,6 +112,9 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
      heading=Math.atan2(dy,dx);input.boost=true;d.fire=d.tractor=d.melee=false;
    }
  }
+ if(strategy.goal?.kind==='escape'){input.boost=true;d.fire=d.tractor=d.melee=false;d.override='HORIZON_ESCAPE';}
+ if((s.launchProtectionRemainingMs??0)>0){d.fire=d.tractor=d.melee=false;}
+ else if(lootFirst(room,bot)&&d.distance>=effectiveRange(bot)*.6&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)>3000){d.fire=d.tractor=false;}
  if(dx || dy){const move=Math.atan2(dy,dx),x=Math.cos(move),y=Math.sin(move);input.right=x>.38;input.left=x<-.38;input.down=y>.38;input.up=y<-.38;}
  // 180 degrees/sec; deterministic small heading error, never exact target aim.
  const desired=heading+(d.override?0:Math.sin(tick*.08+s.color)*.065);
@@ -112,7 +138,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
        const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
-   const input=botHands(room,bot,selectObjectiveStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
+   const input=botHands(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
    }

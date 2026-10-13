@@ -1,7 +1,8 @@
+import {EJECTION_MS,LAUNCH_ORBIT_MS} from './launch';
 export const MATCH_RESET_DELAY_MS = 6000;
 export type MatchResult = { kind: 'winner'; winnerId: string; winnerName: string } | { kind: 'draw' };
 export type RoomMode = 'fill' | 'wait';
-export const COUNTDOWN_MS=3000, COLLAPSE_MS=1800, LAUNCH_MS=1400, LAUNCH_PROTECTION_MS=2000;
+export const COUNTDOWN_MS=3000, COLLAPSE_MS=1800, LAUNCH_MS=LAUNCH_ORBIT_MS+EJECTION_MS, LAUNCH_PROTECTION_MS=2000;
 export const LOBBY_HOLE={x:6000,y:6000,eventHorizonRadius:150,influenceRadius:0};
 export const LOBBY_RADIUS=620;
 export interface StartMatchRequest { round: number }

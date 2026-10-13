@@ -24,7 +24,7 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   await home(b, 'B', `/?room=${code.toLowerCase()}`);
   await expect(b.locator('#room-code')).toHaveValue(code);
   await expect(b.locator('#home')).toBeVisible(); // link never auto-connects
-  await b.getByRole('button', { name: 'Join room', exact: true }).click();
+  await expect(b.locator('#invite-code')).toHaveValue(code);await b.locator('#invite-name').fill('B');await b.locator('#menu-modal button[type=submit]').click();
   for (const page of [a, b]) await expect(page.locator('#player-count')).toHaveText('2 / 8 players');
   await expect.poll(() => ships(b)).toHaveLength(2);
   await a.bringToFront(); await expect.poll(() => ships(a)).toHaveLength(2);
@@ -57,8 +57,8 @@ test('two browser clients render names/colors, fly independently with fake lag, 
 });
 test('room errors are shown cleanly; a failed join can be followed by successful creation', async ({ page }) => {
   await home(page, 'Pilot'); await page.locator('#room-code').fill('BAD'); await page.getByRole('button', { name: 'Join room', exact: true }).click();
-  await expect(page.locator('#home-status')).toContainText('valid 4-character');
-  await page.locator('#room-code').fill('ZZZZ'); await page.getByRole('button', { name: 'Join room', exact: true }).click();
+  await expect(page.locator('#home-status')).toContainText('valid 5-character');
+  await page.locator('#room-code').fill('ZZZZZ'); await page.getByRole('button', { name: 'Join room', exact: true }).click();
   await expect(page.locator('#home-status')).toContainText('Room not found'); await expect(page.locator('#home')).toBeVisible();
   await page.getByRole('button', { name: 'Create room', exact: true }).click(); await expect(page.locator('#status')).toContainText('server-authoritative');
   await page.getByRole('button', { name: 'Back to home' }).click(); await expect(page.locator('#home')).toBeVisible();

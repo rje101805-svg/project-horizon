@@ -12,7 +12,7 @@ import { TICK_MS, idleInput } from '../shared/flight';
 import { ProjectilePrediction } from '../src/projectile-prediction';
 
 function fixture() {
-  const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
+  const store = new RoomStore(() => 'ABCDE'); store.create('a', 'A', 0);
   const room = store.roomFor('a')!, p = room.players.get('a')!;
   Object.assign(p.state, { x: 200, y: 1800 });
   return { store, room, p, request: { sequence: 1, lifeGeneration: 0, teleportSequence: 0, roomCode: room.code, reloadSession: p.state.reloadSession } };
@@ -47,7 +47,7 @@ test('reload rejects full, inactive, noncontestant, zero health, malformed and s
     assert.equal(parseReload(raw), null); assert.equal(reload(room, p, raw).ok, false);
   }
   for (const raw of [{ ...request, sequence: 2, lifeGeneration: 1 }, { ...request, sequence: 3, teleportSequence: 1 },
-    { ...request, roomCode: 'ABCD' === room.code ? 'EFGH' : 'ABCD' }]) assert.equal(reload(room, p, raw).ok, false);
+    { ...request, roomCode: 'ABCDE' === room.code ? 'EFGHJ' : 'ABCDE' }]) assert.equal(reload(room, p, raw).ok, false);
   assert.equal(reload(room, p, request).ok, false); // Previously rejected sequence cannot be replayed.
   for (const state of [{ health: 0 }, { health: 100, status: 'ALIEN' }, { status: 'OUT' }, { status: 'ALIVE', lifeState: 'dead' }]) {
     Object.assign(p.state, state); assert.equal(startReload(p), false);

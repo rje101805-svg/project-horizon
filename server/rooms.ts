@@ -11,8 +11,8 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '../shared/flight';
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
-export interface RoomPlayer { onEliminated?:(source:import('../shared/lifecycle').DamageSource,timeMs:number)=>void; combatEnabled?:boolean; launchProtectionUntilMs?:number; lastTriggerSequence?:number; recentPickupLife?:string; recentPickups?:Map<string,number>; burnOwnerId?:string; titanTriggerUntilMs?:number; dropRegular?:()=>void; reloadWeaponId?:string; lastInventorySequence?:number; nextSwapMs?:number; lastFireInputMs?:number; dropGold?:()=>void; botInputTick?:number; botInputLife?:number; botInputTeleport?:number; cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
-export interface GameRoom { killFeed?:import('../shared/protocol').KillAnnouncement[]; collapseOrigins?:Map<string,{radius:number;angle:number}>; combatEffects?:import('../shared/protocol').CombatEffect[];effectSequence?:number; loot?:LootState; objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
+export interface RoomPlayer { botLootEnded?:boolean; lastAttackedMs?:number; botLootTarget?:{id:string;best:number;progressAtMs:number}; botLootBlocked?:Map<string,number>; onEliminated?:(source:import('../shared/lifecycle').DamageSource,timeMs:number)=>void; combatEnabled?:boolean; launchProtectionUntilMs?:number; lastTriggerSequence?:number; recentPickupLife?:string; recentPickups?:Map<string,number>; burnOwnerId?:string; titanTriggerUntilMs?:number; dropRegular?:()=>void; reloadWeaponId?:string; lastInventorySequence?:number; nextSwapMs?:number; lastFireInputMs?:number; dropGold?:()=>void; botInputTick?:number; botInputLife?:number; botInputTeleport?:number; cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
+export interface GameRoom { horizon?:import('../shared/horizon').HorizonState; horizonConsumed?:{id:string;name:string;timeMs:number;hp:number}[]; killFeed?:import('../shared/protocol').KillAnnouncement[]; collapseOrigins?:Map<string,{radius:number;angle:number}>; combatEffects?:import('../shared/protocol').CombatEffect[];effectSequence?:number; loot?:LootState; objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const activeParticipants = (room:GameRoom) => [...room.players.values()].filter(p=>!p.state.queuedForNextRound);
 export function removeBot(room:GameRoom,id:string) {
  const p=room.players.get(id);if(p?.state.controllerType!=='BOT')return;
@@ -54,7 +54,7 @@ export function chooseAlienSpawn(existing: Iterable<Pick<PlayerState, 'x' | 'y'>
   for (let i = candidates.length - 1; i > 0; i--) {
     const j = randomInt(i + 1); [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
   }
-  const point = candidates.find(p => Math.hypot(p.x-hole.x,p.y-hole.y) > hole.influenceRadius + SPAWN_CLEARANCE &&
+  const point = candidates.find(p => (hole.horizon||Math.hypot(p.x-hole.x,p.y-hole.y) > hole.influenceRadius + SPAWN_CLEARANCE) &&
     players.every(other => Math.hypot(p.x-other.x,p.y-other.y) >= SPAWN_MIN_DISTANCE));
   return point ? {...spawnFlight(), ...point} : null;
 }
@@ -81,19 +81,18 @@ export class RoomStore {
   }
   join(id: string, rawCode: unknown, name: unknown, now: number): RoomResult {
     const code = normalizeRoomCode(rawCode);
-    if (!code) return { ok: false, error: 'Enter a valid 4-character room code.' };
-    if (this.roomFor(id)) return { ok: false, error: 'Leave your current room before joining another.' };
+    if (!code) return { ok: false, error: 'Enter a valid 5-character room code.' };
+    const current=this.roomFor(id);if(current)return current.code===code?{ok:true,room:this.info(current),selfId:id}:{ok:false,error:'Leave your current room before joining another.'};
     const room = this.rooms.get(code);
-    if (!room) return { ok: false, error: 'Room not found. Check the code or ask the host for a new room.' };
-    if(room.match.mode==='fill')return {ok:false,error:'FILL rooms are private.'};
-    if(room.match.state!=='waiting')return {ok:false,error:'This WAIT room has already started.'};
+    if (!room) return { ok: false, error: 'Room not found.' };
+    if(room.match.state!=='waiting')return {ok:false,error:'Match in progress.'};
     const participants=activeParticipants(room),bots=participants.filter(p=>p.state.controllerType==='BOT');
     const realCount=[...room.players.values()].filter(p=>p.state.controllerType==='HUMAN').length;
-    if(realCount>=MAX_ROOM_PLAYERS || (participants.length>=MAX_ROOM_PLAYERS && !bots.length))return {ok:false,error:`This room is full (${MAX_ROOM_PLAYERS} players).`};
+    if(realCount>=MAX_ROOM_PLAYERS || (participants.length>=MAX_ROOM_PLAYERS && !bots.length))return {ok:false,error:'Room full.'};
     const replacement=participants.length>=MAX_ROOM_PLAYERS && room.match.state==='waiting' ? bots.at(-1) : undefined;
     // Reserve the replacement's safe position/color before removing anything.
     const result=this.add(room,id,name,now,replacement?.state.id,participants.length>=MAX_ROOM_PLAYERS && !replacement);
-    if(result.ok && replacement){removeBot(room,replacement.state.id);result.room=this.info(room);}
+    if(result.ok && replacement){removeBot(room,replacement.state.id);room.match.readyIds=room.match.readyIds.filter(key=>key!==replacement.state.id);result.room=this.info(room);}
     return result;
   }
   private add(room: GameRoom, id: string, name: unknown, now: number, replacing?:string, queued=false): RoomResult {
@@ -141,6 +140,7 @@ export class RoomStore {
     for(;;){const candidate=`Pilot_${String(++this.pilotSequence).padStart(2,'0')}`;if(![...this.rooms.values(),room].some(r=>[...r.players.values()].some(p=>p.state.name===candidate)))return candidate;}
   }
   play(id:string,name:unknown,mode:unknown,now:number):RoomResult{
+    const current=this.roomFor(id);if(current)return {ok:true,room:this.info(current),selfId:id};
     if(mode!=='fill'&&mode!=='wait')return {ok:false,error:'Choose FILL or WAIT.'};
     if(mode==='wait'){const room=[...this.rooms.values()].find(r=>r.match.mode==='wait'&&r.match.state==='waiting'&&r.players.size<8);if(room)return this.join(id,room.code,name,now);}
     const result=this.create(id,name,now,mode);
@@ -150,7 +150,7 @@ export class RoomStore {
   leave(id: string): GameRoom | undefined {
     const room = this.roomFor(id);
     this.membership.delete(id);
-    if (room) { const departing=room.players.get(id);if(departing){departing.state.stunRemainingMs=departing.state.stunImmunityRemainingMs=0;departing.dropRegular?.();removeObjectiveParticipant(room,departing);}clearTractorsFor(room,id); room.tractorCooldowns?.delete(id); room.players.delete(id);room.match.readyIds=room.match.readyIds.filter(key=>key!==id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs); if (![...room.players.values()].some(p=>p.state.controllerType==='HUMAN')) { for(const p of [...room.players.values()])removeBot(room,p.state.id);room.projectiles.clear();room.tractorBeams?.clear();room.tractorCooldowns?.clear();room.loot?.pickups.clear();room.objectives?.pickups.clear();room.combatEffects=[];room.killFeed=[];room.collapseOrigins=undefined;room.match.launchAngles={};room.match.readyIds=[];this.rooms.delete(room.code); } }
+    if (room) { const departing=room.players.get(id);if(departing){departing.state.stunRemainingMs=departing.state.stunImmunityRemainingMs=0;departing.dropRegular?.();removeObjectiveParticipant(room,departing);}clearTractorsFor(room,id); room.tractorCooldowns?.delete(id); room.players.delete(id);room.match.readyIds=room.match.readyIds.filter(key=>key!==id); assignHost(room); for (const [key, p] of room.projectiles) if (p.ownerId === id) room.projectiles.delete(key); evaluateResult(room, room.simulationTimeMs);if(room.match.mode==='fill'&&room.match.state==='waiting'&&room.match.hostId)this.fill(room,room.match.hostId,{roomCode:room.code,round:room.match.round}); if (![...room.players.values()].some(p=>p.state.controllerType==='HUMAN')) { for(const p of [...room.players.values()])removeBot(room,p.state.id);room.projectiles.clear();room.tractorBeams?.clear();room.tractorCooldowns?.clear();room.loot?.pickups.clear();room.objectives?.pickups.clear();room.combatEffects=[];room.killFeed=[];room.horizon=undefined;room.horizonConsumed=[];room.collapseOrigins=undefined;room.match.launchAngles={};room.match.readyIds=[];this.rooms.delete(room.code); } }
     return room;
   }
 }

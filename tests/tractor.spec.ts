@@ -22,7 +22,7 @@ for(const lag of [false,true])test(`E tractor replicates cone/lock, predicts dra
   await page.bringToFront();await page.keyboard.press('e');expect(room.tractorBeams?.size??0).toBe(0);
   startActiveFixture(room,room.match.hostId!,{round:room.match.round});
   Object.assign(a.state,{x:200,y:1800,rotation:0,vx:0,vy:0});Object.assign(b.state,{x:350,y:1800,rotation:Math.PI,vx:0,vy:0});Object.assign(c.state,{x:600,y:1800,vx:0,vy:0});for(const p of [a,b,c])p.state.teleportSequence++;await frame();
-  await spectator.locator('#room-code').fill(code);await spectator.locator('#join').click();await expect(spectator.locator('#home-status')).toContainText('already started');await expect(spectator.locator('canvas')).toHaveCount(0);await frame();
+  await spectator.locator('#room-code').fill(code);await spectator.locator('#join').click();await expect(spectator.locator('#home-status')).toContainText('Match in progress');await expect(spectator.locator('canvas')).toHaveCount(0);await frame();
   if(lag)for(const p of clients)await p.locator('#fake-lag').check();
   await expect(page.locator('#hud-tractor')).toHaveText('TRACTOR READY · E');
   await page.bringToFront();await page.keyboard.press('e');await expect.poll(()=>a.state.tractor.targetId).toBe(b.state.id);await frame();

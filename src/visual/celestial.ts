@@ -1,3 +1,4 @@
+import {HORIZON_CONFIG} from '../../shared/horizon';
 import {PLANET_IMAGES} from './planet-images';
 import {COSMIC_CLUSTERS} from './cosmos';
 import {bakeRock} from './debris';
@@ -28,6 +29,8 @@ interface Body {
  planet:{x:number;y:number;radius:number};biome:Biome;fallback:Phaser.GameObjects.Image;shader:Phaser.GameObjects.Shader|null;key:string;lightKey:string;lastBake:number;custom:boolean;map:SurfaceMap;detail:SurfaceMap;
 }
 export class CelestialWorld {
+ consumed=new Map<string,number>();
+ consumptionClock=0;
  readonly bodies:Body[]=[];
  get planet(){return this.bodies[0].planet;}get fallback(){return this.bodies[0].fallback;}get shader(){return this.bodies[0].shader;}
  readonly distant:Phaser.GameObjects.Image[]=[];
@@ -82,7 +85,9 @@ export class CelestialWorld {
  update(camera:Phaser.Cameras.Scene2D.Camera,now:number,horizon:Point,intensity=0){
   const pulse=.985+.015*Math.sin(now*.00012);
   for(const body of this.bodies){
-   const p=body.planet,visible=this.enabled&&(!this.study||body.biome===this.studyBiome)&&visibleCircle(camera.worldView,p,p.radius*1.075),live=!body.custom&&advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
+   const consumedAt=this.consumed.get(PLANET_REGIONS[this.bodies.indexOf(body)].id),fade=consumedAt===undefined?1:Math.max(0,1-(this.consumptionClock-consumedAt)/HORIZON_CONFIG.planetFadeMs);
+   body.fallback.setAlpha(fade);
+   const p=body.planet,visible=fade>0&&this.enabled&&(!this.study||body.biome===this.studyBiome)&&visibleCircle(camera.worldView,p,p.radius*1.075),live=fade===1&&!body.custom&&advancedEnabled(this.scene.game.renderer.type===Phaser.WEBGL,!!body.shader,this.quality);
    body.fallback.setVisible(visible&&!live).setPosition(p.x,p.y);
    if(body.custom){const art=PLANET_IMAGES[body.biome];body.fallback.setScale(p.radius/art.discRadius);}
    else body.fallback.setDisplaySize(p.radius*2.15,p.radius*2.15);

@@ -1,3 +1,4 @@
+import {launchLanding} from '../shared/launch';
 import {randomUUID,randomInt} from 'node:crypto';
 import {activeWeapon,emptyReserve,WEAPONS,WEAPON_CLASSES,RARITIES,RARITY_WEIGHTS,RESERVE_CAPS,AMMO_PACKS,AMMO_TYPES,type WeaponInstance,type WeaponClass,type Rarity} from '../shared/weapons';
 import {LOOT_CONFIG,WORLD_WEAPON_COUNTS,parseInventoryCommand,type LootPickup,type LootSnapshot,type InventoryResult} from '../shared/loot';
@@ -158,3 +159,13 @@ export function advanceLoot(room:GameRoom){
  const world=[...s.pickups.values()].filter(p=>p.source==='world');if(world.filter(p=>p.kind==='weapon').length<LOOT_CONFIG.weaponCount)spawnWorld(room,'weapon');else if(world.filter(p=>p.kind==='ammo').length<LOOT_CONFIG.ammoCount)spawnWorld(room,'ammo');}
 }
 export function lootSnapshot(room:GameRoom):LootSnapshot {return {pickups:[...lootState(room).pickups.values()].map(p=>p.kind==='weapon'?{...p,weapon:{...p.weapon}}:{...p})};}
+
+// Reuse the initial pool: one weapon and matching ammo within two seconds of
+// each deterministic landing. No additional resources or replay accumulation.
+export function placeLandingLoot(room:GameRoom){
+ const weapons=[...lootState(room).pickups.values()].filter(p=>p.kind==='weapon'),ammo=[...lootState(room).pickups.values()].filter(p=>p.kind==='ammo');let index=0;
+ for(const angle of Object.values(room.match.launchAngles)){
+  const at=launchLanding(angle),gun=weapons[index],pack=ammo[index++];if(!gun||!pack)throw Error('Missing landing loot');
+  const tangent=angle+Math.PI/2;Object.assign(gun,{x:at.x+Math.cos(tangent)*140,y:at.y+Math.sin(tangent)*140});Object.assign(pack,{x:at.x+Math.cos(tangent)*260,y:at.y+Math.sin(tangent)*260,ammoType:WEAPONS[gun.weapon.class].ammoType,quantity:AMMO_PACKS[WEAPONS[gun.weapon.class].ammoType]});
+ }
+}

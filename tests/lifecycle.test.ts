@@ -8,8 +8,8 @@ import { applyDamage } from '../server/health';
 import { WORLD, idleInput } from '../shared/flight';
 import { classifyRegion, SPAWN_CLEARANCE } from '../shared/black-hole';
 function fixture() {
-  const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
-  const room = store.rooms.get('ABCD')!, player = room.players.get('a')!;
+  const store = new RoomStore(() => 'ABCDE'); store.create('a', 'A', 0);
+  const room = store.rooms.get('ABCDE')!, player = room.players.get('a')!;
   const kill = (time: number) => {
     Object.assign(player.state, { x: room.blackHole.x, y: room.blackHole.y, vx: 0, vy: 0 });
     simulatePlayer(player, room, time, time);

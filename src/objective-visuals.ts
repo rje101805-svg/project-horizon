@@ -45,10 +45,10 @@ export class ObjectiveVisuals {
   const snapshot=this.snapshot,state=snapshot?.objectives;if(!selfId||!snapshot||!state){this.hud.hidden=this.feed.hidden=true;return;}
   const view=camera.worldView,z=camera.zoom,w=this.scene.scale.width,h=this.scene.scale.height;
   const visualTime=snapshot.timeMs+Math.min(1000,Math.max(0,now-this.arrival));
-  for(const p of state.planets){if(!visibleCircle(view,p,p.captureRadius*1.08))continue;
+  for(const p of state.planets){if(p.status==='CONSUMED')continue;if(!visibleCircle(view,p,p.captureRadius*1.08))continue;
    const active=p.status!=='AVAILABLE';this.rings.lineStyle((active?2:1)/z,RING_COLORS[p.status],active?.72:.3).strokeCircle(p.x,p.y,p.captureRadius);
   }
-  for(const event of state.announcements){const age=visualTime-event.timeMs;if(event.kind!=='captured'||age<0||age>1000)continue;const p=state.planets.find(p=>p.id===event.planetId);if(p&&visibleCircle(view,p,p.captureRadius*1.1)){this.rings.lineStyle(3/z,GOLD_COLOR,(1-age/1000)*.8).strokeCircle(p.x,p.y,p.captureRadius*(1+age/10000));this.rings.fillStyle(GOLD_COLOR,(1-age/1000)*.08).fillCircle(p.x,p.y,p.radius);}}
+  for(const event of state.announcements){const age=visualTime-event.timeMs;if(event.kind!=='captured'&&event.kind!=='consumed'||age<0||age>1000)continue;const p=state.planets.find(p=>p.id===event.planetId);if(p&&visibleCircle(view,p,p.captureRadius*1.1)){this.rings.lineStyle(3/z,GOLD_COLOR,(1-age/1000)*.8).strokeCircle(p.x,p.y,p.captureRadius*(1+age/10000));this.rings.fillStyle(GOLD_COLOR,(1-age/1000)*.08).fillCircle(p.x,p.y,p.radius);}}
   for(const p of state.pickups){if(!visibleCircle(view,p,28))continue;
    const y=p.y+2*Math.sin(visualTime*.003);this.gold.fillStyle(GOLD_COLOR,.15).fillCircle(p.x,y,21).lineStyle(1,0xffe5a0,.65).strokeCircle(p.x,y,19);if(!this.sprites.draw(GALAXY_WEAPONS[p.galaxyType??'cryo'].assetId,p.x,y,76))this.gun(p.x,y,0);
   }

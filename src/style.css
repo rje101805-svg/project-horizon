@@ -122,3 +122,8 @@ body[data-quality=low] #menu-art:after,body[data-quality=low] .menu-debris,.art-
 @media(prefers-reduced-motion:reduce){#menu-art:after,.menu-debris{animation:none;display:none}}
 #ready-match[aria-pressed=true]{background:#27685d;color:#e7fff4;box-shadow:inset 0 0 0 1px #77ccbb}
 #start-match:not(:disabled){box-shadow:0 0 12px #75cfbf25}
+
+#join-with-code{position:absolute;z-index:4;left:43%;bottom:4%;font-size:clamp(9px,1vw,15px);background:#151a2cd9;border:1px solid #73667c;color:#d8ccd8;padding:.55em 1em}
+#menu-modal form{display:grid;gap:12px}#menu-modal input{background:#080e1e;border:1px solid #76647c;color:#eee;padding:10px}#code-join-error{min-height:1.3em;color:#ffd1a3}
+#horizon-timer,#horizon-warning{position:absolute;z-index:12;pointer-events:none;left:50%;transform:translateX(-50%);padding:7px 12px;background:#080b14db;color:#ffdbb8;font-weight:bold;text-align:center}#horizon-timer{top:12px}#horizon-warning{top:52px;font-size:12px}
+body.horizon-band .game-viewport:after{content:'';position:absolute;inset:0;pointer-events:none;z-index:8;box-shadow:inset 0 0 75px 18px #a6253655}body.horizon-inside .game-viewport:after{box-shadow:inset 0 0 100px 35px #e1264877}

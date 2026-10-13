@@ -26,8 +26,8 @@ test('fill rejects forgery, stale tokens, non-host, WAIT, active and ended',()=>
  const f=fixture();for(const raw of [null,[],{}, {roomCode:f.room.code,round:1},{roomCode:f.room.code,round:0,target:'bot'}])assert.equal(f.store.fill(f.room,'a',raw).ok,false);
  assert.equal(f.store.fill(f.room,'stranger',{roomCode:f.room.code,round:0}).ok,false);assert.equal(f.fill().ok,true);startMatch(f.room,'a',{round:0});assert.equal(f.fill().ok,false);f.room.match.state='ended';assert.equal(f.fill().ok,false);assert.equal(fixture(2).fill().ok,false);
 });
-test('FILL cannot replace a lobby bot with another human; rejection preserves bots and projectiles',()=>{
- const f=fixture();f.fill();const bot=[...f.room.players.values()].at(-1)!;const ids=[...f.room.players.keys()];assert.equal(f.store.join('b',f.room.code,'B',0).ok,false);assert.deepEqual([...f.room.players.keys()],ids);assert.equal(bot.state.controllerType,'BOT');assert.equal(f.room.players.size,8);
+test('FILL code join replaces exactly one lobby bot and preserves capacity',()=>{
+ const f=fixture();f.fill();const bot=[...f.room.players.values()].at(-1)!;const ids=[...f.room.players.keys()];assert.equal(f.store.join('b',f.room.code,'B',0).ok,true);assert.deepEqual([...f.room.players.keys()],ids.filter(id=>id!==bot.state.id).concat('b'));assert.equal(f.room.players.has(bot.state.id),false);assert.equal(f.room.players.size,8);
 });
 test('late humans cannot affect FILL roster; explicit replay preserves every bot ID and resets controller state',()=>{
  const f=fighting(),original=[...f.room.match.roster];for(const id of ['q1','q2','q3'])assert.equal(f.store.join(id,f.room.code,id,0).ok,false);

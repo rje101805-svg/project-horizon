@@ -52,6 +52,7 @@ export function advanceObjectives(room:GameRoom){
  const eligible=[...room.players.values()].filter(p=>eligibleShip(room,p));
  for(const player of room.players.values())if(player.state.goldGunId&&!eligibleShip(room,player))dropGoldGun(room,player);
  for(const record of s.planets){
+  if(record.planet.status==='CONSUMED')continue;
   const planet=record.planet,inside=eligible.filter(p=>(p.state.x-planet.x)**2+(p.state.y-planet.y)**2<=planet.captureRadius**2),insideIds=new Set(inside.map(p=>p.state.id)),previous=planet.capturingId;
   planet.occupants=inside.map(p=>p.state.id);planet.capturingId=null;
   for(const [id,ticks] of record.ticks){const p=room.players.get(id);if(!p||!eligibleShip(room,p)){record.ticks.delete(id);continue;}if(!insideIds.has(id)&&!record.completed.has(id))record.ticks.set(id,Math.max(0,ticks-CAPTURE_DECAY_RATE));}
@@ -76,5 +77,7 @@ export function objectivesSnapshot(room:GameRoom):ObjectiveSnapshot {
  const s=objectiveState(room);return {round:room.match.round,planets:s.planets.map(r=>({...r.planet,occupants:[...r.planet.occupants],progress:[...r.ticks].map(([participantId,ticks])=>({participantId,progressMs:Math.min(CAPTURE_DURATION_MS,ticks*TICK_MS),completed:r.completed.has(participantId),inside:r.planet.occupants.includes(participantId)}))})),pickups:[...s.pickups.values()].map(p=>({...p})),announcements:s.announcements.map(a=>({...a}))};
 }
 export function pauseObjectives(room:GameRoom){
- for(const record of objectiveState(room).planets){record.planet.capturingId=null;record.planet.occupants=[];record.planet.status=record.planet.pickupId?'GOLD_GUN_AVAILABLE':'AVAILABLE';}
+ for(const record of objectiveState(room).planets){if(record.planet.status==='CONSUMED')continue;record.planet.capturingId=null;record.planet.occupants=[];record.planet.status=record.planet.pickupId?'GOLD_GUN_AVAILABLE':'AVAILABLE';}
 }
+
+export function consumePlanet(room:GameRoom,record:CaptureRecord){const p=record.planet;if(p.status==='CONSUMED')return;p.status='CONSUMED';p.capturingId=null;p.occupants=[];p.progress=[];record.ticks.clear();if(p.pickupId)objectiveState(room).pickups.delete(p.pickupId);p.pickupId=null;announce(room,{kind:'consumed',text:`${p.name.toUpperCase()} HAS BEEN CONSUMED`,planetId:p.id});}

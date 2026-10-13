@@ -1,6 +1,7 @@
+import {HORIZON_CONFIG} from './horizon';
 import type { FlightState } from './flight';
 export interface BlackHoleState {
-  x: number; y: number; eventHorizonRadius: number; influenceRadius: number;
+  horizon?:boolean; x: number; y: number; eventHorizonRadius: number; influenceRadius: number;
 }
 export const GRAVITY_CAP = 1800; // acceleration in world units/s²
 export const GRAVITY_STRENGTH = 18_000_000;
@@ -15,7 +16,7 @@ export function classifyRegion(point: Pick<FlightState, 'x' | 'y'>, hole: BlackH
 export function gravityAt(point: Pick<FlightState, 'x' | 'y'>, hole: BlackHoleState) {
   const dx = hole.x - point.x, dy = hole.y - point.y, distance = Math.hypot(dx, dy);
   if (!distance || distance > hole.influenceRadius) return { x: 0, y: 0 };
-  const acceleration = Math.min(GRAVITY_CAP, GRAVITY_STRENGTH / Math.max(distance * distance, 1));
+  const acceleration = hole.horizon ? HORIZON_CONFIG.gravityMax*Math.max(0,Math.min(1,(hole.influenceRadius-distance)/HORIZON_CONFIG.gravityBand)) : Math.min(GRAVITY_CAP, GRAVITY_STRENGTH / Math.max(distance * distance, 1));
   return { x: dx / distance * acceleration, y: dy / distance * acceleration };
 }
 // Closest point on the full movement segment: inclusive tangent/endpoints,

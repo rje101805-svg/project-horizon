@@ -8,7 +8,7 @@ import { roomFromSearch, roomLink } from '../src/room-links';
 import { spawnFlight } from '../shared/flight';
 import type { Snapshot } from '../shared/protocol';
 function frame(tick: number, timeMs: number, x: number, rotation = 0): Snapshot {
-  return { match: initialMatchState(), survivingHumans: 1, projectiles: [], tick, timeMs, roomCode: 'ABCD', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, x, rotation }] };
+  return { match: initialMatchState(), survivingHumans: 1, projectiles: [], tick, timeMs, roomCode: 'ABCDE', blackHole: createBlackHole(), players: [{ ...spawnFlight(), id: 'me', name: 'Me', color: 1, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0 }, { ...spawnFlight(), id: 'remote', name: 'Remote', color: 2, ...initialLifeState(), region: 'safe', lastProcessedInput: 0, teleportSequence: 0, x, rotation }] };
 }
 test('remote rendering blends buffered positions and excludes local player', () => {
   const buffer = new RemoteInterpolator(); buffer.push(frame(1, 0, 0), 0); buffer.push(frame(2, 100, 100), 100);
@@ -29,9 +29,9 @@ test('reliable departures remove buffered players immediately; clear drops stale
   assert.deepEqual(buffer.sample(0, 'me'), []); buffer.clear(); assert.deepEqual(buffer.sample(1000, 'me'), []);
 });
 test('join links normalize valid codes, reject invalid codes, preserve Pages paths', () => {
-  assert.equal(roomFromSearch('?room=abcd'), 'ABCD'); assert.equal(roomFromSearch('?room=ABIO'), null); assert.equal(roomFromSearch('?x=1'), null);
-  const link = roomLink('https://example.github.io/project-horizon/?x=1#top', 'ABCD');
-  assert.equal(link, 'https://example.github.io/project-horizon/?x=1&room=ABCD#top');
+  assert.equal(roomFromSearch('?room=abcde'), 'ABCDE'); assert.equal(roomFromSearch('?room=ABIO'), null); assert.equal(roomFromSearch('?x=1'), null);
+  const link = roomLink('https://example.github.io/project-horizon/?x=1#top', 'ABCDE');
+  assert.equal(link, 'https://example.github.io/project-horizon/?x=1&room=ABCDE#top');
 });
 
 test('remote death freezes at newest authoritative position without interpolation rewind', () => {

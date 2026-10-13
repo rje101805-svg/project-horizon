@@ -125,7 +125,7 @@ test('socket joins reject nonexistent/invalid/full rooms without corrupting memb
     const host = await t.connect(); const room = await t.create(host); assert.ok(room.ok);
     for (let i = 1; i < 8; i++) { const socket = await t.connect(); assert.ok((await t.join(socket, room.room.code)).ok); }
     const ninth = await t.connect(); const full = await t.join(ninth, room.room.code); assert.ok(!full.ok); assert.match(full.error, /full/);
-    const missing = await t.join(ninth, room.room.code === 'ZZZZ' ? 'YYYY' : 'ZZZZ'); assert.ok(!missing.ok); assert.match(missing.error, /not found/);
+    const missing = await t.join(ninth, room.room.code === 'ZZZZZ' ? 'YYYYY' : 'ZZZZZ'); assert.ok(!missing.ok); assert.match(missing.error, /not found/);
     const malformed = await t.join(ninth, 'BAD'); assert.ok(!malformed.ok); assert.match(malformed.error, /valid/);
     assert.equal((await t.health()).players, 8);
   } finally { await t.close(); }
@@ -169,7 +169,7 @@ test('origin policy admits Pages-style HTTPS origin and rejects unrelated WebSoc
 });
 
 test('room snapshots agree on black hole/death; late join and reconnect get complete state and safe new identity', async () => {
-  const store = new ActiveFixtureStore(() => 'ABCD'); const t = await setup(store);
+  const store = new ActiveFixtureStore(() => 'ABCDE'); const t = await setup(store);
   try {
     const a = await t.connect(), b = await t.connect(); const result = await t.create(a); assert.ok(result.ok);
     assert.deepEqual(result.room.blackHole, createBlackHole());

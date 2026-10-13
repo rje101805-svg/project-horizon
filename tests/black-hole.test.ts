@@ -28,9 +28,9 @@ test('classification includes lethal/danger boundaries and safe exterior', () =>
   assert.equal(classifyRegion({ x: hole.x + 501, y: hole.y }, hole), 'safe');
 });
 test('spawn search excludes danger plus clearance for every room member and reset', () => {
-  const store = new RoomStore(() => 'ABCD'); store.create('0', 'P', 0);
-  for (let i = 1; i < 8; i++) assert.ok(store.join(String(i), 'ABCD', 'P', 0).ok);
-  const room = store.rooms.get('ABCD')!;
+  const store = new RoomStore(() => 'ABCDE'); store.create('0', 'P', 0);
+  for (let i = 1; i < 8; i++) assert.ok(store.join(String(i), 'ABCDE', 'P', 0).ok);
+  const room = store.rooms.get('ABCDE')!;
   for (const player of room.players.values()) {
     assert.ok(Math.hypot(player.state.x - hole.x, player.state.y - hole.y) > hole.influenceRadius + SPAWN_CLEARANCE);
     Object.assign(player.state, { x: hole.x + 110, y: hole.y }); player.reset = true;
@@ -47,8 +47,8 @@ test('swept intersection catches exterior-to-exterior crossings, tangent, endpoi
   assert.equal(crossesHorizon({ x: hole.x - 1000, y: hole.y + 91 }, { x: hole.x + 1000, y: hole.y + 91 }, hole), false);
 });
 test('single authoritative step applies gravity, prevents tunneling and freezes death until the respawn deadline', () => {
-  const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
-  const room = store.rooms.get('ABCD')!, player = room.players.get('a')!;
+  const store = new RoomStore(() => 'ABCDE'); store.create('a', 'A', 0);
+  const room = store.rooms.get('ABCDE')!, player = room.players.get('a')!;
   Object.assign(player.state, { x: hole.x + 300, y: hole.y });
   simulatePlayer(player, room, 0); assert.ok(player.state.vx < 0); assert.equal(player.state.region, 'danger');
   Object.assign(player.state, { x: hole.x - 200, y: hole.y, vx: 20000, vy: 0 });
@@ -65,8 +65,8 @@ test('single authoritative step applies gravity, prevents tunneling and freezes 
 
 test('authoritative simulation remains finite at the center and immediately marks death', () => {
   for (const offset of [0, 1e-10, 1]) {
-    const store = new RoomStore(() => 'ABCD'); store.create('a', 'A', 0);
-    const room = store.rooms.get('ABCD')!, player = room.players.get('a')!;
+    const store = new RoomStore(() => 'ABCDE'); store.create('a', 'A', 0);
+    const room = store.rooms.get('ABCDE')!, player = room.players.get('a')!;
     Object.assign(player.state, { x: hole.x + offset, y: hole.y });
     simulatePlayer(player, room, 0);
     assert.equal(player.state.lifeState, 'dead');

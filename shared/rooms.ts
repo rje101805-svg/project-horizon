@@ -1,6 +1,6 @@
 export const MAX_ROOM_PLAYERS = 8;
 export const ROOM_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-export const ROOM_CODE_LENGTH = 4;
+export const ROOM_CODE_LENGTH = 5;
 export const MAX_NAME_LENGTH = 16;
 export const SPAWN_MIN_DISTANCE = 180;
 export const SHIP_COLORS = [0x72eee0, 0xffaa66, 0xb9a0ff, 0xff6e9c, 0xffdf72, 0x71aaff, 0x8ee46a, 0xf0f3ff] as const;

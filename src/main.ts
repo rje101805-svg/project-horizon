@@ -1,3 +1,5 @@
+import {GrowingHorizonView} from './horizon-view';
+import {DEFAULT_CAMERA_WIDTH} from '../shared/launch';
 import {CinematicVisuals} from './cinematic-visuals';
 import {playCinematicCue,stopCinematicAmbience} from './cinematic-audio';
 import {installMenu} from './menu';
@@ -46,6 +48,7 @@ let busy = false;
 let attemptId = 0;
 type Ship = { protection:Phaser.GameObjects.Graphics; body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Image; art: ShipArt; alien: boolean };
 class Horizon extends Phaser.Scene {
+  private growingHorizon!:GrowingHorizonView;
   private cinematics!:CinematicVisuals;
   private audioPhase='';
   private lastCinematicQuality='';
@@ -71,6 +74,7 @@ class Horizon extends Phaser.Scene {
   private holeVisual!: Phaser.GameObjects.Graphics;
   private holeKey = '';
   private map!: Phaser.GameObjects.Graphics;
+  private mapClip!:Phaser.GameObjects.Graphics;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private connection!: FlightConnection;
   private aim = 0;
@@ -98,7 +102,7 @@ class Horizon extends Phaser.Scene {
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
     if(import.meta.env.DEV)this.hitboxGraphics=this.add.graphics().setDepth(7).setVisible(false);
-    this.horizonVisual=new HorizonVisual(this);this.cinematics=new CinematicVisuals(this);
+    this.horizonVisual=new HorizonVisual(this);this.cinematics=new CinematicVisuals(this);this.growingHorizon=new GrowingHorizonView(this);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(LOBBY_HOLE);
     const spawn = spawnFlight();
@@ -106,7 +110,7 @@ class Horizon extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
-    this.map = this.add.graphics().setScrollFactor(0).setDepth(10);
+    this.map = this.add.graphics().setScrollFactor(0).setDepth(10);this.mapClip=this.make.graphics({x:0,y:0});this.mapClip.setScrollFactor(0);this.map.setMask(this.mapClip.createGeometryMask());
     this.connection = connection!;
     // Handle the key transition itself: a short tap can begin and end between
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
@@ -135,7 +139,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
+      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -252,6 +256,7 @@ class Horizon extends Phaser.Scene {
   private drawBlackHole(hole: BlackHoleState) {
     const key=JSON.stringify(hole);if(key===this.holeKey)return;this.holeKey=key;
     // Existing influence boundary remains a subdued gameplay landmark.
+    if(hole.horizon){this.holeVisual.clear();return;}
     this.holeVisual.clear().lineStyle(1,0x947557,.18).strokeCircle(hole.x,hole.y,hole.influenceRadius);
   }
   removeShips(ids: string[]) {
@@ -385,10 +390,11 @@ class Horizon extends Phaser.Scene {
       if(preview)light=preview;
       this.previewHorizon?.update(camera,now,preview,intensity,this.visualIntensity.quality,this.visualIntensity.parallax);
     }
+    this.celestial.consumptionClock=this.connection.latest?.timeMs??0;this.celestial.consumed=new Map((this.connection.latest?.objectives?.planets??[]).filter(p=>p.status==='CONSUMED').map(p=>[p.id,this.connection.latest?.objectives?.announcements.find(e=>e.kind==='consumed'&&e.planetId===p.id)?.timeMs??-Infinity]));
     this.celestial.update(camera,now,light,intensity);
     const collapseProgress=phase==='collapse'?1-(match?.phaseRemainingMs??1800)/1800:0;
-    this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
-    this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);
+    this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,(hole as BlackHoleState|null)?.horizon?null:hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
+    this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);this.growingHorizon.render(this.connection.latest,camera,this.connection.socket.id??'',this.visualIntensity.quality==='low');
     this.map.setVisible(phase==='active'||phase==='ended');
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
@@ -406,13 +412,15 @@ class Horizon extends Phaser.Scene {
   }
   private drawMap() {
     const x = this.scale.width - 164, y = 14, size = 150, s = size / WORLD;
+    this.mapClip.clear().fillStyle(0xffffff).fillRect(x-5,y-5,size+10,size+10).setScale(this.map.scaleX).setPosition(this.map.x,this.map.y);
     this.map.clear().fillStyle(0x0e1729, .95).fillRoundedRect(x - 5, y - 5, size + 10, size + 10, 8);
     this.map.lineStyle(1, 0x384c68).strokeRect(x, y, size, size);
-    for(const p of PLANET_REGIONS){const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(p.color,.75).fillCircle(x+m.x,y+m.y,p.radius*s);}
+    for(const p of PLANET_REGIONS){if(this.connection.latest?.objectives?.planets.find(v=>v.id===p.id)?.status==='CONSUMED')continue;const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(p.color,.75).fillCircle(x+m.x,y+m.y,p.radius*s);}
     for(const p of LANDMARKS){const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(0x84939f,.6).fillRect(x+m.x-1,y+m.y-1,2,2);}
     const view=this.cameras.main.worldView;this.map.lineStyle(1,0xbacdde,.5).strokeRect(x+view.left*s,y+view.top*s,view.width*s,view.height*s);
     const hole = this.connection.latest?.blackHole ?? this.connection.room?.blackHole;
     if (hole) {
+      const h=this.connection.latest?.horizon;if(h?.radius)this.map.lineStyle(1,0xffb677,.6).strokeCircle(x+hole.x*s,y+hole.y*s,h.nextRadius*s);
       this.map.lineStyle(1, 0xbb80ff, .7).strokeCircle(x + hole.x * s, y + hole.y * s, hole.influenceRadius * s);
       this.map.fillStyle(0xd6abff).fillCircle(x + hole.x * s, y + hole.y * s, hole.eventHorizonRadius * s);
     }
@@ -437,7 +445,7 @@ function launch() {
   el('home').hidden = true; el('mission').hidden = false;
   if (game) { game.destroy(true); game = undefined; }
   el('game').style.visibility='hidden';
-  game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: 1100, height: 600, backgroundColor: '#080e1e', scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: Horizon });
+  game = new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: DEFAULT_CAMERA_WIDTH, height: 600, backgroundColor: '#080e1e', scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: Horizon });
   if (import.meta.env.DEV) Object.assign(window, { __HORIZON_GAME__: game });
 }
 function scene() { return game?.scene.scenes[0] as Horizon | undefined; }
@@ -446,9 +454,9 @@ function updateLobby() {
   const waiting=match?.state==='waiting',host=match?.hostId===c?.socket.id;
   el('fill-game').hidden=true;
   const humans=c?.latest?.players.filter(p=>p.controllerType==='HUMAN')??[];
-  const eligible=match?.mode==='fill'||humans.length>=1&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
+  const eligible=humans.length>=1&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
   button.hidden=!waiting||!host;button.disabled=!!c?.starting||!eligible||!scene()?.loaded;
-  const ready=el<HTMLButtonElement>('ready-match');ready.hidden=!waiting||host||match?.mode!=='wait';ready.disabled=!scene()?.loaded;ready.setAttribute('aria-pressed',String(match?.readyIds.includes(c?.socket.id??'')));ready.textContent=match?.readyIds.includes(c?.socket.id??'')?'NOT READY':'READY';
+  const ready=el<HTMLButtonElement>('ready-match');ready.hidden=!waiting||host;ready.disabled=!scene()?.loaded;ready.setAttribute('aria-pressed',String(match?.readyIds.includes(c?.socket.id??'')));ready.textContent=match?.readyIds.includes(c?.socket.id??'')?'NOT READY':'READY';
   el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} humans · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?humans.length===1&&match?.mode==='wait'?'START solo or wait for players':'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
   el('lobby-roster').textContent=waiting?(c?.latest?.players.map(p=>`${p.name}${p.id===match?.hostId?' [HOST]':p.controllerType==='BOT'?' [BOT · READY]':match?.readyIds.includes(p.id)?' [READY]':' [NOT READY]'}`).join(' · ')??''):'';
 
@@ -480,7 +488,7 @@ async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait') {
     if (location.protocol === 'https:' && new URL(field.value).protocol !== 'https:') throw new Error('HTTPS clients require an HTTPS server.');
   } catch (error) { field.setCustomValidity(error instanceof Error ? error.message : 'Enter a valid server URL.'); field.reportValidity(); return; }
   const code = normalizeRoomCode(el<HTMLInputElement>('room-code').value);
-  if (mode === 'join' && !code) { el('home-status').textContent = 'Enter a valid 4-character room code.'; return; }
+  if (mode === 'join' && !code) { el('home-status').textContent = 'Enter a valid 5-character room code.'; return; }
   const attempt = ++attemptId;
   el('cancel-connect').hidden = false;
   busy = true; el<HTMLButtonElement>('create').disabled = true; el<HTMLButtonElement>('join').disabled = true;
@@ -515,7 +523,7 @@ async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait') {
 el('ready-match').onclick=()=>connection?.ready();
 el('play-again').onclick=()=>connection?.playAgain();
 el('result-menu').onclick=()=>goHome();
-installMenu(mode=>{void enterRoom(mode);});
+installMenu(mode=>{void enterRoom(mode);},async code=>{el<HTMLInputElement>('room-code').value=code;await enterRoom('join');return el('home').hidden?'':el('home-status').textContent??'Unable to join';});
 el('fill-game').onclick=()=>connection?.fillGame();
 el('start-match').onclick=()=>{connection?.startMatch();updateLobby();};
 el('create').onclick = () => { void enterRoom('create'); };

@@ -46,7 +46,7 @@ export function parseReload(raw: unknown): ReloadRequest | null {
     !Number.isSafeInteger(r.lifeGeneration) || (r.lifeGeneration as number) < 0 ||
     !Number.isSafeInteger(r.teleportSequence) || (r.teleportSequence as number) < 0 ||
     typeof r.reloadSession !== 'string' || !/^[0-9a-f-]{36}$/.test(r.reloadSession) ||
-    typeof r.roomCode !== 'string' || !/^[A-Z2-9]{4}$/.test(r.roomCode)) return null;
+    typeof r.roomCode !== 'string' || !/^[A-HJ-NP-Z2-9]{5}$/.test(r.roomCode)) return null;
   return { sequence: r.sequence as number, lifeGeneration: r.lifeGeneration as number,
     teleportSequence: r.teleportSequence as number, roomCode: r.roomCode, reloadSession: r.reloadSession };
 }

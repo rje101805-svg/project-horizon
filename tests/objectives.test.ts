@@ -114,7 +114,7 @@ test('bots share capture, contest, collect, firing and drop rules; intent preser
  Object.assign(bot.state,{x:1000,y:1800,rotation:0});Object.assign(f.a.state,{x:1400,y:1800});bot.state.tractor.cooldownRemainingMs=15000;advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.ok([...f.room.projectiles.values()].some(p=>p.ownerId===bot.state.id&&p.weapon==='gold'));
  applyDamage(bot,999,{type:'PLAYER',playerId:'a'},f.room.simulationTimeMs);assert.equal(f.pickup()!.source,'drop');assert.equal(bot.state.goldGunId,null);assert.equal(bot.state.status,'ALIEN');
  const g=fixture(true),b=[...g.room.players.values()].find(p=>p.state.controllerType==='BOT')!;Object.assign(b.state,{x:5000,y:5000});g.room.simulationTimeMs=1000;
- const strategy=selectObjectiveStrategy(g.room,b,selectBotStrategy(b,[g.a]));assert.equal(strategy.mode,'CAPTURE');assert.ok(strategy.goal);b.state.tractor.attackerId='a';b.state.tractor.anchorX=g.a.state.x;b.state.tractor.anchorY=g.a.state.y;const input=botHands(g.room,b,strategy,1);assert.equal(b.state.bot!.override,'TRACTOR_ESCAPE');assert.equal(input.boost,true);
+ g.room.loot?.pickups.clear();const strategy=selectObjectiveStrategy(g.room,b,selectBotStrategy(b,[g.a]));assert.equal(strategy.mode,'CAPTURE');assert.ok(strategy.goal);b.state.tractor.attackerId='a';b.state.tractor.anchorX=g.a.state.x;b.state.tractor.anchorY=g.a.state.y;const input=botHands(g.room,b,strategy,1);assert.equal(b.state.bot!.override,'TRACTOR_ESCAPE');assert.equal(input.boost,true);
  b.state.status='ALIEN';assert.equal(selectObjectiveStrategy(g.room,b,{mode:'HUNT',target:'a'}).mode,'HUNT');
 });
 test('objective snapshots are isolated copies and arrows follow camera/zoom direction',()=>{
