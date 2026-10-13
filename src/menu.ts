@@ -1,9 +1,12 @@
+import {playCinematicCue} from './cinematic-audio';
 import type {RoomMode} from '../shared/match';
 export const MENU_HOTSPOTS={fill:[4,36.1,15.4,6.1],wait:[20.6,36.1,18.6,6.1],play:[4,43.4,35.2,5.7],free:[2.8,52.9,37.9,10.6],pilot:[2.8,65.6,37.9,14.8],name:[3,82,12.3,7.8],how:[16,82,12,7.8],settings:[28.8,82,11.9,7.8]} as const;
 const stored=(key:string,fallback:string)=>{try{return localStorage.getItem(key)??fallback;}catch{return fallback;}};
 const save=(key:string,value:string)=>{try{localStorage.setItem(key,value);}catch{/* Private browsing must not prevent play. */}};
 export function installMenu(play:(mode:RoomMode)=>void){
  const home=document.getElementById('home')!,stage=document.createElement('div');stage.id='menu-art';
+ document.body.dataset.quality=stored('horizon-menu-quality','standard');playCinematicCue('menu');
+ const debris=document.createElement('div');debris.className='menu-debris';debris.setAttribute('aria-hidden','true');for(const [x,y,size]of [[48,18,5],[64,9,3],[83,11,5],[55,33,3],[92,49,4],[68,40,2]]){const rock=document.createElement('span');Object.assign(rock.style,{left:`${x}%`,top:`${y}%`,width:`${size}px`,height:`${size}px`});debris.append(rock);}stage.append(debris);
  const image=document.createElement('img');image.src=`${import.meta.env.BASE_URL}assets/ui/main-menu.png`;image.alt='Project Horizon cinematic main menu';image.draggable=false;stage.append(image);home.prepend(stage);
  let mode:RoomMode=stored('horizon-mode','fill')==='wait'?'wait':'fill';
  const name=document.getElementById('display-name') as HTMLInputElement;name.value=stored('horizon-name','');name.placeholder='Pilot_XX';name.autocomplete='off';name.setAttribute('aria-label','Player name');

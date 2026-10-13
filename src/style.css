@@ -113,3 +113,12 @@ body[data-phase=waiting] .debug-overlay{max-height:calc(100% - 350px)}
 .in-mission #lobby-roster{font:11px/1.4 Arial;max-height:120px;overflow:auto}
 .in-mission #lobby-status{line-height:1.4}
 body[data-phase]:not([data-phase=waiting]) .lobby-controls,body[data-phase]:not([data-phase=active]) #inventory-hud,body[data-phase]:not([data-phase=active]) #swap-prompt{display:none}
+/* P3S6 Tier 2: compositor-only menu shimmer and six fixed decorative specks. */
+#menu-art:after{content:'';position:absolute;z-index:1;left:81%;top:21%;width:18%;height:20%;border-radius:50%;box-shadow:inset 0 0 35px #ff76572b,0 0 35px #fc916b20;transform:rotate(-18deg);opacity:.15;animation:menu-shimmer 7s ease-in-out infinite;pointer-events:none}
+.menu-hotspot{z-index:3}.menu-debris{position:absolute;inset:0;z-index:1;pointer-events:none;animation:menu-drift 18s ease-in-out infinite alternate}.menu-debris span{position:absolute;background:#15151e;border:1px solid #7d798933;box-shadow:0 0 4px #ae839320;transform:rotate(35deg);opacity:.4}
+@keyframes menu-shimmer{50%{opacity:.45;transform:rotate(-14deg)}}
+@keyframes menu-drift{to{transform:translate(5px,3px)}}
+body[data-quality=low] #menu-art:after,body[data-quality=low] .menu-debris,.art-missing:after,.art-missing .menu-debris{display:none}
+@media(prefers-reduced-motion:reduce){#menu-art:after,.menu-debris{animation:none;display:none}}
+#ready-match[aria-pressed=true]{background:#27685d;color:#e7fff4;box-shadow:inset 0 0 0 1px #77ccbb}
+#start-match:not(:disabled){box-shadow:0 0 12px #75cfbf25}

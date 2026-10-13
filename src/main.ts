@@ -1,3 +1,5 @@
+import {CinematicVisuals} from './cinematic-visuals';
+import {playCinematicCue,stopCinematicAmbience} from './cinematic-audio';
 import {installMenu} from './menu';
 import {LOBBY_HOLE,LOBBY_RADIUS} from '../shared/match';
 import {preloadWeaponAssets} from './weapon-assets';
@@ -44,6 +46,9 @@ let busy = false;
 let attemptId = 0;
 type Ship = { protection:Phaser.GameObjects.Graphics; body: Phaser.GameObjects.Container; label: Phaser.GameObjects.Text; hull: Phaser.GameObjects.Graphics; sprite: Phaser.GameObjects.Image; art: ShipArt; alien: boolean };
 class Horizon extends Phaser.Scene {
+  private cinematics!:CinematicVisuals;
+  private audioPhase='';
+  private lastCinematicQuality='';
   private composition:Composition='auto';
   private inspectionPoint:{x:number;y:number}|null=null;
   private visualDebugCleanup?:()=>void;
@@ -93,7 +98,7 @@ class Horizon extends Phaser.Scene {
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
     if(import.meta.env.DEV)this.hitboxGraphics=this.add.graphics().setDepth(7).setVisible(false);
-    this.horizonVisual=new HorizonVisual(this);
+    this.horizonVisual=new HorizonVisual(this);this.cinematics=new CinematicVisuals(this);
     this.holeVisual = this.add.graphics().setDepth(2);
     if (connection?.room) this.drawBlackHole(LOBBY_HOLE);
     const spawn = spawnFlight();
@@ -130,7 +135,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();
+      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -211,13 +216,17 @@ class Horizon extends Phaser.Scene {
     const feed=(snapshot.killFeed??[]).map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;if(el('kill-feed').textContent!==feed)el('kill-feed').textContent=feed;
     const match = snapshot.match, spectator = local.status === 'OUT';
     el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
+    if(this.audioPhase!==match.state){this.audioPhase=match.state;stopCinematicAmbience();if(match.state==='waiting')playCinematicCue('lobby');else if(match.state==='collapse')playCinematicCue('collapse');else if(match.state==='launch')playCinematicCue('launch');else if(match.state==='active')playCinematicCue('eject');}
     document.body.dataset.phase=match.state;
     updateLobby();
     el('match-overlay').hidden = match.state !== 'ended';
     el('match-result').textContent = match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
     el('match-reset').textContent = 'Play again returns everyone to the lobby. A new START is required.';
     if (match.state === 'ended' || spectator) { this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
-    if (this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
+    // Ejection eases from the hole to the pilot; respawns and other teleports
+    // retain their authoritative camera snap.
+    const ejection=match.state==='active'&&this.lastLocalLife?.split(':')[1]==='launch';
+    if (!ejection && this.lastLocalGeneration >= 0 && (local.lifeGeneration !== this.lastLocalGeneration || local.teleportSequence !== this.lastTeleport)) this.cameras.main.centerOn(local.x, local.y);
     this.lastLocalGeneration = local.lifeGeneration; this.lastTeleport = local.teleportSequence;
     const lifeKey = `${match.round}:${match.state}:${local.id}:${local.lifeGeneration}:${local.lifeState}:${local.teleportSequence}`;
     if (lifeKey !== this.lastLocalLife) {
@@ -346,7 +355,11 @@ class Horizon extends Phaser.Scene {
     this.damageNumbers.render(this.hitFeedback.sample(now));
     const camera=this.cameras.main;
     const combat=!!local?.tractor.attackerId || !!local?.tractor.targetId || this.connection.latest?.projectiles.some(p=>Math.hypot(p.x-this.rocket.x,p.y-this.rocket.y)<400) || false;
-    camera.setZoom(easeZoom(camera.zoom,this.visualIntensity.camera?cameraTarget(local ? Math.hypot(local.vx,local.vy) : 0,combat):1,elapsed));
+    const baseZoom=this.visualIntensity.camera?cameraTarget(local?Math.hypot(local.vx,local.vy):0,combat):1;
+    const cinematicPhase=this.connection.latest?.match.state;
+    const cinematicZoom=this.visualIntensity.quality==='standard'&&(cinematicPhase==='collapse'||cinematicPhase==='launch')||camera.zoom>1.016;
+    camera.setZoom(cinematicZoom?this.cinematics.zoom(camera,baseZoom,this.connection.latest,this.visualIntensity.quality,elapsed):easeZoom(camera.zoom,baseZoom,elapsed));
+    if(this.lastCinematicQuality!==this.visualIntensity.quality){this.lastCinematicQuality=this.visualIntensity.quality;document.body.dataset.quality=this.visualIntensity.quality;try{localStorage.setItem('horizon-menu-quality',this.visualIntensity.quality);}catch{/* optional menu preference */}}
     const match=this.connection.latest?.match??this.connection.room?.match,phase=match?.state,lobby=phase==='waiting'||phase==='countdown'||phase==='collapse';
     const intensity=this.visualIntensity.update(elapsed),hole=lobby?LOBBY_HOLE:this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
     this.celestial.enabled=!lobby;
@@ -375,6 +388,7 @@ class Horizon extends Phaser.Scene {
     this.celestial.update(camera,now,light,intensity);
     const collapseProgress=phase==='collapse'?1-(match?.phaseRemainingMs??1800)/1800:0;
     this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
+    this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);
     this.map.setVisible(phase==='active'||phase==='ended');
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
@@ -447,6 +461,7 @@ function updateRoom(room: RoomInfo) {
   scene()?.removeShips(room.playerIds);
 }
 function goHome(message = '') {
+  stopCinematicAmbience();
   attemptId++; busy = false;
   el<HTMLButtonElement>('create').disabled = false; el<HTMLButtonElement>('join').disabled = false;
   el('cancel-connect').hidden = true;
@@ -455,7 +470,7 @@ function goHome(message = '') {
   game?.destroy(true); game = undefined;
   document.body.classList.remove('in-mission');
   el('mission').hidden = true; el('home').hidden = false;
-  el('home-status').textContent = message;
+  el('home-status').textContent = message;playCinematicCue('menu');
 }
 async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait') {
   if (busy) return;

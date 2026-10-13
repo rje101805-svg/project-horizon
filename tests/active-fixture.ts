@@ -10,7 +10,7 @@ export class ActiveFixtureStore extends RoomStore{
   const previous=room.match.state;room.match.state='waiting';const r=super.join(id,code,name,now);room.match.state=previous;if(r.ok)this.activate(room);return r;
  }
  override fill(room:GameRoom|undefined,id:string,raw:unknown){if(!room)return super.fill(room,id,raw);const state=room.match.state,mode=room.match.mode;room.match.state='waiting';room.match.mode='fill';const r=super.fill(room,id,raw);room.match.state=state;room.match.mode=mode;if(r.ok)this.activate(room);return r;}
- private activate(room:GameRoom){room.match.state='active';room.match.roster=[...room.players.keys()];const placed:{x:number;y:number}[]=[];for(const p of room.players.values()){if(p.combatEnabled!==true){const spawn=chooseSpawn([...room.players.values()].filter(other=>other!==p&&other.combatEnabled===true).map(other=>({x:other.state.x,y:other.state.y})).concat(placed),room.blackHole)!;Object.assign(p.state,spawn);}placed.push(p.state);p.gameplayEnabled=true;p.combatEnabled=true;}}
+ private activate(room:GameRoom){room.match.state='active';room.match.phaseStartedAtMs=room.simulationTimeMs-2000;room.match.roster=[...room.players.keys()];const placed:{x:number;y:number}[]=[];for(const p of room.players.values()){if(p.combatEnabled!==true){const spawn=chooseSpawn([...room.players.values()].filter(other=>other!==p&&other.combatEnabled===true).map(other=>({x:other.state.x,y:other.state.y})).concat(placed),room.blackHole)!;Object.assign(p.state,spawn);}placed.push(p.state);p.gameplayEnabled=true;p.combatEnabled=true;}}
 }
 import {startMatch,advanceMatch,playAgain} from '../server/match';
 // Establish a round through the real lifecycle, then return its clocks/markers
@@ -21,7 +21,7 @@ export function startActiveFixture(room:GameRoom|undefined,id:string,raw:unknown
  room.match.state='waiting';room.match.mode=[...room.players.values()].filter(p=>p.state.controllerType==='HUMAN').length===1?'fill':'wait';room.match.readyIds=[...room.players.keys()].filter(k=>k!==room.match.hostId);
  const result=startMatch(room,id,raw);if(!result.ok)return result;
  advanceMatch(room,time+3000);advanceMatch(room,time+4800);advanceMatch(room,time+6200);
- room.simulationTimeMs=time;for(const p of room.players.values()){Object.assign(p.state,states.get(p.state.id),{spawnInvulnerabilityRemainingMs:0,launchProtectionRemainingMs:0});p.launchProtectionUntilMs=0;p.simulationTimeMs=time;}
+ room.simulationTimeMs=time;room.match.phaseStartedAtMs=time-2000;for(const p of room.players.values()){Object.assign(p.state,states.get(p.state.id),{spawnInvulnerabilityRemainingMs:0,launchProtectionRemainingMs:0});p.launchProtectionUntilMs=0;p.simulationTimeMs=time;}
  return result;
 }
 export function replayFixture(room:GameRoom,timeMs:number){advanceMatch(room,timeMs);return playAgain(room,room.match.hostId!,{round:room.match.round}).ok;}

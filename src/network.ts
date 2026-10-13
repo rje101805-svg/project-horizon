@@ -1,3 +1,4 @@
+import {playCinematicCue} from './cinematic-audio';
 import type {InventoryCommand} from '../shared/loot';
 import {hasGoldGun,activeWeapon,WEAPONS,fireInterval} from '../shared/weapons';
 import { ALIEN_MELEE_COOLDOWN_MS } from '../shared/alien';
@@ -211,7 +212,7 @@ export class FlightConnection {
     };
     if(this.lag)this.lag.schedule('input',send);else send();
   }
-  ready(){const match=this.room?.match.state==='waiting'?this.room.match:this.latest?.match;if(match?.state!=='waiting')return;this.socket.emit('ready',{round:match.round,ready:!match.readyIds.includes(this.socket.id!)},result=>this.callbacks.status(result.message));}
+  ready(){const match=this.room?.match.state==='waiting'?this.room.match:this.latest?.match;if(match?.state!=='waiting')return;this.socket.emit('ready',{round:match.round,ready:!match.readyIds.includes(this.socket.id!)},result=>{this.callbacks.status(result.message);if(result.ok&&result.message==='Ready')playCinematicCue('ready');});}
   playAgain(){const match=this.latest?.match;if(match?.state==='ended')this.socket.emit('playAgain',{round:match.round},result=>this.callbacks.status(result.message));}
   canPlay() { return !!this.latest && (this.latest.match.state === 'waiting' || this.latest.match.state==='active') && (this.latest.match.state === 'waiting' || this.latest.match.roster.includes(this.socket.id ?? '')); }
   setInput(input: PlayerInput) { this.input = this.canPlay() && this.latest?.players.find(p => p.id === this.socket.id)?.lifeState === 'active' ? input : idleInput(); }
