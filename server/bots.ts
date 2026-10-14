@@ -51,11 +51,11 @@ export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotS
 
 function effectiveRange(bot:RoomPlayer){return bot.state.goldGunId?GALAXY_WEAPONS[bot.state.galaxyType??'cryo'].range:WEAPONS[activeWeapon(bot.state)?.class??'blaster'].range;}
 export function lootFirst(room:GameRoom,bot:RoomPlayer){return !bot.botLootEnded&&!!room.horizon&&room.simulationTimeMs-room.horizon.startedAtMs<30000&&(bot.state.inventory?.slots.filter(Boolean).length??0)<2;}
-function safeGoal(room:GameRoom,point:{x:number;y:number}){const h=room.horizon;if(!h)return true;const future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),corner=HORIZON_CORNERS[h.corner];return Math.hypot(point.x-corner.x,point.y-corner.y)>Math.max(future.radius,h.phase==='calm'?0:h.nextRadius)+350;}
+function safeGoal(room:GameRoom,point:{x:number;y:number}){const h=room.horizon;if(!h)return true;const future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),corner=HORIZON_CORNERS[h.corner];return Math.hypot(point.x-corner.x,point.y-corner.y)>future.radius+350;}
 export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotStrategy):BotStrategy{
  const s=bot.state,h=room.horizon;
  if(s.status==='ALIVE'&&h){const corner=HORIZON_CORNERS[h.corner],future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),distance=Math.hypot(s.x-corner.x,s.y-corner.y);
-  if(distance<Math.max(future.radius,h.phase==='calm'?0:h.nextRadius)+450){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'horizon',x:corner.x===0?11900:100,y:corner.y===0?11900:100}};}
+  if(distance<future.radius+450){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'horizon',x:corner.x===0?11900:100,y:corner.y===0?11900:100}};}
  }
  if(s.status==='ALIVE'&&s.health+s.shield<(s.maxHealth+s.maxShield)*.3&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)<5000){const target=combat.target?room.players.get(combat.target):undefined;if(target){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'retreat',x:Math.max(20,Math.min(11980,s.x+(s.x-target.state.x))),y:Math.max(20,Math.min(11980,s.y+(s.y-target.state.y)))}};}}
  const blocked=bot.botLootBlocked??=new Map();for(const [id,until]of blocked)if(until<=room.simulationTimeMs)blocked.delete(id);
@@ -82,6 +82,8 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
  if(target && eligible(room,target)){
    dx=target.state.x-s.x;dy=target.state.y-s.y;d.distance=Math.hypot(dx,dy);
    heading=Math.atan2(dy,dx);
+   const aim=updateBotAim(room,bot,target);
+   if(s.status!=='ALIEN'){const speed=s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].speed:WEAPONS[activeWeapon(s)?.class??'blaster'].speed,travel=d.distance/speed;heading=Math.atan2(dy+(target.state.vy-s.vy)*travel*aim.lead,dx+(target.state.vx-s.vx)*travel*aim.lead)+aim.error;}
    const alien=s.status==='ALIEN';
    if(!alien && d.distance<100){
      // Exact overlap has no away vector; back out through normal controls.
@@ -91,7 +93,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
    input.boost=d.distance>650;
    const error=Math.abs(angleDelta(heading,s.rotation));
    d.melee=alien && d.distance<=ALIEN_MELEE_RANGE;
-   d.fire=!alien && d.distance<(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range) && error<.20 && !s.tractor.targetId && !s.isReloading;
+   d.fire=!alien && d.distance<(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range) && room.simulationTimeMs>=aim.readyAt && error<.20 && !s.tractor.targetId && !s.isReloading;
    d.reload=!alien && !s.goldGunId && s.ammo===0 && !s.isReloading;
    d.tractor=!alien && !s.tractor.targetId && !s.tractor.cooldownRemainingMs && error<.25 && inTractorCone(s,target.state);
  }
@@ -109,15 +111,17 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
      const side=((ax*-Math.sin(attacker.state.rotation)+ay*Math.cos(attacker.state.rotation))>=0)?1:-1;
      dx=ax/length-Math.sin(attacker.state.rotation)*side*1.5;
      dy=ay/length+Math.cos(attacker.state.rotation)*side*1.5;
-     heading=Math.atan2(dy,dx);input.boost=true;d.fire=d.tractor=d.melee=false;
+     heading=Math.atan2(dy,dx);
+     input.boost=true;d.fire=d.tractor=d.melee=false;
    }
  }
  if(strategy.goal?.kind==='escape'){input.boost=true;d.fire=d.tractor=d.melee=false;d.override='HORIZON_ESCAPE';}
  if((s.launchProtectionRemainingMs??0)>0){d.fire=d.tractor=d.melee=false;}
  else if(lootFirst(room,bot)&&d.distance>=effectiveRange(bot)*.6&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)>3000){d.fire=d.tractor=false;}
  if(dx || dy){const move=Math.atan2(dy,dx),x=Math.cos(move),y=Math.sin(move);input.right=x>.38;input.left=x<-.38;input.down=y>.38;input.up=y<-.38;}
- // 180 degrees/sec; deterministic small heading error, never exact target aim.
- const desired=heading+(d.override?0:Math.sin(tick*.08+s.color)*.065);
+ // 180 degrees/sec; seeded perception corrections never snap the heading.
+ if(!target&&bot.botAim)bot.botAim.target=null;
+ const desired=heading;
  input.aim=s.rotation+Math.max(-Math.PI*TICK_SECONDS,Math.min(Math.PI*TICK_SECONDS,angleDelta(desired,s.rotation)));
  if((s.stunRemainingMs??0)>0){d.fire=d.reload=d.tractor=d.melee=false;input.up=input.down=input.left=input.right=input.boost=false;}
  d.desiredHeading=desired;d.thrust=input.up||input.down||input.left||input.right;d.boost=input.boost;
@@ -161,3 +165,13 @@ export function advanceBotActions(room:GameRoom,tick:number) {
 }
 
 function weaponValue(w:import('../shared/weapons').WeaponInstance|null,distance:number){if(!w)return -1;const role=w.class==='shotgun'?(distance<250?8:-4):w.class==='smg'?(distance<500?5:-3):w.class==='missile'?(distance>350?5:0):w.class==='zapper'?3:2;return RARITIES.indexOf(w.rarity)*3+role;}
+
+// Private, seeded perception state; no accuracy bonuses or synthetic hit decisions.
+function updateBotAim(room:GameRoom,bot:RoomPlayer,target:RoomPlayer){
+ const s=bot.state;
+ if(!bot.botAim||bot.botAim.life!==s.lifeGeneration||bot.botAim.teleport!==s.teleportSequence){let seed=2166136261;for(const c of s.name)seed=Math.imul(seed^c.charCodeAt(0),16777619);bot.botAim={target:null,readyAt:0,seed:seed>>>0,error:0,lead:1,nextCorrection:0,life:s.lifeGeneration,teleport:s.teleportSequence};}
+ const a=bot.botAim,random=()=>{a.seed=(Math.imul(a.seed,1664525)+1013904223)>>>0;return a.seed/2**32;};
+ if(a.target!==target.state.id){a.readyAt=room.simulationTimeMs+(a.target?300+random()*300:250+random()*200);a.target=target.state.id;a.nextCorrection=0;}
+ if(room.simulationTimeMs>=a.nextCorrection){const distance=Math.hypot(target.state.x-s.x,target.state.y-s.y),speed=Math.hypot(target.state.vx,target.state.vy);a.error=(random()*2-1)*(.06+distance*.00009+speed*.00016);a.lead=.7+random()*.6;a.nextCorrection=room.simulationTimeMs+160+random()*180;}
+ return a;
+}

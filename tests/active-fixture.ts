@@ -30,3 +30,7 @@ export function replayFixture(room:GameRoom,timeMs:number){advanceMatch(room,tim
 export class CombatBrowserStore extends ActiveFixtureStore{
  override create(id:string,name:unknown,now:number){const r=super.create(id,name,now);if(r.ok){const room=this.roomFor(id)!;for(let i=0;i<2;i++){const peer=`fixture:${room.code}:${i}`;this.join(peer,room.code,peer,now);Object.assign(room.players.get(peer)!.state,{x:8000+i*500,y:8000});}r.room=this.info(room);}return r;}
 }
+import {advanceBots} from '../server/bots';
+// Legacy damage/inventory tests start with perception already settled. New
+// perception regressions exercise first-acquisition and switches separately.
+export function settleBotPerception(room:GameRoom){const time=room.simulationTimeMs;room.simulationTimeMs=time-600;advanceBots(room,time-600,-1);room.simulationTimeMs=time;}

@@ -1,3 +1,4 @@
+import {CinematicFlash} from './cinematic-flash';
 import {GrowingHorizonView} from './horizon-view';
 import {DEFAULT_CAMERA_WIDTH} from '../shared/launch';
 import {CinematicVisuals} from './cinematic-visuals';
@@ -87,6 +88,7 @@ class Horizon extends Phaser.Scene {
   private lastRender = performance.now();
   private lastDebug = 0;
   private ships = new Map<string, Ship>();
+  private cinematicFlash = new CinematicFlash();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
   preload() { preloadWeaponAssets(this);preloadPlanetImages(this); for(const art of SHIP_ART)this.load.image(art.textureKey,`${import.meta.env.BASE_URL}assets/ships/runtime/${art.sourceFilename}`); preloadCosmicImages(this); this.game.canvas.style.visibility='hidden'; for(const biome of ['ice','volcanic','terrestrial','moon','clouds','ice-detail','volcanic-detail','terrestrial-detail','moon-detail'])this.load.image(`surface-${biome}`,`${import.meta.env.BASE_URL}planets/${biome}.png`); }
@@ -369,11 +371,14 @@ class Horizon extends Phaser.Scene {
     const intensity=this.visualIntensity.update(elapsed),hole=lobby?LOBBY_HOLE:this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
     this.celestial.enabled=!lobby;
     const cinematic=phase==='countdown'||phase==='collapse'||phase==='launch';
-    el('cinematic-status').hidden=!cinematic;el('cinematic-status').textContent=phase==='countdown'?String(Math.max(1,Math.ceil((match?.phaseRemainingMs??0)/1000))):phase==='collapse'?'COLLAPSE':phase==='launch'?'LAUNCH':'';
-    const flash=el('cinematic-flash');flash.hidden=!(phase==='collapse'&&(match?.phaseRemainingMs??9999)<240||phase==='launch'&&(match?.phaseRemainingMs??0)>1150);
+    el('cinematic-status').hidden=!cinematic;el('cinematic-status').textContent=phase==='countdown'?String(Math.max(1,Math.ceil((match?.phaseRemainingMs??0)/1000))):phase==='collapse'?'':phase==='launch'?'LAUNCH':'';
+    const flash=el('cinematic-flash'),flashOpacity=this.cinematicFlash.opacity(match,this.connection.latest?.timeMs??0,now);flash.hidden=flashOpacity<=0;flash.style.opacity=String(flashOpacity);
+    // The opaque peak covers the canvas completely; avoid submitting its
+    // expensive WebGL pass until the fade reveals it again.
+    camera.setVisible(flashOpacity<1);
     const lobbyPan=Math.min(260,Math.max(80,this.scale.width/2-302/(this.scale.displaySize.width/this.scale.width)-SHIP_HITBOX_RADIUS-12));
     if(lobby){camera.stopFollow();camera.centerOn(LOBBY_HOLE.x+Math.sign((local?.x??LOBBY_HOLE.x)-LOBBY_HOLE.x)*Math.max(0,Math.abs((local?.x??LOBBY_HOLE.x)-LOBBY_HOLE.x)-lobbyPan),LOBBY_HOLE.y+Math.sign((local?.y??LOBBY_HOLE.y)-LOBBY_HOLE.y)*Math.max(0,Math.abs((local?.y??LOBBY_HOLE.y)-LOBBY_HOLE.y)-210));this.holeVisual.clear().lineStyle(2,0x6cb8dc,.18).strokeCircle(LOBBY_HOLE.x,LOBBY_HOLE.y,LOBBY_RADIUS);}
-    else if(cinematic){camera.stopFollow();if(hole)camera.centerOn(hole.x,hole.y);}
+    else if(cinematic){camera.stopFollow();if(local)camera.centerOn(local.x,local.y);}
     else if(!this.inspectionPoint)camera.startFollow(this.rocket,true,.12,.12);
     this.deepSpace.update(camera,this.visualIntensity.parallax,this.visualIntensity.quality==='standard',now);
     if(lobby&&!(import.meta.env.DEV&&(this.inspectionPoint||this.composition!=='auto')))for(const image of this.deepSpace.cosmic.images)image.setVisible(false);

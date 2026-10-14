@@ -32,7 +32,7 @@ export class CinematicVisuals{
   this.lastPhase=m.state;
   const age=Math.max(0,snapshot.timeMs-m.phaseStartedAtMs);
   const lobby=m.state==='waiting'||m.state==='countdown'||m.state==='collapse';
-  const ejection=m.state==='active'&&age<900;
+  const ejection=m.state==='launch'&&age>=1400||m.state==='active'&&age<900;
   const enabled=quality==='standard'&&(lobby||m.state==='launch'||ejection);
   g.setVisible(enabled);trail.setVisible(enabled&&ejection);if(!enabled)return;
   const hole=lobby?LOBBY_HOLE:snapshot.blackHole;
@@ -47,7 +47,7 @@ export class CinematicVisuals{
    for(let i=0;i<24;i++){const a=i*Math.PI/12+now*.001,r=220+200*(1-t);g.lineStyle(1,0xf7a76b,.12+t*.3).lineBetween(hole.x+Math.cos(a)*r,hole.y+Math.sin(a)*r,hole.x+Math.cos(a+.16)*r*.35,hole.y+Math.sin(a+.16)*r*.35);}
   }
   if(m.state==='launch'||ejection){
-   const fade=ejection?Math.max(0,1-age/900):1,t=ejection?age/900:1-m.phaseRemainingMs/LAUNCH_MS;
+   const fade=m.state==='active'?Math.max(0,1-age/900):1,t=m.state==='active'?age/900:1-m.phaseRemainingMs/LAUNCH_MS;
    g.lineStyle(2,0xffd7b0,.23*fade).strokeCircle(hole.x,hole.y,120+t*190);
    for(let i=0;i<12;i++){const a=i*Math.PI/6+now*.0005;g.fillStyle(0xffd6b0,.28*fade).fillCircle(hole.x+Math.cos(a)*(110+t*180),hole.y+Math.sin(a)*(110+t*180),1.5);}
    if(ejection)for(const p of snapshot.players){const a=m.launchAngles[p.id];if(a===undefined)continue;trail.lineStyle(2,0x94d8ec,.4*fade).lineBetween(p.x,p.y,p.x-Math.cos(a)*110*fade,p.y-Math.sin(a)*110*fade);}

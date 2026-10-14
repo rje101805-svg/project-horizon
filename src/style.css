@@ -127,3 +127,14 @@ body[data-quality=low] #menu-art:after,body[data-quality=low] .menu-debris,.art-
 #menu-modal form{display:grid;gap:12px}#menu-modal input{background:#080e1e;border:1px solid #76647c;color:#eee;padding:10px}#code-join-error{min-height:1.3em;color:#ffd1a3}
 #horizon-timer,#horizon-warning{position:absolute;z-index:12;pointer-events:none;left:50%;transform:translateX(-50%);padding:7px 12px;background:#080b14db;color:#ffdbb8;font-weight:bold;text-align:center}#horizon-timer{top:12px}#horizon-warning{top:52px;font-size:12px}
 body.horizon-band .game-viewport:after{content:'';position:absolute;inset:0;pointer-events:none;z-index:8;box-shadow:inset 0 0 75px 18px #a6253655}body.horizon-inside .game-viewport:after{box-shadow:inset 0 0 100px 35px #e1264877}
+
+#horizon-timer.final-collapse-warning{font-size:24px;font-weight:800;color:#ffe5bb;text-shadow:0 2px 6px #000;background:rgba(55,10,0,.85);padding:10px 18px;border:2px solid #ff974e}
+
+@keyframes cinematic-flash-fade{0%,60%{opacity:1}100%{opacity:0}}
+#cinematic-flash:not([hidden]){animation:cinematic-flash-fade 250ms linear forwards}
+
+#cinematic-flash{will-change:opacity}
+
+/* Keep consumption notices below danger cues, including the large finale. */
+body[data-phase=active] #objective-feed,body[data-phase=ended] #objective-feed{top:112px}
+#horizon-warning{top:72px}

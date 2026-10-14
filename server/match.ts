@@ -114,8 +114,8 @@ export function advanceMatch(room: GameRoom, timeMs: number): boolean {
         Object.assign(p.state,{x:LOBBY_HOLE.x+Math.cos(a)*r,y:LOBBY_HOLE.y+Math.sin(a)*r,rotation:a+Math.PI/2});
       }else if(m.state==='launch'){
         const elapsed=timeMs-m.phaseStartedAtMs;
-        if(elapsed<LAUNCH_ORBIT_MS){const t=elapsed/LAUNCH_ORBIT_MS,a=angle+t*Math.PI*3,r=150+Math.sin(t*Math.PI)*35;Object.assign(p.state,{x:LAUNCH_ORIGIN.x+Math.cos(a)*r,y:LAUNCH_ORIGIN.y+Math.sin(a)*r,rotation:a+Math.PI/2});}
-        else{const t=Math.min(1,(elapsed-LAUNCH_ORBIT_MS)/EJECTION_MS),ease=1-(1-t)**3,landing=launchLanding(angle);Object.assign(p.state,{x:LAUNCH_ORIGIN.x+(landing.x-LAUNCH_ORIGIN.x)*ease,y:LAUNCH_ORIGIN.y+(landing.y-LAUNCH_ORIGIN.y)*ease,rotation:angle});}
+        if(elapsed<LAUNCH_ORBIT_MS){const t=elapsed/LAUNCH_ORBIT_MS,a=angle+t*Math.PI*2,r=150+Math.sin(t*Math.PI)*35;Object.assign(p.state,{x:LAUNCH_ORIGIN.x+Math.cos(a)*r,y:LAUNCH_ORIGIN.y+Math.sin(a)*r,rotation:a+Math.PI/2});}
+        else{const t=Math.min(1,(elapsed-LAUNCH_ORBIT_MS)/EJECTION_MS),ease=t*t*(3-2*t),landing=launchLanding(angle);Object.assign(p.state,{x:LAUNCH_ORIGIN.x+Math.cos(angle)*150+(landing.x-LAUNCH_ORIGIN.x-Math.cos(angle)*150)*ease,y:LAUNCH_ORIGIN.y+Math.sin(angle)*150+(landing.y-LAUNCH_ORIGIN.y-Math.sin(angle)*150)*ease,rotation:angle});}
 
       }
     }

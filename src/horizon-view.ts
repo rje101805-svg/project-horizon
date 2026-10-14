@@ -9,12 +9,14 @@ export class GrowingHorizonView{
  render(snapshot:Snapshot|null,camera:Phaser.Cameras.Scene2D.Camera,selfId:string,low:boolean){
   const g=this.graphics.clear(),h=snapshot?.horizon,active=snapshot?.match.state==='active';this.timer.hidden=!active||!h;this.warning.hidden=true;document.body.classList.remove('horizon-band','horizon-inside');if(!h||(!active&&snapshot?.match.state!=='ended'))return;
   const seconds=Math.max(0,Math.floor(h.eventInMs/1000)),clock=`${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
-  this.timer.textContent=h.phase==='calm'?`HORIZON IN ${clock}`:h.phase==='hold'?`HORIZON EXPANDS IN ${clock}`:h.elapsedMs<HORIZON_CONFIG.calmMs+HORIZON_CONFIG.spawnNoticeMs?'THE HORIZON IS APPROACHING.':'THE HORIZON IS EXPANDING.';
+  this.timer.textContent=h.phase==='calm'?`HORIZON IN ${clock}`:h.elapsedMs<HORIZON_CONFIG.calmMs+HORIZON_CONFIG.spawnNoticeMs?'THE HORIZON IS APPROACHING.':'THE HORIZON IS EXPANDING.';
+  if(h.elapsedMs>=255000&&h.elapsedMs<270000){this.timer.textContent=`FINAL COLLAPSE IN ${Math.ceil((270000-h.elapsedMs)/1000)}`;this.timer.classList.add('final-collapse-warning');}else if(h.elapsedMs>=270000&&h.elapsedMs<300000){this.timer.textContent=`FINAL COLLAPSE · 0:${String(Math.ceil((300000-h.elapsedMs)/1000)).padStart(2,'0')}`;this.timer.classList.add('final-collapse-warning');}else this.timer.classList.remove('final-collapse-warning');
   if(!h.radius)return;
   const corner=HORIZON_CORNERS[h.corner],r=h.radius;
   g.fillStyle(0x000001,1).fillCircle(corner.x,corner.y,r);
   for(let i=low?2:5;i>0;i--)g.lineStyle(i*8,0xde8743,.035).strokeCircle(corner.x,corner.y,r+i*5);
-  g.lineStyle(3,0xffd2a0,.65).strokeCircle(corner.x,corner.y,r);
+  g.lineStyle(10,0xe35832,.65).strokeCircle(corner.x,corner.y,r-5);
+  g.lineStyle(4,0xffe5bb,.95).strokeCircle(corner.x,corner.y,r);
   // Fixed arcs hug the growing boundary. Low omits them; no giant shader target.
   if(!low)for(let i=0;i<12;i++){const angle=i*Math.PI/6+snapshot!.timeMs*.00006;g.lineStyle(2,0xb77548,.2).beginPath().arc(corner.x,corner.y,r+18,angle,angle+.12).strokePath();}
   const local=snapshot!.players.find(p=>p.id===selfId);if(!local)return;
