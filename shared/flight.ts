@@ -1,12 +1,13 @@
 // Shared fixed-tick flight values for authority and local prediction.
-export const WORLD = 12000;
+import {WORLD,OPENING_BOOST_SPEED} from './world';
+export {WORLD} from './world';
 export const CENTER = WORLD / 2;
 export const TICK_RATE = 30;
 export const TICK_SECONDS = 1 / TICK_RATE;
 export const TICK_MS = 1000 / TICK_RATE;
 export const INPUT_TIMEOUT_MS = 250;
 export const NORMAL_SPEED = 290;
-export const BOOST_SPEED = 440;
+export const BOOST_SPEED = OPENING_BOOST_SPEED;
 export const RESPONSE = 7;
 export const EDGE_MARGIN = 20;
 export interface PlayerInput {

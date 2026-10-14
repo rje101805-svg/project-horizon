@@ -1,0 +1,17 @@
+import {mkdirSync,writeFileSync} from 'node:fs';
+import {RoomStore} from '../server/rooms';
+import {startMatch,advanceMatch} from '../server/match';
+import {WORLD,BASE_WORLD,WORLD_SCALE,REGULAR_EFFECTIVE_REACH,DEFAULT_CAMERA_WIDTH} from '../shared/world';
+import {LAUNCH_D_MIN,validLanding} from '../shared/launch';
+import {PLANET_REGIONS} from '../shared/planets';
+import {MAP_DIAGONAL} from '../shared/horizon';
+const store=new RoomStore();store.play('host','Host','fill',0);const room=store.roomFor('host')!;
+if(!startMatch(room,'host',{round:0}).ok)throw Error('start');advanceMatch(room,3000);advanceMatch(room,4800);advanceMatch(room,9200);
+const points=[...room.players.values()].map(p=>({name:p.state.name,x:p.state.x,y:p.state.y})).sort((a,b)=>a.y-b.y||a.x-b.x).map((p,i)=>({zone:i+1,...p}));
+const pairs=points.flatMap((a,i)=>points.slice(i+1).map(b=>({a:a.zone,b:b.zone,distance:Math.hypot(a.x-b.x,a.y-b.y)})));
+if(points.length!==8||pairs.length!==28||points.some(p=>!validLanding(p))||pairs.some(p=>p.distance<LAUNCH_D_MIN))throw Error('actual landing regression');
+const report={baseline:'e7e50300476a31c0db026e47edf10a2c1a31aeb1',old:{width:BASE_WORLD,height:BASE_WORLD,diagonal:Math.hypot(BASE_WORLD,BASE_WORLD),minimumSeparation:1650},current:{width:WORLD,height:WORLD,diagonal:MAP_DIAGONAL,scale:WORLD_SCALE,areaRatio:WORLD_SCALE**2,minimumSeparation:Math.min(...pairs.map(p=>p.distance)),effectiveRegularReach:REGULAR_EFFECTIVE_REACH,defaultCameraWidth:DEFAULT_CAMERA_WIDTH,requiredMinimum:LAUNCH_D_MIN,initialWeapons:70,initialAmmo:70,ejectionMs:3000,protectionMs:5000},actualLandings:points,pairwiseDistances:pairs,planets:PLANET_REGIONS};
+const out='docs/art-reference/p3s7_2';mkdirSync(out,{recursive:true});writeFileSync(`${out}/landing-measurements.json`,JSON.stringify(report,null,2)+'\n');
+const scale=600/WORLD;const circles=PLANET_REGIONS.map(p=>`<circle cx="${p.x*scale}" cy="${p.y*scale}" r="${p.radius*scale}" fill="#334b71"/><text x="${p.x*scale}" y="${p.y*scale}" fill="white" font-size="12" text-anchor="middle">${p.name}</text>`).join('');const markers=points.map(p=>`<circle cx="${p.x*scale}" cy="${p.y*scale}" r="6" fill="#f8d978"/><text x="${p.x*scale+10}" y="${p.y*scale+5}" fill="white">${p.zone}</text>`).join('');
+writeFileSync(`${out}/landing-layout.svg`,`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="700" viewBox="0 0 640 700"><rect width="640" height="700" fill="#10182c"/><g transform="translate(20 20)"><rect width="600" height="600" fill="none" stroke="#93a5c1"/>${circles}${markers}</g><text x="20" y="650" fill="white">Actual 8-ship arrivals · ${WORLD} × ${WORLD} map</text><text x="20" y="675" fill="white">Minimum gap ${report.current.minimumSeparation.toFixed(2)} · required ${LAUNCH_D_MIN}</text></svg>\n`);
+console.log(JSON.stringify(report.current));

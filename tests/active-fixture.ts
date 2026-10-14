@@ -21,8 +21,8 @@ export function startActiveFixture(room:GameRoom|undefined,id:string,raw:unknown
  const time=room.simulationTimeMs,states=new Map([...room.players.values()].map(p=>[p.state.id,{x:p.state.x,y:p.state.y,vx:p.state.vx,vy:p.state.vy,rotation:p.state.rotation,lifeGeneration:p.state.lifeGeneration,teleportSequence:p.state.teleportSequence}]));
  room.match.state='waiting';room.match.mode=[...room.players.values()].filter(p=>p.state.controllerType==='HUMAN').length===1?'fill':'wait';room.match.readyIds=[...room.players.keys()].filter(k=>k!==room.match.hostId);
  const result=startMatch(room,id,raw);if(!result.ok)return result;
- advanceMatch(room,time+3000);advanceMatch(room,time+4800);advanceMatch(room,time+8200);
- room.horizon=undefined;room.horizonConsumed=undefined;room.blackHole=createBlackHole();room.simulationTimeMs=time;room.match.phaseStartedAtMs=time-2000;for(const p of room.players.values()){Object.assign(p.state,states.get(p.state.id),{spawnInvulnerabilityRemainingMs:0,launchProtectionRemainingMs:0});p.launchProtectionUntilMs=0;p.simulationTimeMs=time;}
+ advanceMatch(room,time+3000);advanceMatch(room,time+4800);advanceMatch(room,time+9200);
+ room.horizon=undefined;room.horizonConsumed=undefined;room.blackHole=createBlackHole();room.simulationTimeMs=time;room.match.phaseStartedAtMs=time-5000;for(const p of room.players.values()){Object.assign(p.state,states.get(p.state.id),{spawnInvulnerabilityRemainingMs:0,launchProtectionRemainingMs:0});p.launchProtectionUntilMs=0;p.simulationTimeMs=time;}
  return result;
 }
 export function replayFixture(room:GameRoom,timeMs:number){advanceMatch(room,timeMs);return playAgain(room,room.match.hostId!,{round:room.match.round}).ok;}

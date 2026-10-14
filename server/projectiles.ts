@@ -15,7 +15,6 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   const s = player.state;
   if (!player.gameplayEnabled || room.match.state !== 'active' || request.lifeGeneration !== s.lifeGeneration || request.teleportSequence !== s.teleportSequence ||
     s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) return reject('Inactive or stale player');
-  if(room.simulationTimeMs<(player.launchProtectionUntilMs??0))return reject('Launch protection');
   if (s.tractor.targetId) return reject('Tractor active');
   if((s.stunRemainingMs??0)>0)return reject('Stunned');
   if (s.status === 'ALIEN') return melee(room, player, request.sequence);
@@ -31,6 +30,8 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   if (x < 0 || x > WORLD || y < 0 || y > WORLD) return reject('Muzzle outside world');
   if (!gold&&!consumeAmmo(player)) return reject('No ammo');
   startFireCooldown(player);
+  player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0;s.spawnInvulnerabilityRemainingMs=Math.max(0,player.invulnerableUntilMs-room.simulationTimeMs);
+
   let id='';
   for(let pellet=0;pellet<(gold?1:definition.pellets);pellet++){
     const spread=gold?s.galaxyType==='titan'?(GALAXY_CONFIG.spreadMin+(GALAXY_CONFIG.spreadMax-GALAXY_CONFIG.spreadMin)*Math.min(1,(s.titanSustainMs??0)/GALAXY_CONFIG.spreadRampMs))*Math.sin(request.sequence*2.399963):0:definition.pellets>1?(pellet-2)*definition.spread/4:definition.spread*Math.sin(request.sequence*2.399963);

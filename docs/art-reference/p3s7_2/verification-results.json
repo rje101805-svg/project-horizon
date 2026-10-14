@@ -1,0 +1,47 @@
+{
+  "baseline": "e7e50300476a31c0db026e47edf10a2c1a31aeb1",
+  "node": {
+    "passed": 387,
+    "failed": 0,
+    "skipped": 0
+  },
+  "relevantPlaywright": {
+    "passed": 12,
+    "failed": 0,
+    "skipped": 0,
+    "oneFinalInvocation": true
+  },
+  "clientBuild": "pass; existing large chunk advisory",
+  "serverTypecheck": "pass",
+  "performance": {
+    "canvas-wait": {
+      "rafFramesPerSecond": 57.14829983807979,
+      "p95IntervalMs": 33.30000000000018,
+      "initialLoot": 140,
+      "finalLoot": 140
+    },
+    "canvas-fill": {
+      "rafFramesPerSecond": 59.99999999999997,
+      "p95IntervalMs": 16.700000000000728,
+      "initialLoot": 140,
+      "finalLoot": 133
+    },
+    "webgl-wait": {
+      "rafFramesPerSecond": 13.23597538108579,
+      "p95IntervalMs": 116.70000000000073,
+      "initialLoot": 140,
+      "finalLoot": 140
+    },
+    "webgl-fill": {
+      "rafFramesPerSecond": 18.09136137494347,
+      "p95IntervalMs": 116.60000000000036,
+      "initialLoot": 140,
+      "finalLoot": 133
+    }
+  },
+  "limitations": [
+    "Earlier SwiftShader flash sample 312.5 ms exceeded 300 ms; assertion unchanged; final run passed.",
+    "Software frame samples do not establish real-GPU acceptance.",
+    "Hardware FPS and multi-device latency/balance remain manual."
+  ]
+}

@@ -1,3 +1,4 @@
+import {launchPose} from '../shared/launch';
 import {playCinematicCue} from './cinematic-audio';
 import type {InventoryCommand} from '../shared/loot';
 import {hasGoldGun,activeWeapon,WEAPONS,fireInterval} from '../shared/weapons';
@@ -40,6 +41,7 @@ export class FlightConnection {
   private tick = -1;
   private receivedTick = -1;
   private lastSnapshot = 0;
+  private cinematicSampleAt = 0;
   private epoch = 0;
   private name = 'Pilot';
   private closed = false;
@@ -103,7 +105,7 @@ export class FlightConnection {
         const teleport = this.prediction.reconcile(local, snapshot.blackHole);
         if (teleport) this.accumulator = 0;
         this.projectilePrediction.reconcile(snapshot, this.socket.id!, performance.now());
-        this.tick = snapshot.tick; this.lastSnapshot = Date.now(); this.latest = snapshot;
+        this.tick = snapshot.tick; this.lastSnapshot = Date.now(); this.latest = snapshot; this.cinematicSampleAt=performance.now();
         callbacks.snapshot(snapshot); callbacks.status('Connected · server-authoritative flight · 30 Hz');
       };
       if (this.lag) this.lag.schedule('snapshot', accept); else accept();
@@ -227,7 +229,7 @@ export class FlightConnection {
   setFireIntent(held: boolean, aim: number) { if(held!==this.firing||held&&performance.now()-this.lastTriggerAt>100)this.sendTrigger(held); if(held&&!this.firing&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=true;if(!held&&WEAPONS[activeWeapon(this.latest?.players.find(p=>p.id===this.socket.id)??{})?.class??'blaster'].automatic)this.triggerPending=false;this.firing = held; this.fireAim = aim; }
   private attemptFire(now: number) {
     const local = this.latest?.players.find(p => p.id === this.socket.id);
-    if ((local?.launchProtectionRemainingMs??0)>0 || this.latest?.match.state!=='active' || !this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (!activeWeapon(local)||local.ammo <= 0 || local.isReloading)) return;
+    if (this.latest?.match.state!=='active' || !this.canPlay() || (!this.firing&&!(this.triggerPending&&local&&activeWeapon(local)?.class==='zapper')) || now < this.nextFireAt || !local || local.lifeState !== 'active' || local.status === 'OUT' || local.tractor.targetId || local.health <= 0 || (local.stunRemainingMs??0)>0 || local.status === 'ALIVE' && !hasGoldGun(local) && (!activeWeapon(local)||local.ammo <= 0 || local.isReloading)) return;
     if(!hasGoldGun(local)&&!WEAPONS[activeWeapon(local)?.class??'blaster'].automatic&&!this.triggerPending)return;this.triggerPending=false;
     this.nextFireAt = now + (local.status === 'ALIEN' ? ALIEN_MELEE_COOLDOWN_MS : fireInterval(local));
     const request: FireRequest = { sequence: ++this.shotSequence, aim: this.fireAim, lifeGeneration: local.lifeGeneration, teleportSequence: local.teleportSequence };
@@ -246,7 +248,15 @@ export class FlightConnection {
     };
     if (this.lag) this.lag.schedule('input', send); else send();
   }
-  renderedLocal(elapsedMs: number) { return this.prediction.render(this.accumulator / TICK_MS, elapsedMs); }
+  renderedLocal(elapsedMs: number) {
+    const rendered=this.prediction.render(this.accumulator / TICK_MS,elapsedMs),snapshot=this.latest,id=this.socket.id;
+    const destination=id&&snapshot?.match.launchDestinations[id],angle=id&&snapshot?.match.launchAngles[id];
+    if(rendered&&snapshot?.match.state==='launch'&&destination&&typeof angle==='number'){
+      const time=snapshot.timeMs-snapshot.match.phaseStartedAtMs+Math.max(0,Math.min(100,performance.now()-this.cinematicSampleAt));
+      return {...rendered,...launchPose(destination,angle,time),vx:0,vy:0};
+    }
+    return rendered;
+  }
   release() {
     this.starting = false;
     const wasFiring=this.firing;

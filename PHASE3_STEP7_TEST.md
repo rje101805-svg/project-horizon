@@ -1,3 +1,5 @@
+> P3S7.2 supersedes launch geometry, map dimensions, loot counts, protection and bot awareness below. Current verification: [PHASE3_STEP7_2_TEST.md](PHASE3_STEP7_2_TEST.md).
+
 # P3S7 — The Horizon, launch spread, loot-first bots and invitations
 
 Baseline: P3S6.1 `f33a30a99135f59db6b0e7cdc1b0f5500c014b84` on `work`. No original public image, weapon balance, inventory focus handling, deployment bundle or main branch was changed.

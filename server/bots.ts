@@ -1,3 +1,4 @@
+import {DEFAULT_CAMERA_WIDTH,WORLD} from '../shared/world';
 import {horizonAt,HORIZON_CORNERS,HORIZON_CONFIG} from '../shared/horizon';
 import {triggerIntent} from './galaxy';
 import {activeWeapon,WEAPONS,RARITIES,GALAXY_WEAPONS} from '../shared/weapons';
@@ -19,14 +20,15 @@ const angleDelta=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 const eligible=(room:GameRoom,p:RoomPlayer)=>room.match.roster.includes(p.state.id) && p.gameplayEnabled && p.state.status==='ALIVE' && p.state.lifeState==='active' && p.state.health>0;
 
 // Replace this writer in a future phase; reactive safety and hands stay intact.
-export function selectBotStrategy(bot:RoomPlayer,candidates:RoomPlayer[]):BotStrategy {
+export function selectBotStrategy(bot:RoomPlayer,candidates:RoomPlayer[],timeMs=bot.simulationTimeMs):BotStrategy {
  let target:RoomPlayer|undefined,distance=Infinity;
- for(const p of candidates){if(p===bot)continue;const d=Math.hypot(p.state.x-bot.state.x,p.state.y-bot.state.y);if(d<distance){distance=d;target=p;}}
+ for(const p of candidates){if(p===bot||!botAware(bot,p,timeMs))continue;const d=Math.hypot(p.state.x-bot.state.x,p.state.y-bot.state.y);if(d<distance){distance=d;target=p;}}
  return {mode:target?'HUNT':'IDLE',target:target?.state.id??null};
 }
 
 // Replaceable deterministic intent writer; close combat and escape retain priority.
 export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotStrategy):BotStrategy {
+ if(combat.target){const enemy=room.players.get(combat.target);if(!enemy||!botAware(bot,enemy,room.simulationTimeMs))combat={...combat,target:null};}
  if(!eligibleShip(room,bot))return combat;
  const enemy=combat.target?room.players.get(combat.target):undefined;
  if(enemy&&Math.hypot(enemy.state.x-bot.state.x,enemy.state.y-bot.state.y)<320)return combat;
@@ -53,11 +55,12 @@ function effectiveRange(bot:RoomPlayer){return bot.state.goldGunId?GALAXY_WEAPON
 export function lootFirst(room:GameRoom,bot:RoomPlayer){return !bot.botLootEnded&&!!room.horizon&&room.simulationTimeMs-room.horizon.startedAtMs<30000&&(bot.state.inventory?.slots.filter(Boolean).length??0)<2;}
 function safeGoal(room:GameRoom,point:{x:number;y:number}){const h=room.horizon;if(!h)return true;const future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),corner=HORIZON_CORNERS[h.corner];return Math.hypot(point.x-corner.x,point.y-corner.y)>future.radius+350;}
 export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotStrategy):BotStrategy{
+ if(combat.target){const enemy=room.players.get(combat.target);if(!enemy||!botAware(bot,enemy,room.simulationTimeMs))combat={...combat,target:null};}
  const s=bot.state,h=room.horizon;
  if(s.status==='ALIVE'&&h){const corner=HORIZON_CORNERS[h.corner],future=horizonAt(h.startedAtMs,room.simulationTimeMs+10000,h.corner),distance=Math.hypot(s.x-corner.x,s.y-corner.y);
-  if(distance<future.radius+450){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'horizon',x:corner.x===0?11900:100,y:corner.y===0?11900:100}};}
+  if(distance<future.radius+450){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'horizon',x:corner.x===0?WORLD-100:100,y:corner.y===0?WORLD-100:100}};}
  }
- if(s.status==='ALIVE'&&s.health+s.shield<(s.maxHealth+s.maxShield)*.3&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)<5000){const target=combat.target?room.players.get(combat.target):undefined;if(target){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'retreat',x:Math.max(20,Math.min(11980,s.x+(s.x-target.state.x))),y:Math.max(20,Math.min(11980,s.y+(s.y-target.state.y)))}};}}
+ if(s.status==='ALIVE'&&s.health+s.shield<(s.maxHealth+s.maxShield)*.3&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)<5000){const target=combat.target?room.players.get(combat.target):undefined;if(target){return {mode:'HUNT',target:null,goal:{kind:'escape',id:'retreat',x:Math.max(20,Math.min(WORLD-20,s.x+(s.x-target.state.x))),y:Math.max(20,Math.min(WORLD-20,s.y+(s.y-target.state.y)))}};}}
  const blocked=bot.botLootBlocked??=new Map();for(const [id,until]of blocked)if(until<=room.simulationTimeMs)blocked.delete(id);
  const previous=bot.botLootTarget;if(previous){const item=lootState(room).pickups.get(previous.id);if(!item){bot.botLootTarget=undefined;}else{const d=Math.hypot(item.x-s.x,item.y-s.y);if(d<previous.best-20){previous.best=d;previous.progressAtMs=room.simulationTimeMs;}else if(room.simulationTimeMs-previous.progressAtMs>5000){blocked.set(previous.id,room.simulationTimeMs+10000);bot.botLootTarget=undefined;}}}
  let strategy=selectObjectiveStrategy(room,bot,combat);
@@ -74,12 +77,13 @@ export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotSt
 // Normal keyboard-style controls, bounded turning, and imperfect heading aim.
 // No position/velocity writes or special bot movement statistics.
 export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:number):PlayerInput {
- const s=bot.state,d=s.bot??=initialBotState(),target=strategy.target?room.players.get(strategy.target):undefined;
+ const s=bot.state,d=s.bot??=initialBotState(),requested=strategy.target?room.players.get(strategy.target):undefined,target=requested&&botAware(bot,requested,room.simulationTimeMs)?requested:undefined;
+ if(!target){strategy={...strategy,target:null};if(bot.botAim){bot.botAim.target=null;bot.botAim.nextCorrection=0;}}
  d.goal=strategy.goal;
  Object.assign(d,strategy,{override:null,thrust:false,boost:false,fire:false,reload:false,tractor:false,melee:false,distance:0});
  const input={...idleInput(),aim:s.rotation};
  let dx=0,dy=0,heading=s.rotation;
- if(target && eligible(room,target)){
+ if(target && eligible(room,target) && botAware(bot,target,room.simulationTimeMs)){
    dx=target.state.x-s.x;dy=target.state.y-s.y;d.distance=Math.hypot(dx,dy);
    heading=Math.atan2(dy,dx);
    const aim=updateBotAim(room,bot,target);
@@ -137,12 +141,12 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
    const s=bot.state;
    if(s.controllerType!=='BOT' || !bot.gameplayEnabled || s.lifeState!=='active' || s.health<=0)continue;
    if(lootEligible(room,bot)&&s.inventory){
-     const target=selectBotStrategy(bot,candidates).target,distance=target?Math.hypot(room.players.get(target)!.state.x-s.x,room.players.get(target)!.state.y-s.y):600;
+     const target=selectBotStrategy(bot,candidates,room.simulationTimeMs).target,distance=target?Math.hypot(room.players.get(target)!.state.x-s.x,room.players.get(target)!.state.y-s.y):600;
      if(!s.isReloading){const active=activeWeapon(s);let slot=s.inventory.activeSlot,score=active&&(active.magazine>0||s.inventory.reserve[WEAPONS[active.class].ammoType]>0)?weaponValue(active,distance):-1;s.inventory.slots.forEach((w,i)=>{if(!w)return;const usable=w.magazine>0||s.inventory!.reserve[WEAPONS[w.class].ammoType]>0,value=usable?weaponValue(w,distance):-1;if(value>score){score=value;slot=i;}});switchSlot(bot,slot);
        const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
-   const input=botHands(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates)),tick);
+   const input=botHands(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates,room.simulationTimeMs)),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
    }
@@ -174,4 +178,9 @@ function updateBotAim(room:GameRoom,bot:RoomPlayer,target:RoomPlayer){
  if(a.target!==target.state.id){a.readyAt=room.simulationTimeMs+(a.target?300+random()*300:250+random()*200);a.target=target.state.id;a.nextCorrection=0;}
  if(room.simulationTimeMs>=a.nextCorrection){const distance=Math.hypot(target.state.x-s.x,target.state.y-s.y),speed=Math.hypot(target.state.vx,target.state.vy);a.error=(random()*2-1)*(.06+distance*.00009+speed*.00016);a.lead=.7+random()*.6;a.nextCorrection=room.simulationTimeMs+160+random()*180;}
  return a;
+}
+
+export function botAware(bot:RoomPlayer,enemy:RoomPlayer,timeMs:number){
+ const recent=bot.recentAttackers;for(const [id,at]of recent??[])if(timeMs-at>5000)recent!.delete(id);
+ return Math.hypot(bot.state.x-enemy.state.x,bot.state.y-enemy.state.y)<=DEFAULT_CAMERA_WIDTH||timeMs-(recent?.get(enemy.state.id)??-Infinity)<=5000;
 }

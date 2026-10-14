@@ -1,8 +1,8 @@
-import {LAUNCH_ORIGIN,LAUNCH_ORBIT_MS,EJECTION_MS,launchLanding,validLanding} from '../shared/launch';
+import {LAUNCH_ORIGIN,launchPose,selectLandingZones} from '../shared/launch';
 import {createBlackHole} from '../shared/black-hole';
 import {beginHorizon} from './horizon';
 import {placeLandingLoot} from './inventory';
-import {randomInt} from 'node:crypto';
+import {createHash} from 'node:crypto';
 import {COUNTDOWN_MS,COLLAPSE_MS,LAUNCH_MS,LAUNCH_PROTECTION_MS,LOBBY_HOLE} from '../shared/match';
 import {MAX_HEALTH,MAX_SHIELD} from '../shared/combat';
 import {initializeInventory,resetLoot} from './inventory';
@@ -17,7 +17,7 @@ import { retireInputs } from './inputs';
 import { chooseLobbySpawn, activeParticipants, removeBot, type GameRoom, type RoomPlayer } from './rooms';
 
 export function matchSnapshot(room: GameRoom): MatchState {
-  return {...room.match, roster:[...room.match.roster],readyIds:[...room.match.readyIds],launchAngles:{...room.match.launchAngles}, result:room.match.result ? {...room.match.result} : null};
+  return {...room.match, roster:[...room.match.roster],readyIds:[...room.match.readyIds],launchAngles:{...room.match.launchAngles},launchDestinations:Object.fromEntries(Object.entries(room.match.launchDestinations).map(([id,p])=>[id,{...p}])), result:room.match.result ? {...room.match.result} : null};
 }
 export function roundHumans(room: GameRoom): RoomPlayer[] {
   const ids = room.match.state === 'waiting' ? [...room.players.keys()] : room.match.roster;
@@ -68,7 +68,7 @@ export function resetRound(room: GameRoom): boolean {
     s.queuedForNextRound=false;
     if(s.controllerType==='BOT'){s.bot=initialBotState();player.botInputTick=player.botInputLife=player.botInputTeleport=undefined;}
     initializeInventory(player);player.botLootEnded=false;player.botLootTarget=undefined;player.botLootBlocked=undefined;player.lastAttackedMs=undefined;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;player.recentPickups?.clear();player.nextSwapMs=0;player.lastFireInputMs=undefined;
-    player.humanEliminated=false; player.gameplayEnabled=true;player.combatEnabled=false; player.invulnerableUntilMs=0;player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0;
+    player.humanEliminated=false; player.gameplayEnabled=true;player.combatEnabled=false; player.invulnerableUntilMs=0;player.recentAttackers=undefined;player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0;
     const angle=(i-1)*Math.PI*2/8;Object.assign(s,{x:LOBBY_HOLE.x+240*Math.cos(angle),y:LOBBY_HOLE.y+240*Math.sin(angle)});
     player.combatTimers={reload:0,cooldown:0,reloadCompleted:false}; player.respawnAtMs=null;
     player.input=idleInput();player.lastInput=-Infinity;player.reset=false;
@@ -76,7 +76,7 @@ export function resetRound(room: GameRoom): boolean {
     // markers invalidate all old-round packets, including delayed DEV requests.
   }
   room.projectiles.clear(); room.match.state='waiting';room.match.roster=[];room.match.result=null;
-  room.match.endedAtMs=null;room.match.resetRemainingMs=0;room.match.readyIds=[...room.players.values()].filter(p=>p.state.controllerType==='BOT').map(p=>p.state.id);room.match.launchAngles={};room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=0;room.collapseOrigins=undefined;
+  room.match.endedAtMs=null;room.match.resetRemainingMs=0;room.match.readyIds=[...room.players.values()].filter(p=>p.state.controllerType==='BOT').map(p=>p.state.id);room.match.launchAngles={};room.match.launchDestinations={};room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=0;room.collapseOrigins=undefined;
   return true;
 }
 // Called by the existing fixed simulation clock, never a per-room timeout.
@@ -99,7 +99,7 @@ export function advanceMatch(room: GameRoom, timeMs: number): boolean {
         m.state='active';m.phaseRemainingMs=0;
         for(const p of room.players.values()){
           const angle=m.launchAngles[p.state.id];if(angle===undefined)continue;
-          Object.assign(p.state,{...launchLanding(angle),vx:0,vy:0,rotation:angle,spawnInvulnerabilityRemainingMs:LAUNCH_PROTECTION_MS,launchProtectionRemainingMs:LAUNCH_PROTECTION_MS});
+          Object.assign(p.state,{...m.launchDestinations[p.state.id],vx:0,vy:0,rotation:angle,spawnInvulnerabilityRemainingMs:LAUNCH_PROTECTION_MS,launchProtectionRemainingMs:LAUNCH_PROTECTION_MS});
           p.state.teleportSequence++;p.gameplayEnabled=true;p.combatEnabled=true;p.launchProtectionUntilMs=timeMs+LAUNCH_PROTECTION_MS;p.simulationTimeMs=timeMs;
           retireInputs(p);p.input=idleInput();p.lastInput=-Infinity;
         }
@@ -113,9 +113,7 @@ export function advanceMatch(room: GameRoom, timeMs: number): boolean {
         const t=Math.min(1,(timeMs-m.phaseStartedAtMs)/COLLAPSE_MS),a=origin.angle+t*t*Math.PI*4,r=origin.radius*(1-t)**2;
         Object.assign(p.state,{x:LOBBY_HOLE.x+Math.cos(a)*r,y:LOBBY_HOLE.y+Math.sin(a)*r,rotation:a+Math.PI/2});
       }else if(m.state==='launch'){
-        const elapsed=timeMs-m.phaseStartedAtMs;
-        if(elapsed<LAUNCH_ORBIT_MS){const t=elapsed/LAUNCH_ORBIT_MS,a=angle+t*Math.PI*2,r=150+Math.sin(t*Math.PI)*35;Object.assign(p.state,{x:LAUNCH_ORIGIN.x+Math.cos(a)*r,y:LAUNCH_ORIGIN.y+Math.sin(a)*r,rotation:a+Math.PI/2});}
-        else{const t=Math.min(1,(elapsed-LAUNCH_ORBIT_MS)/EJECTION_MS),ease=t*t*(3-2*t),landing=launchLanding(angle);Object.assign(p.state,{x:LAUNCH_ORIGIN.x+Math.cos(angle)*150+(landing.x-LAUNCH_ORIGIN.x-Math.cos(angle)*150)*ease,y:LAUNCH_ORIGIN.y+Math.sin(angle)*150+(landing.y-LAUNCH_ORIGIN.y-Math.sin(angle)*150)*ease,rotation:angle});}
+        Object.assign(p.state,launchPose(m.launchDestinations[p.state.id],angle,timeMs-m.phaseStartedAtMs));
 
       }
     }
@@ -134,7 +132,12 @@ export function playAgain(room:GameRoom|undefined,sender:string,raw:unknown):Sta
 }
 
 function assignLaunchAngles(room:GameRoom,players:RoomPlayer[]){
- const shuffled=[...players];for(let i=shuffled.length-1;i>0;i--){const j=randomInt(i+1);[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}let offset=randomInt(1000000)/1000000*Math.PI*2;for(let n=0;n<64;n++){const candidate=offset+n*Math.PI*2/64;if(shuffled.every((_,i)=>validLanding(launchLanding(candidate+i*Math.PI*2/shuffled.length)))){offset=candidate;break;}}room.match.launchAngles=Object.fromEntries(shuffled.map((p,i)=>[p.state.id,offset+i*Math.PI*2/shuffled.length]));
+ // Stable assignment for a room/round/roster; rotate fairly across replays.
+ const rank=(p:RoomPlayer)=>createHash('sha256').update(`${room.code}:${room.match.round}:${p.state.id}`).digest('hex');
+ const shuffled=[...players].sort((a,b)=>rank(a).localeCompare(rank(b)));
+ const zones=selectLandingZones(shuffled.length);
+ room.match.launchDestinations=Object.fromEntries(shuffled.map((p,i)=>[p.state.id,zones[i]]));
+ room.match.launchAngles=Object.fromEntries(shuffled.map((p,i)=>[p.state.id,Math.atan2(zones[i].y-LAUNCH_ORIGIN.y,zones[i].x-LAUNCH_ORIGIN.x)]));
 }
 export function startMatch(room: GameRoom | undefined, senderId: string, raw: unknown): StartMatchResult {
   const reject = (message: string): StartMatchResult => ({ok:false,message});
@@ -148,7 +151,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if(room.match.mode==='fill' && humans.length!==8)return reject('FILL requires eight participants');
   room.match.state='countdown';room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=COUNTDOWN_MS;room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];room.killFeed=[];clearAllTractors(room,true);room.projectiles.clear();
   assignLaunchAngles(room,humans);room.match.readyIds=humans.map(p=>p.state.id);
-  for(const p of humans){Object.assign(p.state,{health:MAX_HEALTH,maxHealth:MAX_HEALTH,shield:MAX_SHIELD,maxShield:MAX_SHIELD,slowRemainingMs:0,burnRemainingMs:0,stunRemainingMs:0,stunImmunityRemainingMs:0,titanSpin:0,titanSustainMs:0,launchProtectionRemainingMs:0,spawnInvulnerabilityRemainingMs:0});p.botLootEnded=false;p.botLootTarget=undefined;p.botLootBlocked=undefined;p.lastAttackedMs=undefined;p.burnOwnerId=undefined;p.titanTriggerUntilMs=0;p.nextSwapMs=0;p.recentPickups?.clear();initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.combatEnabled=false;p.launchProtectionUntilMs=0;freeze(p);}
+  for(const p of humans){Object.assign(p.state,{health:MAX_HEALTH,maxHealth:MAX_HEALTH,shield:MAX_SHIELD,maxShield:MAX_SHIELD,slowRemainingMs:0,burnRemainingMs:0,stunRemainingMs:0,stunImmunityRemainingMs:0,titanSpin:0,titanSustainMs:0,launchProtectionRemainingMs:0,spawnInvulnerabilityRemainingMs:0});p.botLootEnded=false;p.botLootTarget=undefined;p.botLootBlocked=undefined;p.lastAttackedMs=undefined;p.recentAttackers=undefined;p.burnOwnerId=undefined;p.titanTriggerUntilMs=0;p.nextSwapMs=0;p.recentPickups?.clear();initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.combatEnabled=false;p.launchProtectionUntilMs=0;freeze(p);}
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
   }

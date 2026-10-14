@@ -1,3 +1,4 @@
+import {LOBBY_HOLE} from '../shared/match';
 import {ActiveFixtureStore} from './active-fixture';
 import { RoomStore } from '../server/rooms';
 import { createBlackHole, classifyRegion } from '../shared/black-hole';
@@ -48,15 +49,15 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
   const firstPromise = nextSnapshot(socket);
   try {
     const first = await firstPromise;
-    assert.equal(first.players[0].x, 6240);
+    assert.equal(first.players[0].x, LOBBY_HOLE.x+240);
     // Type assertion only bypasses compile-time checking; the server must reject
     // the forged runtime fields as an authority boundary.
     socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, x: 99999, vx: 99999, speed: 99999 } as InputMessage);
     const unchanged = await nextSnapshot(socket, s => s.tick > first.tick + 2);
-    assert.equal(unchanged.players[0].x, 6240);
+    assert.equal(unchanged.players[0].x, LOBBY_HOLE.x+240);
     const heartbeat = setInterval(() => socket.emit('input', { ...idleInput(), sequence: ++inputSequence, teleportSequence: 0, lifeGeneration: 0, right: true }), 30);
     try {
-      const moving = await nextSnapshot(socket, s => s.players[0].x > 6290);
+      const moving = await nextSnapshot(socket, s => s.players[0].x > LOBBY_HOLE.x+290);
       assert.ok(moving.players[0].vx <= 290);
       assert.ok(moving.players[0].lastProcessedInput > 0);
       const start = performance.now();
@@ -68,7 +69,7 @@ test('real Socket.io server owns movement, ignores forged state, ticks at 30Hz a
     const expired = await nextSnapshot(socket, s => Math.abs(s.players[0].vx) < 1);
     assert.ok(expired.players[0].x < WORLD - EDGE_MARGIN);
     socket.emit('resetFlight', 0);
-    const reset = await nextSnapshot(socket, s => s.players[0].x === 6240);
+    const reset = await nextSnapshot(socket, s => s.players[0].x === LOBBY_HOLE.x+240);
     assert.equal(reset.players[0].vx, 0);
     socket.disconnect();
     await new Promise(r => setTimeout(r, 100));

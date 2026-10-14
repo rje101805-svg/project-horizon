@@ -1,4 +1,4 @@
-import {launchLanding} from '../shared/launch';
+import {LOOT_SCALE} from '../shared/world';
 import {randomUUID,randomInt} from 'node:crypto';
 import {activeWeapon,emptyReserve,WEAPONS,WEAPON_CLASSES,RARITIES,RARITY_WEIGHTS,RESERVE_CAPS,AMMO_PACKS,AMMO_TYPES,type WeaponInstance,type WeaponClass,type Rarity} from '../shared/weapons';
 import {LOOT_CONFIG,WORLD_WEAPON_COUNTS,parseInventoryCommand,type LootPickup,type LootSnapshot,type InventoryResult} from '../shared/loot';
@@ -63,7 +63,7 @@ export function resetLoot(room:GameRoom,spawn=false,rng=random){
  const types=Object.entries(WORLD_WEAPON_COUNTS).flatMap(([kind,count])=>Array.from({length:count},()=>kind as WeaponClass));
  // Shuffle class positions without changing the exact class totals.
  for(let i=types.length-1;i>0;i--){const j=Math.min(i,Math.floor(rng()*(i+1)));[types[i],types[j]]=[types[j],types[i]];}
- for(let i=0;i<types.length;i++){const point=i<21?regionPoint(room,i,rng):routePoint(room,i,rng);if(!point||!spawnWorld(room,'weapon',rng,types[i],point))throw Error('Unable to initialize safe world weapons');}
+ for(let i=0;i<types.length;i++){const point=i<21*LOOT_SCALE?regionPoint(room,i,rng):routePoint(room,i,rng);if(!point||!spawnWorld(room,'weapon',rng,types[i],point))throw Error('Unable to initialize safe world weapons');}
  const guns=[...s.pickups.values()];
  for(let i=0;i<LOOT_CONFIG.ammoCount;i++){
   const gun=guns[i%guns.length];let point:{x:number;y:number}|null=null;
@@ -164,8 +164,8 @@ export function lootSnapshot(room:GameRoom):LootSnapshot {return {pickups:[...lo
 // each deterministic landing. No additional resources or replay accumulation.
 export function placeLandingLoot(room:GameRoom){
  const weapons=[...lootState(room).pickups.values()].filter(p=>p.kind==='weapon'),ammo=[...lootState(room).pickups.values()].filter(p=>p.kind==='ammo');let index=0;
- for(const angle of Object.values(room.match.launchAngles)){
-  const at=launchLanding(angle),gun=weapons[index],pack=ammo[index++];if(!gun||!pack)throw Error('Missing landing loot');
+ for(const [id,angle] of Object.entries(room.match.launchAngles)){
+  const at=room.match.launchDestinations[id],gun=weapons[index],pack=ammo[index++];if(!gun||!pack)throw Error('Missing landing loot');
   const tangent=angle+Math.PI/2;Object.assign(gun,{x:at.x+Math.cos(tangent)*140,y:at.y+Math.sin(tangent)*140});Object.assign(pack,{x:at.x+Math.cos(tangent)*260,y:at.y+Math.sin(tangent)*260,ammoType:WEAPONS[gun.weapon.class].ammoType,quantity:AMMO_PACKS[WEAPONS[gun.weapon.class].ammoType]});
  }
 }

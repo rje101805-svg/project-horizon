@@ -31,7 +31,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
   if ((!player.gameplayEnabled || player.combatEnabled===false) || !validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
   // All damage shares the server-owned protection deadline.
   if (!(horizonDamage&&source.type==='ENVIRONMENT'&&source.cause==='BLACK_HOLE') && simulationTimeMs < Math.max(player.invulnerableUntilMs,player.launchProtectionUntilMs??0)) return null;
-  if(source.type==='PLAYER')player.lastAttackedMs=simulationTimeMs;
+  if(source.type==='PLAYER'){player.lastAttackedMs=simulationTimeMs;(player.recentAttackers??=new Map()).set(source.playerId,simulationTimeMs);}
   const s = player.state;
   s.health = clampCombatValue(s.health, s.maxHealth); s.shield = clampCombatValue(s.shield, s.maxShield);
   const shieldAbsorbed = Math.min(s.shield, amount), healthDamage = Math.min(s.health, amount - shieldAbsorbed);
