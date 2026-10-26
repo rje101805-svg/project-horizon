@@ -1,3 +1,5 @@
+import {initialSurvival} from '../shared/survival';
+import {cancelHealing} from './survival';
 import {LOOT_SCALE} from '../shared/world';
 import {randomUUID,randomInt} from 'node:crypto';
 import {activeWeapon,emptyReserve,WEAPONS,WEAPON_CLASSES,RARITIES,RARITY_WEIGHTS,RESERVE_CAPS,AMMO_PACKS,AMMO_TYPES,type WeaponInstance,type WeaponClass,type Rarity} from '../shared/weapons';
@@ -11,19 +13,19 @@ const random=()=>randomInt(0,1000000)/1000000;
 export function freshWeapon(kind:WeaponClass,rarity:Rarity='COMMON'):WeaponInstance {return {id:randomUUID(),class:kind,rarity,magazine:WEAPONS[kind].magazine,capacity:WEAPONS[kind].magazine,grantConsumed:false};}
 export function initializeInventory(p:RoomPlayer){
  const weapon=freshWeapon('blaster');weapon.grantConsumed=true;
- p.state.inventory={slots:[weapon,null,null],activeSlot:0,reserve:{...emptyReserve(),energy:WEAPONS.blaster.magazine*2},revision:(p.state.inventory?.revision??0)+1};
+ p.state.inventory={survival:initialSurvival(),slots:[weapon,null,null],activeSlot:0,reserve:{...emptyReserve(),energy:WEAPONS.blaster.magazine*2},revision:(p.state.inventory?.revision??0)+1};
  p.state.stunRemainingMs=p.state.stunImmunityRemainingMs=0;
  // Legacy HUD fields are views of the active magazine, never another ammo owner.
  let spareAmmo=0,spareMax=0;
  Object.defineProperties(p.state,{ammo:{enumerable:true,configurable:true,get(){return activeWeapon(this)?.magazine??spareAmmo;},set(v:number){const w=activeWeapon(this);if(w)w.magazine=v;else spareAmmo=v;}},maxAmmo:{enumerable:true,configurable:true,get(){return activeWeapon(this)?.capacity??spareMax;},set(v:number){spareMax=v;}}});
 }
-export function clearInventory(p:RoomPlayer){if(p.state.inventory){p.state.inventory={slots:[null,null,null],activeSlot:0,reserve:emptyReserve(),revision:p.state.inventory.revision+1};}p.state.ammo=p.state.maxAmmo=0;}
+export function clearInventory(p:RoomPlayer){if(p.state.inventory){p.state.inventory={survival:p.state.inventory.survival,slots:[null,null,null],activeSlot:0,reserve:emptyReserve(),revision:p.state.inventory.revision+1};}p.state.ammo=p.state.maxAmmo=0;}
 export function lootState(room:GameRoom):LootState {return room.loot??= {pickups:new Map(),nextReplenishMs:Infinity,sequence:0};}
 export function lootEligible(room:GameRoom,p:RoomPlayer){return room.players.get(p.state.id)===p&&room.match.state==='active'&&room.match.roster.includes(p.state.id)&&p.gameplayEnabled&&p.state.status==='ALIVE'&&p.state.lifeState==='active'&&p.state.health>0&&!p.state.goldGunId&&!p.state.queuedForNextRound;}
-function addPickup(room:GameRoom,item:Omit<LootPickup,'id'>):LootPickup {
+export function addPickup(room:GameRoom,item:Omit<LootPickup,'id'>):LootPickup {
  const s=lootState(room);
  // Bounded lifetime/cap intentionally destroys the oldest world resource under pressure.
- if(s.pickups.size>=LOOT_CONFIG.cap){const oldest=s.pickups.keys().next().value;if(oldest)s.pickups.delete(oldest);}
+ if(s.pickups.size>=LOOT_CONFIG.cap){const oldest=[...s.pickups.values()].find(p=>p.source==='world')??[...s.pickups.values()].find(p=>p.kind==='weapon'||p.kind==='ammo');if(!oldest)throw Error('Survival drop bound exceeded');s.pickups.delete(oldest.id);}
  const pickup={...item,id:`${room.code}:loot:${++s.sequence}`} as LootPickup;s.pickups.set(pickup.id,pickup);return pickup;
 }
 export function safeLootPoint(room:GameRoom,rng= random):{x:number;y:number}|null {
@@ -97,10 +99,11 @@ export function collectLoot(room:GameRoom,p:RoomPlayer,id:string):boolean {
  if(item.kind==='ammo'){if(!inv.slots.some(w=>w&&WEAPONS[w.class].ammoType===item.ammoType))return false;
   const transfer=Math.min(item.quantity,RESERVE_CAPS[item.ammoType]-inv.reserve[item.ammoType]);if(transfer<=0)return false;inv.reserve[item.ammoType]+=transfer;item.quantity-=transfer;if(!item.quantity)lootState(room).pickups.delete(id);return true;
  }
+ if(item.kind!=='weapon')return false;
  const slot=inv.slots.indexOf(null);if(slot<0)return false;grant(p,item.weapon);inv.slots[slot]=item.weapon;if(!inv.slots[inv.activeSlot])inv.activeSlot=slot;inv.revision++;lootState(room).pickups.delete(id);return true;
 }
 export function nearestWeapon(room:GameRoom,p:RoomPlayer){return [...lootState(room).pickups.values()].filter((item):item is LootPickup&{kind:'weapon'}=>item.kind==='weapon'&&within(room,p,item)).sort((a,b)=>(p.state.x-a.x)**2+(p.state.y-a.y)**2-((p.state.x-b.x)**2+(p.state.y-b.y)**2)||a.id.localeCompare(b.id))[0];}
-export function switchSlot(p:RoomPlayer,slot:number){const inv=p.state.inventory;if(!inv||!Number.isInteger(slot)||slot<0||slot>2||!inv.slots[slot]||p.state.goldGunId||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||!p.gameplayEnabled||(p.state.stunRemainingMs??0)>0)return false;if(slot===inv.activeSlot)return true;cancelReload(p);inv.activeSlot=slot;inv.revision++;return true;}
+export function switchSlot(p:RoomPlayer,slot:number){const inv=p.state.inventory;if(!inv||!Number.isInteger(slot)||slot<0||slot>2||!inv.slots[slot]||p.state.goldGunId||p.state.status!=='ALIVE'||p.state.lifeState!=='active'||!p.gameplayEnabled||(p.state.stunRemainingMs??0)>0)return false;if(slot===inv.activeSlot)return true;cancelHealing(p);cancelReload(p);inv.activeSlot=slot;inv.revision++;return true;}
 export function rememberPickupProximity(room:GameRoom,p:RoomPlayer){
  const life=`${room.match.round}:${p.state.lifeGeneration}:${p.state.teleportSequence}`;if(p.recentPickupLife!==life){p.recentPickups?.clear();p.recentPickupLife=life;}
  const recent=p.recentPickups??=new Map<string,number>();
@@ -122,7 +125,7 @@ export function pickupWeapon(room:GameRoom,p:RoomPlayer,id?:string){
  if(!('kind' in item)){const ok=collectGoldGun(room,p,item.id,true);if(ok){p.recentPickups?.delete(item.id);p.nextSwapMs=room.simulationTimeMs+LOOT_CONFIG.recentPickupMs;}return ok;}
  if(item.kind!=='weapon')return false;
  const empty=inv.slots.indexOf(null),slot=empty>=0?empty:inv.activeSlot,old=inv.slots[slot];
- lootState(room).pickups.delete(item.id);cancelReload(p);grant(p,item.weapon);inv.slots[slot]=item.weapon;if(!inv.slots[inv.activeSlot])inv.activeSlot=slot;inv.revision++;
+ lootState(room).pickups.delete(item.id);if(slot===inv.activeSlot)cancelHealing(p);cancelReload(p);grant(p,item.weapon);inv.slots[slot]=item.weapon;if(!inv.slots[inv.activeSlot])inv.activeSlot=slot;inv.revision++;
  if(old)dropWeapon(room,p,old);p.recentPickups?.delete(item.id);p.nextSwapMs=room.simulationTimeMs+LOOT_CONFIG.recentPickupMs;return true;
 }
 export function swapWeapon(room:GameRoom,p:RoomPlayer){return pickupWeapon(room,p);}
@@ -132,7 +135,7 @@ export function dropSlot(room:GameRoom,p:RoomPlayer,slot=p.state.inventory?.acti
  if(p.state.goldGunId){dropGoldGun(room,p);inv.revision++;cancelReload(p);return true;}
  if(!Number.isInteger(slot)||slot<0||slot>2)return false;const weapon=inv.slots[slot];if(!weapon)return false;
  dropWeapon(room,p,weapon);inv.slots[slot]=null;
- if(inv.activeSlot===slot){cancelReload(p);inv.activeSlot=Math.max(0,inv.slots.findIndex(w=>!!w));}
+ if(inv.activeSlot===slot){cancelHealing(p);cancelReload(p);inv.activeSlot=Math.max(0,inv.slots.findIndex(w=>!!w));}
  inv.revision++;return true;
 }
 export function reorderSlots(p:RoomPlayer,from:number,to:number){

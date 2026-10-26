@@ -1,3 +1,4 @@
+import {LOBBY_HOLE} from '../shared/match';
 import { test, expect } from '@playwright/test';
 import type { FlightConnection } from '../src/network';
 import type Phaser from 'phaser';
@@ -19,14 +20,14 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect(page.locator('#status')).toContainText('server-authoritative');
-  await expect(page.locator('#position')).toHaveText('X 6240.0 · Y 6000.0');
+  await expect(page.locator('#position')).toHaveText(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
   await page.keyboard.down('d');
-  await expect.poll(() => page.locator('#position').textContent()).not.toBe('X 6240.0 · Y 6000.0');
+  await expect.poll(() => page.locator('#position').textContent()).not.toBe(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
   await page.keyboard.down('Shift');
   await expect.poll(async () => Number((await page.locator('#velocity').textContent())?.split(' ')[1])).toBeGreaterThan(350);
   await page.keyboard.up('d'); await page.keyboard.up('Shift');
   await page.getByRole('button', { name: 'DEV reset flight [F4]', exact: true }).click();
-  await expect(page.locator('#position')).toHaveText('X 6240.0 · Y 6000.0');
+  await expect(page.locator('#position')).toHaveText(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
   // Mutating the render object is overwritten by the next predicted render.
   await page.evaluate(() => {
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
@@ -35,7 +36,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await expect.poll(() => page.evaluate(() => {
     const scene = (window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0] as Phaser.Scene & { rocket: Phaser.GameObjects.Container };
     return scene.rocket.x;
-  })).toBe(6240);
+  })).toBe(LOBBY_HOLE.x+240);
   // Keep the room alive through the tested reconnect (identity is ephemeral).
   const peer = io(url);
   await new Promise<void>(resolve => peer.once('connect', () => resolve()));

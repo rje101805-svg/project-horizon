@@ -26,6 +26,7 @@ export class FlightConnection {
   private triggerSequence=0;private lastTriggerAt=-Infinity;private triggerPending=false;private inventorySequence=0;
   private fireAim = 0;
   private nextFireAt = 0;
+  private survivalSequence=0;
   private shotSequence = 0;
   private reloadSequence = 0;
   readonly projectilePrediction = new ProjectilePrediction();
@@ -275,6 +276,11 @@ export class FlightConnection {
     const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('trigger',request);};if(this.lag)this.lag.schedule('input',send);else send();
   }
   cycleWeapon(direction:number){const inv=this.latest?.players.find(p=>p.id===this.socket.id)?.inventory;if(!inv)return;for(let n=1;n<4;n++){const slot=(inv.activeSlot+n*(direction>0?1:2))%3;if(inv.slots[slot]){this.inventory('switch',slot);break;}}}
+  survival(action:import('../shared/survival').SurvivalRequest['action'],aim?:number){
+    const local=this.latest?.players.find(p=>p.id===this.socket.id),room=this.room,snapshot=this.latest;if(!room||!local||snapshot?.match.state!=='active'||!this.canPlay())return;
+    const request={action,...(action==='wall'?{aim}:{}),sequence:++this.survivalSequence,roomCode:room.code,round:snapshot.match.round,reloadSession:local.reloadSession,lifeGeneration:local.lifeGeneration,teleportSequence:local.teleportSequence},epoch=this.epoch;
+    const send=()=>{if(epoch===this.epoch&&this.canPlay())this.socket.emit('survival',request,()=>{});};if(this.lag)this.lag.schedule('input',send);else send();
+  }
   reload() {
     if(this.latest?.players.find(p=>p.id===this.socket.id)?.goldGunId)return;
     const local = this.latest?.players.find(p => p.id === this.socket.id), room = this.room;

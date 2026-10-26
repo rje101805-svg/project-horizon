@@ -1,3 +1,4 @@
+import {resetSurvival,cancelHealing} from './survival';
 import {LAUNCH_ORIGIN,launchPose,selectLandingZones} from '../shared/launch';
 import {createBlackHole} from '../shared/black-hole';
 import {beginHorizon} from './horizon';
@@ -38,7 +39,7 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
   finishMatch(room,humans.length ? {kind:'winner', winnerId:humans[0].state.id, winnerName:humans[0].state.name} : {kind:'draw'},timeMs);
 }
 export function finishMatch(room:GameRoom,result:import('../shared/match').MatchResult,timeMs:number){
- clearAllTractors(room);room.match.state='ended';room.match.endedAtMs=timeMs;room.match.resetRemainingMs=0;room.match.result=result;room.projectiles.clear();pauseObjectives(room);
+ for(const p of room.players.values())cancelHealing(p,timeMs);clearAllTractors(room);room.match.state='ended';room.match.endedAtMs=timeMs;room.match.resetRemainingMs=0;room.match.result=result;room.projectiles.clear();pauseObjectives(room);
  for(const p of room.players.values()){if(p.state.status==='ALIEN'&&p.state.lifeState==='active'){p.state.health=p.state.shield=0;p.state.lifeState='dead';p.state.teleportSequence++;}freeze(p);}
 }
 // Reset is a room transaction: validate every spawn before changing any player.
@@ -52,7 +53,7 @@ export function resetRound(room: GameRoom): boolean {
   for (const _player of next) {
     const spawn = chooseLobbySpawn(spawns); if (!spawn) return false; spawns.push(spawn);
   }
-  room.horizon=undefined;room.horizonConsumed=[];room.blackHole=createBlackHole();
+  resetSurvival(room);room.horizon=undefined;room.horizonConsumed=[];room.blackHole=createBlackHole();
   resetObjectives(room);room.combatEffects=[];room.killFeed=[];
   for(const p of remove)removeBot(room,p.state.id);
   resetLoot(room); // Removed bots may drop equipment; clear those old-round drops too.
@@ -149,7 +150,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if (room.match.mode==='wait' && (humans.filter(p=>p.state.controllerType==='HUMAN').length<1 || humans.some(p=>p.state.id!==senderId&&!room.match.readyIds.includes(p.state.id))))return reject('WAIT requires a human host and all guests READY');
   if(humans.some(p=>p.state.controllerType==='HUMAN'&&p.state.id!==senderId&&!room.match.readyIds.includes(p.state.id)))return reject('All human guests must be READY');
   if(room.match.mode==='fill' && humans.length!==8)return reject('FILL requires eight participants');
-  room.match.state='countdown';room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=COUNTDOWN_MS;room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];room.killFeed=[];clearAllTractors(room,true);room.projectiles.clear();
+  resetSurvival(room);room.match.state='countdown';room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=COUNTDOWN_MS;room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];room.killFeed=[];clearAllTractors(room,true);room.projectiles.clear();
   assignLaunchAngles(room,humans);room.match.readyIds=humans.map(p=>p.state.id);
   for(const p of humans){Object.assign(p.state,{health:MAX_HEALTH,maxHealth:MAX_HEALTH,shield:MAX_SHIELD,maxShield:MAX_SHIELD,slowRemainingMs:0,burnRemainingMs:0,stunRemainingMs:0,stunImmunityRemainingMs:0,titanSpin:0,titanSustainMs:0,launchProtectionRemainingMs:0,spawnInvulnerabilityRemainingMs:0});p.botLootEnded=false;p.botLootTarget=undefined;p.botLootBlocked=undefined;p.lastAttackedMs=undefined;p.recentAttackers=undefined;p.burnOwnerId=undefined;p.titanTriggerUntilMs=0;p.nextSwapMs=0;p.recentPickups?.clear();initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.combatEnabled=false;p.launchProtectionUntilMs=0;freeze(p);}
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {

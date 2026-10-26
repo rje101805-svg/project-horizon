@@ -1,3 +1,5 @@
+import {wallEntry,wallDistance,type ShieldWall} from '../shared/survival';
+import {cancelHealing,walls,damageWall,wallBlocked} from './survival';
 import {hasGoldGun,GALAXY_WEAPONS,GALAXY_CONFIG,activeWeapon,WEAPONS,weaponDamage,MISSILE_EXPLOSION_RADIUS} from '../shared/weapons';
 import { melee } from './melee';
 import { BASIC_BLASTER, parseFire, circleEntry, type FireResult, type ProjectileState } from '../shared/projectiles';
@@ -29,7 +31,7 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   const x = s.x + dx * BASIC_BLASTER.muzzleOffset, y = s.y + dy * BASIC_BLASTER.muzzleOffset;
   if (x < 0 || x > WORLD || y < 0 || y > WORLD) return reject('Muzzle outside world');
   if (!gold&&!consumeAmmo(player)) return reject('No ammo');
-  startFireCooldown(player);
+  player.lastCombatMs=room.simulationTimeMs;cancelHealing(player,room.simulationTimeMs);startFireCooldown(player);
   player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0;s.spawnInvulnerabilityRemainingMs=Math.max(0,player.invulnerableUntilMs-room.simulationTimeMs);
 
   let id='';
@@ -61,18 +63,20 @@ export function advanceProjectiles(room: GameRoom, onHit?: (hit: ProjectileHit) 
     const fraction=p.maxRange!==undefined&&distanceThisTick>0?Math.min(1,Math.max(0,p.maxRange-(p.traveled??0))/distanceThisTick):1;
     const next = { x: p.x + p.vx * TICK_SECONDS*fraction, y: p.y + p.vy * TICK_SECONDS*fraction };
     let contact = Math.min(boundaryEntry(p, next), circleEntry(p, next, room.blackHole, room.blackHole.eventHorizonRadius + (p.radius??BASIC_BLASTER.projectileRadius)) ?? Infinity);
-    let target: RoomPlayer | null = null;
+    let target: RoomPlayer | null = null;let wallTarget:ShieldWall|null=null;
+    for(const wall of walls(room).values()){if(wall.hp<=0||wall.expiresAtMs<=room.simulationTimeMs)continue;const t=wallEntry(p,next,wall,p.radius??BASIC_BLASTER.projectileRadius);if(t!==null&&t<contact){contact=t;wallTarget=wall;}}
     for (const player of room.players.values()) {
       const s = player.state;
       if (!player.gameplayEnabled || s.id === p.ownerId || s.lifeState !== 'active' || s.status === 'OUT' || s.health <= 0) continue;
       const t = circleEntry(p, next, s, BASIC_BLASTER.shipRadius + (p.radius??BASIC_BLASTER.projectileRadius));
-      if (t !== null && t < contact) { contact = t; target = player; }
+      if (t !== null && t < contact) { contact = t; target = player;wallTarget=null; }
     }
     if (contact !== Infinity) {
       const point={x:p.x+(next.x-p.x)*contact,y:p.y+(next.y-p.y)*contact};
       const distance=(p.traveled??0)+Math.hypot(point.x-p.x,point.y-p.y),falloff=p.weapon==='shotgun'?Math.max(.2,Math.min(1,1-(distance-100)/400)):1;
+      if(wallTarget)damageWall(room,wallTarget,p.damage*falloff);
       if(target)damageTarget(room,p,target,p.damage*falloff,point,tick,onHit);
-      if(p.weapon==='missile'||p.galaxyType==='lunar')explode(room,p,point,target,tick,onHit);
+      if(p.weapon==='missile'||p.galaxyType==='lunar')explode(room,p,point,target,tick,onHit,wallTarget?.id);
       room.projectiles.delete(id); continue;
     }
     p.traveled=(p.traveled??0)+Math.hypot(next.x-p.x,next.y-p.y);Object.assign(p, next); p.remainingTicks--; p.remainingMs = p.remainingTicks * TICK_MS;
@@ -89,14 +93,15 @@ function damageTarget(room:GameRoom,p:ServerProjectile,target:RoomPlayer,amount:
  if(target.state.lifeState==='active'&&p.galaxyType==='cryo'){target.state.slowRemainingMs=GALAXY_CONFIG.slowMs;effect(room,'frost',point,25);}
  if(target.state.lifeState==='active'&&p.galaxyType==='inferno'){target.state.burnRemainingMs=GALAXY_CONFIG.burnMs;target.burnOwnerId=p.ownerId;effect(room,'burn',point,25);}
  if(p.weapon==='zapper'){applyStun(target);effect(room,'shock',point,35);}
- const owner=room.players.get(p.ownerId)?.state;if(!owner||damage.shieldAbsorbed+damage.healthDamage<=0)return;
+ const ownerPlayer=room.players.get(p.ownerId),owner=ownerPlayer?.state;if(!owner||damage.shieldAbsorbed+damage.healthDamage<=0)return;ownerPlayer!.lastCombatMs=room.simulationTimeMs;
  onHit?.({projectileId:p.id,shotSequence:p.shotSequence,hitTick:tick,roomCode:room.code,ownerId:p.ownerId,ownerSession:owner.reloadSession,lifeGeneration:p.lifeGeneration,teleportSequence:p.teleportSequence,targetId:target.state.id,targetSession:target.state.reloadSession,targetLifeGeneration:target.state.lifeGeneration,targetTeleportSequence:target.state.teleportSequence,...point,shieldDamage:damage.shieldAbsorbed,healthDamage:damage.healthDamage});
 }
-function explode(room:GameRoom,p:ServerProjectile,point:{x:number;y:number},direct:RoomPlayer|null,tick:number,onHit?:(hit:ProjectileHit)=>void){
+function explode(room:GameRoom,p:ServerProjectile,point:{x:number;y:number},direct:RoomPlayer|null,tick:number,onHit?:(hit:ProjectileHit)=>void,directWallId?:string){
  effect(room,'explosion',point,MISSILE_EXPLOSION_RADIUS,p.galaxyType==='lunar'?GALAXY_WEAPONS.lunar.color:undefined);
+ for(const wall of [...walls(room).values()]){if(wall.id===directWallId)continue;const d=wallDistance(point,wall);if(d<MISSILE_EXPLOSION_RADIUS&&!wallBlocked(room,point,wall,wall.id))damageWall(room,wall,p.damage*.5*(1-d/MISSILE_EXPLOSION_RADIUS));}
  for(const target of room.players.values()){
   const s=target.state;if(target===direct||s.id===p.ownerId||!target.gameplayEnabled||s.lifeState!=='active'||s.status==='OUT'||s.health<=0)continue;
-  const distance=Math.hypot(s.x-point.x,s.y-point.y);if(distance>=MISSILE_EXPLOSION_RADIUS)continue;
+  const distance=Math.hypot(s.x-point.x,s.y-point.y);if(distance>=MISSILE_EXPLOSION_RADIUS||wallBlocked(room,point,s))continue;
   damageTarget(room,p,target,p.damage*.5*(1-distance/MISSILE_EXPLOSION_RADIUS),point,tick,onHit);
  }
 }

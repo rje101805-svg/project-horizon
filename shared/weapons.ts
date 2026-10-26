@@ -21,7 +21,7 @@ export const RESERVE_CAPS:Record<AmmoType,number>={energy:180,plasma:36,missiles
 export const AMMO_PACKS:Record<AmmoType,number>={energy:30,plasma:6,missiles:3,light:40,shock:12};
 export const AMMO_NAMES:Record<AmmoType,string>={energy:'Energy Rounds',plasma:'Plasma Shells',missiles:'Missiles',light:'Light Energy Rounds',shock:'Shock Cells'};
 export interface WeaponInstance {id:string;class:WeaponClass;rarity:Rarity;magazine:number;capacity:number;grantConsumed:boolean}
-export interface WeaponInventory {slots:(WeaponInstance|null)[];activeSlot:number;reserve:Record<AmmoType,number>;revision:number}
+export interface WeaponInventory {survival?:import('./survival').SurvivalInventory;slots:(WeaponInstance|null)[];activeSlot:number;reserve:Record<AmmoType,number>;revision:number}
 export const emptyReserve=():Record<AmmoType,number>=>({energy:0,plasma:0,missiles:0,light:0,shock:0});
 export const weaponDamage=(weapon:Pick<WeaponInstance,'class'|'rarity'>)=>WEAPONS[weapon.class].damage[RARITIES.indexOf(weapon.rarity)]*REGULAR_DAMAGE_SCALE;
 export const activeWeapon=(state:Pick<CombatState,'inventory'>)=>state.inventory?.slots[state.inventory.activeSlot]??null;

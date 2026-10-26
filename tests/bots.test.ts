@@ -1,3 +1,5 @@
+import {utility} from '../server/survival';
+import {beginHorizon} from '../server/horizon';
 import {settleBotPerception} from './active-fixture';
 import {startActiveFixture as startMatch,replayFixture} from './active-fixture';
 import { test } from 'node:test';
@@ -81,8 +83,8 @@ for(const boost of [false,true])test(`tractor attacker has identical normal thru
 });
 test('eight-participant production loop is bounded over multiple rounds with no socket bots',async()=>{
  const f=fixture();f.fill();const ids=[...f.room.players.keys()],server=createGameServer([],f.store,{autoTick:false});const begin=performance.now();let rounds=0;
- try{for(let i=0;i<3600;i++){if(f.room.match.state==='ended')replayFixture(f.room,f.room.simulationTimeMs);if(f.room.match.state==='waiting'){startMatch(f.room,'a',{round:f.room.match.round});rounds++;}server.step();assert.ok(activeParticipants(f.room).length<=8);for(const p of f.room.players.values()){assert.ok(Number.isFinite(p.state.x)&&Number.isFinite(p.state.y));assert.ok(p.state.ammo>=0);assert.ok(p.pendingInputs.length<=8);}}
- assert.ok(rounds>=2);assert.deepEqual([...f.room.players.keys()],ids);assert.equal(server.io.sockets.sockets.size,0);console.log(`8-participant 3600-tick run: ${(performance.now()-begin).toFixed(1)}ms, ${rounds} rounds`);
+ try{for(let i=0;i<18200;i++){if(f.room.match.state==='ended')replayFixture(f.room,f.room.simulationTimeMs);if(f.room.match.state==='waiting'){startMatch(f.room,'a',{round:f.room.match.round});beginHorizon(f.room,()=>0);rounds++;}server.step();assert.ok((f.room.walls?.size??0)<=24);assert.ok(activeParticipants(f.room).length<=8);for(const p of f.room.players.values()){assert.ok(Number.isFinite(p.state.x)&&Number.isFinite(p.state.y));assert.ok(p.state.ammo>=0);const u=utility(p);if(u){assert.ok(u.materials>=0&&u.materials<=300);assert.ok(u.cells>=0&&u.cells<=3);assert.ok(u.kits>=0&&u.kits<=2);}assert.ok(p.pendingInputs.length<=8);}}
+ assert.ok(rounds>=2);assert.deepEqual([...f.room.players.keys()],ids);assert.equal(server.io.sockets.sockets.size,0);console.log(`8-participant 18200-tick run: ${(performance.now()-begin).toFixed(1)}ms, ${rounds} rounds`);
  }finally{await server.close();}
 });
 

@@ -12,7 +12,7 @@ test('three clients capture, contest, steal, fire, drop and recover Gold with au
  test.setTimeout(90000);
  const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const address=server.http.address();if(!address||typeof address==='string')throw Error('port');
  const peer=await context.newPage(),third=await context.newPage(),pages=[page,peer,third],errors:string[]=[];let tick=0;
- const frame=async(n=1)=>{for(let i=0;i<n-1;i++){server.step();tick++;await new Promise<void>(r=>setImmediate(r));}await page.evaluate(()=>new Promise<void>(r=>(window as any).__HORIZON_FLIGHT__.socket.emit('latencyProbe',r)));server.step();tick++;for(const p of pages)await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
+ const frame=async(n=1)=>{for(let i=0;i<n-1;i++){server.step();tick++;await new Promise<void>(r=>setImmediate(r));}for(const p of pages)await p.evaluate(()=>new Promise<void>((resolve,reject)=>(window as any).__HORIZON_FLIGHT__.socket.timeout(5000).emit('latencyProbe',(error:any)=>error?reject(error):resolve())));server.step();tick++;for(const p of pages)await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
  const teleport=(p:RoomPlayer,x:number,y:number)=>{Object.assign(p.state,{x,y,vx:0,vy:0});p.state.teleportSequence++;};
  try{
   for(const [i,p]of pages.entries()){p.on('pageerror',e=>errors.push(e.message));await p.goto('/?devrooms=1');await p.locator('#display-name').fill(['Redline','Blue','Third'][i]);await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}

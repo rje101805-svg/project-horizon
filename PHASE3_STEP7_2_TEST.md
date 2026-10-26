@@ -1,3 +1,5 @@
+> P3S5 extends the ACTIVE loot pool with survival resources; the P3S7.2 measurements below remain a historical baseline. Current verification: [PHASE3_STEP5_TEST.md](PHASE3_STEP5_TEST.md).
+
 # P3S7.2 verification — long-distance launch and battle royale opening
 
 Baseline: `e7e50300476a31c0db026e47edf10a2c1a31aeb1`, verified clean on `work` with matching `origin/work` before edits. No `main`, original asset bytes, weapon damage/aim tuning, planet radii/capture rules or Horizon damage/gravity/result rules changed. No P3S5 or Pages release.

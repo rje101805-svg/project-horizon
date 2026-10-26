@@ -1,3 +1,4 @@
+import {WORLD_SCALE} from '../shared/world';
 import {startActiveFixture} from './active-fixture';
 import {test,expect} from '@playwright/test';
 import {RoomStore} from '../server/rooms';
@@ -49,8 +50,8 @@ test('F3 environment inspection, eight-player readability and scene cleanup pres
   // Runtime inspection only changes camera position, never player/server state.
   const positions=[[0,0],[180,0],[340,-150],[-70,-140],[110,155],[320,145],[-100,155],[360,0]] as const;
   const encounters=[...PLANET_REGIONS.map(p=>({...p,expectedBodies:1})),
-   {x:650,y:4500,radius:300,biome:'purple-nebula',expectedBodies:0},
-   {x:5000,y:3500,radius:300,biome:'cyan-nebula',expectedBodies:0}];
+   {x:650*WORLD_SCALE,y:4500*WORLD_SCALE,radius:300,biome:'purple-nebula',expectedBodies:0},
+   {x:5000*WORLD_SCALE,y:3500*WORLD_SCALE,radius:300,biome:'cyan-nebula',expectedBodies:0}];
   for(const region of encounters){
    clearAllTractors(room,true);const cx=region.x-region.radius+300,cy=region.y;
    for(const [i,p]of players.entries()){Object.assign(p.state,{x:cx+positions[i][0],y:cy+positions[i][1],vx:0,vy:0,rotation:0});p.state.teleportSequence++;}

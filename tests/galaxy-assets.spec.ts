@@ -1,3 +1,4 @@
+import {LOOT_CONFIG} from '../shared/loot';
 import {test,expect,chromium} from '@playwright/test';import {existsSync} from 'node:fs';
 import {RoomStore,roomChannel} from '../server/rooms';import {createGameServer} from '../server/game';import {startActiveFixture as startMatch} from './active-fixture';import {lootState,freshWeapon} from '../server/inventory';import {objectiveState} from '../server/objectives';import {equipGoldGun,clearGoldGun} from '../server/equipment';
 import {WEAPONS,WEAPON_CLASSES,RARITIES,GALAXY_TYPES,GALAXY_WEAPONS} from '../shared/weapons';
@@ -8,7 +9,7 @@ for(const renderer of ['Canvas','WebGL'] as const)test(`P3S4.1 ${renderer}: nine
  try{
   if(renderer==='WebGL')await p.addInitScript(()=>{(window as any).__HORIZON_RENDERER__='webgl';});
   await p.goto('/?devrooms=1');await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await p.locator('#create').click();await expect(p.locator('canvas')).toBeVisible();const room=[...store.rooms.values()][0],a=[...room.players.values()][0];store.join('b',room.code,'B',0);store.join('c',room.code,'C',0);startMatch(room,a.state.id,{round:0});server.io.to(roomChannel(room.code)).emit('roomState',store.info(room));await frame();
-  expect([...lootState(room).pickups.values()].filter(q=>q.kind==='weapon').length).toBe(35);expect([...lootState(room).pickups.values()].filter(q=>q.kind==='ammo').length).toBe(35);expect(objectiveState(room).pickups.size).toBe(0);
+  expect([...lootState(room).pickups.values()].filter(q=>q.kind==='weapon').length).toBe(LOOT_CONFIG.weaponCount);expect([...lootState(room).pickups.values()].filter(q=>q.kind==='ammo').length).toBe(LOOT_CONFIG.ammoCount);expect(objectiveState(room).pickups.size).toBe(0);
   const tex=await p.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return Object.keys(s.textures.list).filter(k=>k.startsWith('weapon-')).map(k=>{const im=s.textures.get(k).getSourceImage();return {k,width:im.width,height:im.height};});});expect(tex.length).toBe(9);expect(tex.every(t=>t.width>100&&t.width<=480&&t.height<=240)).toBe(true);
   // Inspect real initial distribution at a planet region before any capture.
   const actual=[...lootState(room).pickups.values()].find(q=>q.kind==='weapon')!;Object.assign(a.state,{x:actual.x,y:actual.y,vx:0,vy:0});a.state.teleportSequence++;await frame();await expect(p.locator('#swap-prompt')).toContainText('[F] PICK UP');await p.locator('.game-viewport').screenshot({path:`test-results/p3s41-${renderer.toLowerCase()}-initial-loot.png`});

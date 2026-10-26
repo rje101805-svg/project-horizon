@@ -1,3 +1,5 @@
+import {utility,startHealing,deployWall,survivalEligible} from './survival';
+import {SURVIVAL} from '../shared/survival';
 import {DEFAULT_CAMERA_WIDTH,WORLD} from '../shared/world';
 import {horizonAt,HORIZON_CORNERS,HORIZON_CONFIG} from '../shared/horizon';
 import {triggerIntent} from './galaxy';
@@ -33,8 +35,9 @@ export function selectObjectiveStrategy(room:GameRoom,bot:RoomPlayer,combat:BotS
  const enemy=combat.target?room.players.get(combat.target):undefined;
  if(enemy&&Math.hypot(enemy.state.x-bot.state.x,enemy.state.y-bot.state.y)<320)return combat;
  const inv=bot.state.inventory;
+ const supply=nearbyUtility(room,bot);if(supply)return {...combat,mode:'LOOT',goal:{kind:'loot',id:supply.id,x:supply.x,y:supply.y}};
  if(inv&&!bot.state.goldGunId){
-  const loot=[...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-bot.state.x,item.y-bot.state.y)<1200).filter(item=>item.kind==='weapon'?(inv.slots.includes(null)||weaponValue(item.weapon,600)>weaponValue(activeWeapon(bot.state),600)+1):inv.slots.some(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)&&inv.reserve[item.ammoType]<WEAPONS[inv.slots.find(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)!.class].magazine*2);
+  const loot=[...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-bot.state.x,item.y-bot.state.y)<1200).filter(item=>item.kind==='weapon'?(inv.slots.includes(null)||weaponValue(item.weapon,600)>weaponValue(activeWeapon(bot.state),600)+1):item.kind==='ammo'&&inv.slots.some(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)&&inv.reserve[item.ammoType]<WEAPONS[inv.slots.find(w=>w&&WEAPONS[w.class].ammoType===item.ammoType)!.class].magazine*2);
   loot.sort((a,b)=>Math.hypot(a.x-bot.state.x,a.y-bot.state.y)-Math.hypot(b.x-bot.state.x,b.y-bot.state.y)||a.id.localeCompare(b.id));
   if(loot[0])return {...combat,mode:'LOOT',goal:{kind:'loot',id:loot[0].id,x:loot[0].x,y:loot[0].y}};
  }
@@ -65,7 +68,7 @@ export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotSt
  const previous=bot.botLootTarget;if(previous){const item=lootState(room).pickups.get(previous.id);if(!item){bot.botLootTarget=undefined;}else{const d=Math.hypot(item.x-s.x,item.y-s.y);if(d<previous.best-20){previous.best=d;previous.progressAtMs=room.simulationTimeMs;}else if(room.simulationTimeMs-previous.progressAtMs>5000){blocked.set(previous.id,room.simulationTimeMs+10000);bot.botLootTarget=undefined;}}}
  let strategy=selectObjectiveStrategy(room,bot,combat);
  if(lootFirst(room,bot)){
-  const items=[...lootState(room).pickups.values()].filter(p=>!blocked.has(p.id)&&safeGoal(room,p)&&(p.kind==='weapon'||s.inventory?.slots.some(w=>w&&WEAPONS[w.class].ammoType===p.ammoType))).sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y)||a.id.localeCompare(b.id));
+  const items=[...lootState(room).pickups.values()].filter(p=>!blocked.has(p.id)&&safeGoal(room,p)&&(p.kind==='weapon'||p.kind==='ammo'&&s.inventory?.slots.some(w=>w&&WEAPONS[w.class].ammoType===p.ammoType))).sort((a,b)=>Math.hypot(a.x-s.x,a.y-s.y)-Math.hypot(b.x-s.x,b.y-s.y)||a.id.localeCompare(b.id));
   if(items[0])strategy={...combat,mode:'LOOT',goal:{kind:'loot',id:items[0].id,x:items[0].x,y:items[0].y}};else{bot.botLootEnded=true;strategy=combat;}
  }
  if(strategy.goal&&(!safeGoal(room,strategy.goal)||blocked.has(strategy.goal.id)))strategy=combat;
@@ -142,7 +145,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
    if(s.controllerType!=='BOT' || !bot.gameplayEnabled || s.lifeState!=='active' || s.health<=0)continue;
    if(lootEligible(room,bot)&&s.inventory){
      const target=selectBotStrategy(bot,candidates,room.simulationTimeMs).target,distance=target?Math.hypot(room.players.get(target)!.state.x-s.x,room.players.get(target)!.state.y-s.y):600;
-     if(!s.isReloading){const active=activeWeapon(s);let slot=s.inventory.activeSlot,score=active&&(active.magazine>0||s.inventory.reserve[WEAPONS[active.class].ammoType]>0)?weaponValue(active,distance):-1;s.inventory.slots.forEach((w,i)=>{if(!w)return;const usable=w.magazine>0||s.inventory!.reserve[WEAPONS[w.class].ammoType]>0,value=usable?weaponValue(w,distance):-1;if(value>score){score=value;slot=i;}});switchSlot(bot,slot);
+     if(!s.isReloading&&!utility(bot)?.use){const active=activeWeapon(s);let slot=s.inventory.activeSlot,score=active&&(active.magazine>0||s.inventory.reserve[WEAPONS[active.class].ammoType]>0)?weaponValue(active,distance):-1;s.inventory.slots.forEach((w,i)=>{if(!w)return;const usable=w.magazine>0||s.inventory!.reserve[WEAPONS[w.class].ammoType]>0,value=usable?weaponValue(w,distance):-1;if(value>score){score=value;slot=i;}});switchSlot(bot,slot);
        const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
@@ -160,6 +163,8 @@ export function advanceBotActions(room:GameRoom,tick:number) {
    const s=bot.state,d=s.bot;
    if(s.controllerType!=='BOT' || !d || !bot.gameplayEnabled || s.lifeState!=='active' || s.health<=0 || bot.botInputTick!==tick || bot.botInputLife!==s.lifeGeneration || bot.botInputTeleport!==s.teleportSequence)continue;
    // Respawn/teleport-only ticks must not reuse an old life's attack intention.
+   botSurvival(room,bot);
+   if(utility(bot)?.use){d.fire=d.tractor=d.melee=false;}
    if(d.reload)reload(room,bot,{sequence:bot.lastReloadSequence+1,roomCode:room.code,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
    if(d.tractor)activateTractor(room,bot,{sequence:(bot.lastTractorSequence??0)+1,round:room.match.round,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
    if(s.galaxyType==='titan')triggerIntent(room,bot,{sequence:(bot.lastTriggerSequence??0)+1,held:d.fire,roomCode:room.code,round:room.match.round,reloadSession:s.reloadSession,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence});
@@ -183,4 +188,12 @@ function updateBotAim(room:GameRoom,bot:RoomPlayer,target:RoomPlayer){
 export function botAware(bot:RoomPlayer,enemy:RoomPlayer,timeMs:number){
  const recent=bot.recentAttackers;for(const [id,at]of recent??[])if(timeMs-at>5000)recent!.delete(id);
  return Math.hypot(bot.state.x-enemy.state.x,bot.state.y-enemy.state.y)<=DEFAULT_CAMERA_WIDTH||timeMs-(recent?.get(enemy.state.id)??-Infinity)<=5000;
+}
+
+export function nearbyUtility(room:GameRoom,p:RoomPlayer){const u=utility(p);if(!u||!survivalEligible(room,p))return undefined;return [...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-p.state.x,item.y-p.state.y)<=900&&(item.kind==='material'?u.materials+item.quantity<=SURVIVAL.materialCap:item.kind==='cell'?u.cells<SURVIVAL.cellCap&&p.state.shield<p.state.maxShield:item.kind==='repair'?u.kits<SURVIVAL.kitCap&&p.state.health<p.state.maxHealth:false)).sort((a,b)=>Math.hypot(a.x-p.state.x,a.y-p.state.y)-Math.hypot(b.x-p.state.x,b.y-p.state.y)||a.id.localeCompare(b.id))[0];}
+export function botSurvival(room:GameRoom,p:RoomPlayer){
+ if(!survivalEligible(room,p))return;const u=utility(p);if(!u)return;const s=p.state,now=room.simulationTimeMs,hp=(s.health+s.shield)/(s.maxHealth+s.maxShield),since=now-(p.lastAttackedMs??-Infinity);
+ if(hp<.6&&since>=2000&&now-(p.lastCombatMs??-Infinity)>=2000&&!u.use){if(s.shield<s.maxShield&&u.cells>0)startHealing(room,p,'cell');else if(s.health<s.maxHealth&&u.kits>0)startHealing(room,p,'repair');}
+ const hits=(p.incomingDamageTimes??[]).filter(t=>now-t<=2000),enemy=s.lastDamageSource?.type==='PLAYER'?room.players.get(s.lastDamageSource.playerId):undefined;
+ if(hp<.7&&hits.length>=2&&now-hits[0]>=500&&since<1500&&now-(p.botWallAtMs??-Infinity)>=3000&&enemy&&botAware(p,enemy,now)){const result=deployWall(room,p,Math.atan2(enemy.state.y-s.y,enemy.state.x-s.x));if(result.ok)p.botWallAtMs=now;}
 }

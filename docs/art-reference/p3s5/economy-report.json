@@ -1,0 +1,107 @@
+{
+  "world": 18692,
+  "materialCount": 39,
+  "healingCount": 35,
+  "initialPickups": 214,
+  "materialPolicy": "Reject whole pickup unless its complete value fits; preserve remainder death stacks.",
+  "spawnCpuMs": 2.8085669999999823,
+  "routes": [
+    {
+      "name": "Host",
+      "landing": {
+        "x": 17367.4912703474,
+        "y": 1324.5087296526012
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3300.00000000006,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834096
+    },
+    {
+      "name": "Viper",
+      "landing": {
+        "x": 3473.860837635488,
+        "y": 9346
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3300.00000000006,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834027
+    },
+    {
+      "name": "Nova",
+      "landing": {
+        "x": 1324.5087296526012,
+        "y": 17367.4912703474
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3299.9999999999127,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834096
+    },
+    {
+      "name": "Atlas",
+      "landing": {
+        "x": 9346,
+        "y": 3473.860837635488
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3299.99999999988,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834027
+    },
+    {
+      "name": "Echo",
+      "landing": {
+        "x": 17367.4912703474,
+        "y": 17367.4912703474
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3299.99999999988,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834135
+    },
+    {
+      "name": "Comet",
+      "landing": {
+        "x": 9346,
+        "y": 15218.139162364512
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3299.99999999988,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692833995
+    },
+    {
+      "name": "Orion",
+      "landing": {
+        "x": 1324.5087296526012,
+        "y": 1324.5087296526012
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3299.99999999988,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692834058
+    },
+    {
+      "name": "Vega",
+      "landing": {
+        "x": 15218.139162364512,
+        "y": 9346
+      },
+      "ordinarySpeed": 290,
+      "elapsedMs": 3300.0000000001855,
+      "materials": 50,
+      "wallsAffordable": 2,
+      "travelDistance": 920.2169692833995
+    }
+  ],
+  "hardwareGpuVerified": false
+}

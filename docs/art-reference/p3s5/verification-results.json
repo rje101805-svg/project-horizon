@@ -1,0 +1,58 @@
+{
+  "baseline": "9754b1979f99f9d89d14c446560ef3c29557e46e",
+  "node": {
+    "passed": 418,
+    "failed": 0,
+    "skipped": 0
+  },
+  "build": "pass; existing Vite large-chunk advisory",
+  "serverTypecheck": "pass",
+  "playwright": {
+    "completeInvocation": {
+      "total": 69,
+      "passed": 61,
+      "failed": 8,
+      "minutes": 13.3
+    },
+    "focusedRecovery": {
+      "total": 19,
+      "passed": 18,
+      "failed": 1,
+      "minutes": 4.9
+    },
+    "finalSoloAndSurvival": {
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "minutes": 1.4
+    },
+    "allUniqueCasesHavePassingRun": true,
+    "singleAllGreenFullInvocation": false,
+    "finalSurvivalVisuals": {
+      "total": 2,
+      "passed": 2,
+      "failed": 0,
+      "seconds": 28.1
+    }
+  },
+  "timingChanges": {
+    "solarActiveWait": "9200 ms actual cinematic +2000 ms snapshot/render slack",
+    "twoRoundSoloBudget": "2 \u00d7 (9200 ms cinematic +10000 ms scene/interaction), measured 30.1\u201330.5s total",
+    "movementAssertions": "original 5000 ms unchanged",
+    "flashAssertion": "original <=300 ms unchanged"
+  },
+  "knownLimitations": [
+    "A 334.3 ms software-WebGL flash sample failed the unchanged timing assertion; recovery passed.",
+    "Hardware FPS, separate-device latency/bandwidth and subjective economy/bot balance require Windows acceptance."
+  ],
+  "phase4": "Tactical APIs ready for high-level intent integration; no OpenAI calls or Phase 4 implementation.",
+  "economy": {
+    "materialPickups": 39,
+    "healingPickups": 35,
+    "initialPool": 214,
+    "landingRoutesFunded": 8,
+    "materialsPerDirectRoute": 50,
+    "directRouteMs": 3300,
+    "collectionPolicy": "whole-stack reject when it cannot fit; preserve exact death remainders"
+  }
+}

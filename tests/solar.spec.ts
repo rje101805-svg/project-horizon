@@ -1,3 +1,4 @@
+import {COUNTDOWN_MS,COLLAPSE_MS,LAUNCH_MS} from '../shared/match';
 import {PLANET_IMAGES} from '../src/visual/planet-images';
 import {test,expect,chromium} from '@playwright/test';
 import {existsSync} from 'node:fs';
@@ -26,7 +27,7 @@ test('four cached biome materials render and clean up in WebGL and Canvas',async
  console.log('P3S2.6 material verified',webgl?'SwiftShader':'Canvas',biome,Date.now()-started);
  }
  // Observe actual renderer intervals under eight-participant combat; no artificial FPS assertion.
- await p.locator('#visual-biome').selectOption('terrestrial');await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.players.length)).toBe(8);await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
+ await p.locator('#visual-biome').selectOption('terrestrial');await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.players.length)).toBe(8);await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state),{timeout:COUNTDOWN_MS+COLLAPSE_MS+LAUNCH_MS+2000}).toBe('active');
  const measured=await p.evaluate(()=>new Promise<{frames:number;meanMs:number;p95Ms:number;activeFrames:number}>(resolve=>{const game=(window as any).__HORIZON_GAME__,s=game.scene.scenes[0],samples:number[]=[];let previous=performance.now(),warmup=30,activeFrames=0;const frame=()=>{const now=performance.now(),dt=now-previous;previous=now;if(warmup-->0)return;samples.push(dt);if(s.connection.latest?.match.state==='active')activeFrames++;if(samples.length===120){game.events.off('postrender',frame);const sorted=[...samples].sort((a,b)=>a-b);resolve({frames:samples.length,meanMs:samples.reduce((a,b)=>a+b,0)/samples.length,p95Ms:sorted[Math.floor(samples.length*.95)],activeFrames});}};game.events.on('postrender',frame);}));
  console.log('P3S2.6 software renderer observation',JSON.stringify({renderer:webgl?'SwiftShader Standard':'Canvas Low',...measured}));
  const keys=await p.evaluate(()=>Object.keys((window as any).__HORIZON_GAME__.textures.list).filter(k=>/^(surface-|planet-)/.test(k)).sort());expect(keys).toHaveLength(12);

@@ -1,3 +1,4 @@
+import {cancelHealing} from './survival';
 import { initialTractorState, inTractorCone, parseTractor, TRACTOR_KILL_LOCK_MS, TRACTOR_COOLDOWN_MS, TRACTOR_MAX_DURATION_MS, type TractorResult } from '../shared/tractor';
 import { eliminate } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
@@ -32,6 +33,7 @@ export function activateTractor(room:GameRoom|undefined,p:RoomPlayer|undefined,r
  const targets=[...room.players.values()].filter(t=>t!==p && room.simulationTimeMs>=(t.launchProtectionUntilMs??0) && human(room,t) && !t.state.tractor.attackerId && inTractorCone(p.state,t.state) && los(p.state,t.state));
  targets.sort((a,b)=>Math.hypot(a.state.x-p.state.x,a.state.y-p.state.y)-Math.hypot(b.state.x-p.state.x,b.state.y-p.state.y));
  const target=targets[0];if(!target)return reject('No human in tractor cone');
+ cancelHealing(p,room.simulationTimeMs);cancelHealing(target,room.simulationTimeMs);
  const beam:TractorBeam={attackerId:p.state.id,targetId:target.state.id,round:room.match.round,startedAtMs:room.simulationTimeMs,attackerLife:p.state.lifeGeneration,attackerTeleport:p.state.teleportSequence,targetLife:target.state.lifeGeneration,targetTeleport:target.state.teleportSequence};
  (room.tractorBeams??=new Map()).set(p.state.id,beam);(room.tractorCooldowns??=new Map()).set(p.state.id,room.simulationTimeMs+TRACTOR_COOLDOWN_MS);
  p.state.tractor={...p.state.tractor,targetId:target.state.id,cooldownRemainingMs:TRACTOR_COOLDOWN_MS,remainingMs:TRACTOR_MAX_DURATION_MS,lockElapsedMs:0};

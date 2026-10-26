@@ -13,7 +13,7 @@ export interface PlayerState extends FlightState, LifeState { launchProtectionRe
 export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; participantIds?: string[]; queuedIds?: string[]; maxPlayers: number; blackHole: BlackHoleState }
 export interface CombatEffect {color?:number;id:number;kind:'explosion'|'shock'|'frost'|'burn';x:number;y:number;radius:number;timeMs:number}
 export interface KillAnnouncement { id:string; timeMs:number; text:string }
-export interface Snapshot {horizon?:import('./horizon').HorizonState;killFeed?:KillAnnouncement[];effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
+export interface Snapshot {walls?:import('./survival').ShieldWall[];horizon?:import('./horizon').HorizonState;killFeed?:KillAnnouncement[];effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }
@@ -25,6 +25,7 @@ export interface ServerEvents {
 export interface InputMessage extends PlayerInput { lifeGeneration: number; teleportSequence: number; sequence: number; release?: boolean }
 export interface TriggerRequest {sequence:number;held:boolean;roomCode:string;round:number;reloadSession:string;lifeGeneration:number;teleportSequence:number}
 export interface ClientEvents {
+  survival:(request:import('./survival').SurvivalRequest,reply:(result:import('./survival').SurvivalResult)=>void)=>void;
   play: (request:{name:string;mode:import('./match').RoomMode}, reply:(result:RoomResult)=>void)=>void;
   ready: (request:{round:number;ready:boolean}, reply:(result:StartMatchResult)=>void)=>void;
   playAgain: (request:StartMatchRequest, reply:(result:StartMatchResult)=>void)=>void;

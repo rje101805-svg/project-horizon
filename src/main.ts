@@ -1,3 +1,4 @@
+import {SurvivalView} from './survival-view';
 import {CinematicFlash} from './cinematic-flash';
 import {GrowingHorizonView} from './horizon-view';
 import {DEFAULT_CAMERA_WIDTH} from '../shared/launch';
@@ -88,6 +89,7 @@ class Horizon extends Phaser.Scene {
   private lastRender = performance.now();
   private lastDebug = 0;
   private ships = new Map<string, Ship>();
+  private survival!:SurvivalView;
   private cinematicFlash = new CinematicFlash();
   private interpolator = new RemoteInterpolator();
   constructor() { super('Horizon'); }
@@ -99,7 +101,7 @@ class Horizon extends Phaser.Scene {
     this.deepSpace = new DeepSpace(this);
     const border=this.add.graphics().setDepth(-10);border.lineStyle(2,0x465769,.3).strokeRect(0,0,WORLD,WORLD);
     this.celestial = new CelestialWorld(this);
-    this.objectives=new ObjectiveVisuals(this);this.loot=new LootVisuals(this,(action,slot,toSlot)=>this.connection.inventory(action,slot,undefined,toSlot),()=>{this.input.keyboard?.resetKeys();this.connection.release();});
+    this.survival=new SurvivalView(this);this.objectives=new ObjectiveVisuals(this);this.loot=new LootVisuals(this,(action,slot,toSlot)=>this.connection.inventory(action,slot,undefined,toSlot),()=>{this.input.keyboard?.resetKeys();this.connection.release();});
     this.localHud = new ShipCombatHud(this); this.damageNumbers = new DamageNumbers(this);
     this.tractorGraphics = this.add.graphics().setDepth(3);
     this.projectileGraphics = this.add.graphics().setDepth(6);
@@ -123,6 +125,7 @@ class Horizon extends Phaser.Scene {
       if(!event.repeat&&!typing&&['Digit1','Digit2','Digit3'].includes(event.code))this.connection.inventory('switch',Number(event.code.slice(-1))-1);
       if(event.code==='Space'&&!event.repeat&&!typing)this.connection.triggerFire(this.fireAim);
       if(event.code==='KeyF'&&!event.repeat&&!typing)this.connection.inventory('pickup',undefined,this.loot.highlightedId);
+      if(!event.repeat&&!typing&&['KeyQ','Digit4','Digit5'].includes(event.code))this.connection.survival(event.code==='KeyQ'?'wall':event.code==='Digit4'?'cell':'repair',event.code==='KeyQ'?this.fireAim:undefined);
       if(event.code==='KeyG'&&!event.repeat&&!typing)this.connection.inventory('drop');
       if (event.code === 'KeyR' && !event.repeat && !typing) this.connection.reload();
     };
@@ -141,7 +144,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
+      this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -208,7 +211,7 @@ class Horizon extends Phaser.Scene {
   }
   acceptSnapshot(snapshot: Snapshot) {
     if (!this.ready) return;
-    this.objectives.accept(snapshot,this.connection.socket.id??'');this.loot.accept(snapshot,this.connection.socket.id??'');
+    this.survival.accept(snapshot,this.connection.socket.id??'');this.objectives.accept(snapshot,this.connection.socket.id??'');this.loot.accept(snapshot,this.connection.socket.id??'');
     const local = snapshot.players.find(p => p.id === this.connection.socket.id);
     if (!local) return;
     // Lifecycle/HUD stay authoritative; only local movement is predicted.
@@ -403,7 +406,7 @@ class Horizon extends Phaser.Scene {
     this.map.setVisible(phase==='active'||phase==='ended');
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
-    this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
+    this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

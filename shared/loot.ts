@@ -1,8 +1,9 @@
+import {SURVIVAL} from './survival';
 import {LOOT_SCALE} from './world';
 import type {AmmoType,WeaponInstance} from './weapons';
-export const LOOT_CONFIG=Object.freeze({weaponCount:Math.round(35*LOOT_SCALE),ammoCount:Math.round(35*LOOT_SCALE),pickupRadius:130,recentPickupMs:250,paddedPickupRadius:250,spacing:180,playerClearance:220,planetClearance:80,cap:Math.round(160*LOOT_SCALE),replenishMs:5000,dropLifetimeMs:120000,pickupGraceMs:750});
+export const LOOT_CONFIG=Object.freeze({weaponCount:Math.round(35*LOOT_SCALE),ammoCount:Math.round(35*LOOT_SCALE),pickupRadius:130,recentPickupMs:250,paddedPickupRadius:250,spacing:180,playerClearance:220,planetClearance:80,cap:Math.round(160*LOOT_SCALE)+SURVIVAL.materialCount+SURVIVAL.healingCount+8*17,replenishMs:5000,dropLifetimeMs:120000,pickupGraceMs:750});
 interface PickupBase {id:string;x:number;y:number;spawnTimeMs:number;source:'world'|'drop';blockedId?:string;blockedUntilMs?:number}
-export type LootPickup=(PickupBase&{kind:'weapon';weapon:WeaponInstance})|(PickupBase&{kind:'ammo';ammoType:AmmoType;quantity:number});
+export type LootPickup=(PickupBase&{kind:'weapon';weapon:WeaponInstance})|(PickupBase&{kind:'ammo';ammoType:AmmoType;quantity:number})|(PickupBase&{kind:'material'|'cell'|'repair';quantity:number});
 export interface LootSnapshot {pickups:LootPickup[]}
 export interface InventoryCommand {sequence:number;roomCode:string;round:number;reloadSession:string;lifeGeneration:number;teleportSequence:number;revision:number;action:'switch'|'swap'|'pickup'|'drop'|'reorder';slot?:number;toSlot?:number;pickupId?:string}
 export interface InventoryResult {ok:boolean;reason:string}
