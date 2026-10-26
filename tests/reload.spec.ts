@@ -78,8 +78,8 @@ for (const lag of [false, true]) test(`R edge, authoritative reload, final-round
     await advance(p.combatTimers.reload - 1); expect(p.state.ammo).toBe(0); await frame();
     expect(p.state.ammo).toBe(30); await page.keyboard.down('Space'); await expect.poll(() => p.state.ammo).toBe(29); await page.keyboard.up('Space');
     await frame(); await expect.poll(pending).toBe(0);
-    // Reset moved to authorized DEV F4, retaining ammo and shield HP.
-    await page.keyboard.press('F4'); await expect.poll(() => p.reset).toBe(true); await frame();
+    // Reset moved to authorized DEV reset button, retaining ammo and shield HP.
+    await page.locator('#restart').click(); await expect.poll(() => p.reset).toBe(true); await frame();
     expect(p.state.x).toBe(1370); expect(p.state.ammo).toBe(29); expect(p.state.shield).toBe(59.5);
   } finally { await peer.close(); await page.close(); await server.close(); }
 });
@@ -106,6 +106,6 @@ test('stale predicted shot rejected during reload clears, and known reload suppr
     expect(store.roomFor(id)!.projectiles.size).toBe(0); expect(p.combatTimers.reload).toBe(69); expect(p.state.ammo).toBe(5);
     server.step(); await expect(page.locator('#hud-reload')).toHaveText('RELOADING');
     await page.keyboard.down('Space'); await page.waitForTimeout(400); await page.keyboard.up('Space'); expect(p.lastFireSequence).toBe(1);
-    await page.keyboard.press('F4'); await page.waitForTimeout(100); expect(p.reset).toBe(false);
+    await page.locator('#restart').click(); await page.waitForTimeout(100); expect(p.reset).toBe(false);
   } finally { await page.close(); await server.close(); }
 });

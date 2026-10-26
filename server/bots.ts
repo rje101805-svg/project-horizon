@@ -1,3 +1,4 @@
+import {strategicStrategy} from './ai/strategy';
 import {utility,startHealing,deployWall,survivalEligible} from './survival';
 import {SURVIVAL} from '../shared/survival';
 import {DEFAULT_CAMERA_WIDTH,WORLD} from '../shared/world';
@@ -149,7 +150,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
        const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
-   const input=botHands(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates,room.simulationTimeMs)),tick);
+   const input=botHands(room,bot,strategicStrategy(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates,room.simulationTimeMs))),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
    }

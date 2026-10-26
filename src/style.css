@@ -145,3 +145,12 @@ body[data-phase=active] #objective-feed,body[data-phase=ended] #objective-feed{t
 #healing-progress[hidden],#survival-hud[hidden] { display:none; }
 #survival-feedback { min-height:20px; color:#e7d3ac; }
 @media(max-width:700px) { #survival-hud { bottom:150px; font-size:10px; } }
+
+#ai-intel { position:absolute; top:70px; left:12px; z-index:25; width:min(740px,calc(100vw - 24px)); max-height:48vh; overflow:auto; padding:12px; box-sizing:border-box; background:#091220ed; border:1px solid #8d9fac; border-radius:8px; color:#e6ebed; font:12px/1.5 monospace; pointer-events:none; }
+#ai-intel[hidden] { display:none; }
+#ai-intel table { width:100%; margin-top:8px; border-collapse:collapse; }
+#ai-intel td,#ai-intel th { text-align:left; padding:3px 7px 3px 0; border-bottom:1px solid #263449; }
+#ai-intel-metrics { color:#c5d4d9; font-size:11px; }
+#pilot-radio { position:absolute; left:12px; top:auto; bottom:200px; display:flex; flex-direction:column; justify-content:flex-end; max-height:160px; overflow:hidden; z-index:14; max-width:min(440px,calc(100vw - 24px)); pointer-events:none; font:12px/1.5 monospace; color:#d9e2e8; text-shadow:0 1px 3px #000; }
+#pilot-radio>div { flex-shrink:0; background:#091220d9; border-left:2px solid #7a8792; padding:4px 7px; margin:3px 0; }
+@media(min-width:1100px) { #mission:has(#ai-intel:not([hidden])) .kill-feed { left:auto; right:200px; max-width:calc(100vw - 980px); } }

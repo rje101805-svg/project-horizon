@@ -5,14 +5,6 @@ export function installCombatDebug(connection: () => FlightConnection | undefine
   document.getElementById('combat-controls')!.hidden = false;
   const resetButton = document.getElementById('restart')!;
   resetButton.hidden = false; resetButton.onclick = reset;
-  window.addEventListener('keydown', event => {
-    const target = event.target as HTMLInputElement;
-    const typing = target?.tagName === 'TEXTAREA' || target?.tagName === 'INPUT' && target.type !== 'checkbox';
-    if (event.code === 'F4' && !event.repeat && !typing &&
-        !document.getElementById('mission')!.hidden) {
-      event.preventDefault(); reset();
-    }
-  });
   for (const button of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-combat-action]'))) {
     button.onclick = () => {
       const c = connection(), local = c?.latest?.players.find(p => p.id === c.socket.id);

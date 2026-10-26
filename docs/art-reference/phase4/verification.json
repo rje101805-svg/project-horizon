@@ -1,0 +1,45 @@
+{
+  "dateUTC": "2026-10-26T20:23:53.645926+00:00",
+  "baseline": "8e3d62d201e53688519a4d45682b545c02e8ced7",
+  "branch": "work",
+  "node": {
+    "passed": 448,
+    "total": 448
+  },
+  "playwrightFull": {
+    "passed": 72,
+    "total": 72,
+    "minutes": 15.3
+  },
+  "playwrightAfterFinalPolish": {
+    "passed": 3,
+    "total": 3,
+    "seconds": 30.7
+  },
+  "clientBuild": "PASS (existing Phaser chunk advisory)",
+  "serverTypecheck": "PASS",
+  "liveOpenAI": {
+    "keyAvailable": false,
+    "requestsMade": 0,
+    "verified": false
+  },
+  "schedulerSimulation": {
+    "bots": 7,
+    "durationSeconds": 300,
+    "calls": 120,
+    "meanCadenceMs": 17469,
+    "minCadenceMs": 12500,
+    "maxCadenceMs": 22500
+  },
+  "softwareRendererObservation": {
+    "CanvasLowMeanMs": 16.6733,
+    "SwiftShaderStandardMeanMs": 87.685,
+    "hardwareAcceptance": false
+  },
+  "remaining": [
+    "Live OpenAI request, latency, tokens and deployed judging acceptance unverified",
+    "Rolling hour budget is in-memory per process; use one instance/worker before shared storage",
+    "One contended five-second SwiftShader cold readiness poll failed; isolated final 3/3 rerun passed with unchanged deadlines",
+    "Real-GPU FPS, narrow-viewport composition and separate-device human balance remain manual"
+  ]
+}

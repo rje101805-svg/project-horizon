@@ -18,6 +18,8 @@ export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: fa
 export interface RoomRequest { name: string }
 export interface JoinRequest extends RoomRequest { code: string }
 export interface ServerEvents {
+  aiIntel:(packet:import('./pilots').IntelPacket)=>void;
+  aiRadio:(packet:import('./pilots').RadioPacket)=>void;
   projectileHit: (hit: ProjectileHit) => void;
   snapshot: (snapshot: Snapshot) => void;
   roomState: (room: RoomInfo) => void;

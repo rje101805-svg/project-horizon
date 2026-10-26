@@ -1,0 +1,17 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {io,type Socket} from 'socket.io-client';
+import {RoomStore} from '../server/rooms';import {createGameServer} from '../server/game';import {PilotCoordinator} from '../server/ai/coordinator';import {aiConfig} from '../server/ai/openai';import {startActiveFixture} from './active-fixture';import {finishMatch,resetRound} from '../server/match';
+const connected=(s:Socket)=>new Promise<void>((resolve,reject)=>{s.once('connect',resolve);s.once('connect_error',reject);});
+const request=(s:Socket,event:string,value?:unknown)=>new Promise<any>((resolve,reject)=>s.timeout(3000).emit(event,value,(error:unknown,response:unknown)=>error?reject(error):resolve(response)));
+const packet=(s:Socket,event:string)=>new Promise<any>((resolve,reject)=>{const timeout=setTimeout(()=>reject(Error(`Missing ${event}`)),3000);s.once(event,p=>{clearTimeout(timeout);resolve(p);});});
+test('two real clients synchronize authoritative strategy-driven bots during API failure, isolate rooms and reset match state',async()=>{
+ const store=new RoomStore(),ai=new PilotCoordinator(aiConfig({}),{available:true,async decide(){throw Object.assign(Error('PRIVATE_PROVIDER_MESSAGE'),{status:429});}},()=>performance.now(),()=>{}),server=createGameServer([],store,{autoTick:false,ai});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const addr=server.http.address();assert.ok(addr&&typeof addr!=='string');const url=`http://127.0.0.1:${addr.port}`,clients=Array.from({length:3},()=>io(url,{transports:['websocket'],forceNew:true}));
+ try{
+  await Promise.all(clients.map(connected));const [a,b,c]=clients;const first=await request(a,'play',{name:'Pilot',mode:'fill'});assert.equal(first.ok,true);const room=store.roomFor(a.id!)!;assert.equal((await request(b,'joinRoom',{code:room.code,name:'Peer'})).ok,true);assert.equal((await request(c,'createRoom',{name:'Other room'})).ok,true);const other=store.roomFor(c.id!)!;assert.notEqual(other.code,room.code);assert.ok(startActiveFixture(room,a.id!,{round:0}).ok);let old:any;
+  for(let i=0;i<35;i++){
+   await Promise.all(clients.map(s=>new Promise<void>((resolve,reject)=>s.timeout(3000).emit('latencyProbe',(e:any)=>e?reject(e):resolve()))));
+   const snapshots=clients.map(s=>packet(s,'snapshot'));server.step();const [x,y,z]=await Promise.all(snapshots);assert.equal(x.roomCode,room.code);assert.equal(y.roomCode,room.code);assert.equal(z.roomCode,other.code);assert.deepEqual(x.players,y.players);assert.ok(x.players.every((p:any)=>!('bot'in p)));assert.equal(z.players.length,1);if(old&&i===34)assert.ok(x.players.some((p:any)=>p.controllerType==='BOT'&&(p.x!==old.players.find((q:any)=>q.id===p.id).x||p.y!==old.players.find((q:any)=>q.id===p.id).y)));if(i===0)old=x;
+  }
+  assert.ok(room.pilots!.rateLimits>0);assert.ok(room.pilots!.calls>0);assert.equal(ai.intel(room).allowed,false);assert.equal(ai.intel(other).allowed,true);assert.ok(clients.every(s=>s.connected));assert.ok([...room.pilots!.states.values()].every(s=>s.effective.source==='FALLBACK'));
+  const hour=ai.hourlyCalls;finishMatch(room,{kind:'draw'},room.simulationTimeMs);server.step();assert.equal(room.pilots!.states.size,0);assert.ok(resetRound(room));server.step();assert.equal(room.pilots,undefined);assert.equal(ai.hourlyCalls,hour);assert.equal(other.match.state,'waiting');
+ }finally{for(const c of clients)c.disconnect();await server.close();}
+});

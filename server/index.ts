@@ -1,4 +1,6 @@
+import {existsSync} from 'node:fs';import {loadEnvFile} from 'node:process';
 import { createGameServer } from './game';
+if(existsSync('.env'))loadEnvFile('.env');
 const port = Number(process.env.PORT ?? 3001);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be an integer from 1 to 65535');
 const origins = (process.env.CLIENT_ORIGINS ?? 'http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173,https://rje101805-svg.github.io').split(',').map(s => s.trim());

@@ -1,3 +1,4 @@
+import {processPilots,type PilotCoordinator} from './ai/coordinator';
 import {advanceSurvival,completeHealing,survivalCommand,walls} from './survival';
 import {updateHorizon,advanceHorizon} from './horizon';
 import {LOBBY_HOLE} from '../shared/match';
@@ -21,7 +22,8 @@ import type { ProjectileHit } from '../shared/hit-feedback';
 
 import { RoomStore, roomChannel, survivingHumans } from './rooms';
 
-export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean; combatDebug?: boolean } = {}) {
+export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean; combatDebug?: boolean;ai?:PilotCoordinator } = {}) {
+  const ai=options.ai??processPilots();ai.register(store);
   const http = createServer((req, res) => {
     if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
     else res.writeHead(404).end();
@@ -54,7 +56,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       reply(runCombatDebug(store.roomFor(socket.id)?.players.get(socket.id), request, debugAuthorized));
     });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
-    const notify = (code: string) => { const room = store.rooms.get(code); if (room) io.to(roomChannel(code)).emit('roomState', store.info(room)); };
+    const notify = (code: string) => { const room = store.rooms.get(code); if (room){io.to(roomChannel(code)).emit('aiIntel',ai.intel(room));io.to(roomChannel(code)).emit('aiRadio',ai.radioPacket(room));io.to(roomChannel(code)).emit('roomState', store.info(room));} };
     socket.on('play',(request,reply)=>{
       if(typeof reply!=='function')return;const result=store.play(socket.id,request?.name,request?.mode,performance.now());
       if(result.ok){const room=store.roomFor(socket.id)!;room.simulationTimeMs=tick*TICK_MS;void socket.join(roomChannel(room.code));notify(room.code);}reply(result);
@@ -120,7 +122,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       // No global gameplay broadcast: a socket receives only its joined room.
       io.to(roomChannel(room.code)).volatile.emit('snapshot', {
         walls:[...walls(room).values()].map(w=>({...w})),horizon:room.horizon,killFeed:room.killFeed??[],effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
-        players: [...room.players.values()].map(p => ({ ...p.state })),
+        players: [...room.players.values()].map(p => {const {bot:_privateTactics,...state}=p.state;return state;}),
       });
       // Replacement membership is reliable, but follows the volatile snapshot
       // so its outgoing buffer cannot suppress this tick's reset snapshot.
@@ -129,6 +131,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       // Direct socket delivery only; targets and room spectators get no receipt.
       for (const hit of hits) io.to(hit.ownerId).emit('projectileHit', hit);
     }
+    ai.tick();for(const room of store.rooms.values())if(ai.shouldPublish(room)){io.to(roomChannel(room.code)).emit('aiIntel',ai.intel(room));if(ai.shouldPublishRadio(room))io.to(roomChannel(room.code)).emit('aiRadio',ai.radioPacket(room));}
   }
   // Monotonic accumulator avoids the 33ms interval rounding into 30.3 ticks/s.
   // Each simulation step is exactly 1/30s, regardless of browser/server frames.
@@ -138,5 +141,5 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     accumulator += Math.min(now - previous, TICK_MS * 5); previous = now;
     while (accumulator >= TICK_MS) { simulate(now); accumulator -= TICK_MS; }
   }, 5);
-  return { http, io, step: () => simulate(performance.now()), close: async () => { if (timer) clearInterval(timer); await new Promise<void>(resolve => io.close(() => resolve())); } };
+  return { http, io, step: () => simulate(performance.now()), close: async () => { ai.detach(store);if (timer) clearInterval(timer); await new Promise<void>(resolve => io.close(() => resolve())); } };
 }

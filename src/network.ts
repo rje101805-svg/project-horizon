@@ -36,6 +36,7 @@ export class FlightConnection {
   private pendingRelease = false;
   readonly socket: Socket<ServerEvents, ClientEvents>;
   room: RoomInfo | null = null;
+  intel:import('../shared/pilots').IntelPacket|null=null;radio:import('../shared/pilots').RadioPacket|null=null;
   latest: Snapshot | null = null;
   private timer: ReturnType<typeof setInterval>;
   private input = idleInput();
@@ -64,6 +65,8 @@ export class FlightConnection {
         });
       }
     });
+    this.socket.on('aiIntel',packet=>{if(packet.roomCode!==this.room?.code)return;this.intel=packet;window.dispatchEvent(new Event('horizon-ai-intel'));});
+    this.socket.on('aiRadio',packet=>{if(packet.roomCode!==this.room?.code)return;this.radio=packet;window.dispatchEvent(new Event('horizon-ai-intel'));});
     this.socket.on('roomState', room => {
       if (!this.room || room.code !== this.room.code) return;
       // Membership/removal is reliable and intentionally bypasses fake lag.
@@ -181,7 +184,7 @@ export class FlightConnection {
       if (!this.closed && this.socket.connected && this.socket.id === id) this.callbacks.ping?.(error ? null : Math.round(performance.now() - started));
     });
   }
-  private invalidate() { this.starting = false; this.projectilePrediction.clear(); this.firing = false;this.triggerPending=false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
+  private invalidate() { this.intel=null;this.radio=null;if(typeof window!=='undefined')window.dispatchEvent(new Event('horizon-ai-intel'));this.starting = false; this.projectilePrediction.clear(); this.firing = false;this.triggerPending=false; this.epoch++; this.receivedTick = -1; this.lag?.clear(); this.latest = null; this.prediction.clear(); this.accumulator = 0; this.previousTime = performance.now(); }
   private tractorSequence=0;
   tractor() {
     const match=this.latest?.match,local=this.latest?.players.find(p=>p.id===this.socket.id);

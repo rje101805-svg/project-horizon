@@ -1,3 +1,4 @@
+import {AIIntelView} from './ai-intel';
 import {SurvivalView} from './survival-view';
 import {CinematicFlash} from './cinematic-flash';
 import {GrowingHorizonView} from './horizon-view';
@@ -89,6 +90,7 @@ class Horizon extends Phaser.Scene {
   private lastRender = performance.now();
   private lastDebug = 0;
   private ships = new Map<string, Ship>();
+  private intel!:AIIntelView;
   private survival!:SurvivalView;
   private cinematicFlash = new CinematicFlash();
   private interpolator = new RemoteInterpolator();
@@ -115,7 +117,7 @@ class Horizon extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.map = this.add.graphics().setScrollFactor(0).setDepth(10);this.mapClip=this.make.graphics({x:0,y:0});this.mapClip.setScrollFactor(0);this.map.setMask(this.mapClip.createGeometryMask());
-    this.connection = connection!;
+    this.connection = connection!;this.intel=new AIIntelView(this.connection);
     // Handle the key transition itself: a short tap can begin and end between
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
     const reload = (event: KeyboardEvent) => {
@@ -144,7 +146,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
+      this.intel.destroy();this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -282,7 +284,7 @@ class Horizon extends Phaser.Scene {
     const latest=this.connection.latest, ids=this.connection.room?.playerIds ?? [];
     if(import.meta.env.DEV && !el('debug-overlay').hidden && performance.now()-this.lastBotDebug>=250){
     this.lastBotDebug=performance.now();
-    const botText=latest?.players.filter(p=>p.bot).map(p=>`${p.name} [BOT] ${p.id} · ${p.status} · ${p.bot!.mode} → ${p.bot!.target ?? '—'} · ${p.bot!.override ?? 'normal'} · heading ${p.bot!.desiredHeading.toFixed(2)} distance ${p.bot!.distance.toFixed(0)} · thrust ${p.bot!.thrust} boost ${p.bot!.boost} fire ${p.bot!.fire} reload ${p.bot!.reload} tractor ${p.bot!.tractor} melee ${p.bot!.melee} · ammo ${p.ammo} · lock ${p.tractor.lockElapsedMs}`).join('\n') ?? '';
+    const intel=this.connection.intel;const botText=latest?.players.filter(p=>p.controllerType==='BOT').map(p=>{const row=intel?.allowed?intel.rows.find(r=>r.id===p.id):undefined;return row?`${p.name} [BOT] ${row.intent} ${row.target} ${row.source}`:`${p.name} [BOT]`;}).join(' · ')??'';
     if(el('debug-bots').textContent!==botText)el('debug-bots').textContent=botText;
     }
     const local=latest?.players.find(p=>p.id===this.connection.socket.id);
@@ -406,7 +408,7 @@ class Horizon extends Phaser.Scene {
     this.map.setVisible(phase==='active'||phase==='ended');
     this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
     this.drawMap();
-    this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
+    this.intel.draw();this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

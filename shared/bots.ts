@@ -1,5 +1,5 @@
 // Replicated inspection state; the strategy writer and hands live on the server.
-export interface BotStrategy { mode: 'IDLE' | 'HUNT'|'LOOT'|'CAPTURE'|'GOLD_GUN'; target: string | null; goal?:{kind:'capture'|'pickup'|'loot'|'escape';id:string;x:number;y:number} }
+export interface BotStrategy { mode: 'IDLE' | 'HUNT'|'LOOT'|'CAPTURE'|'GOLD_GUN'; target: string | null; goal?:{kind:'capture'|'pickup'|'loot'|'escape'|'position';id:string;x:number;y:number} }
 export interface BotDebugState extends BotStrategy {
   override: 'TRACTOR_ESCAPE'|'HORIZON_ESCAPE' | null;
   desiredHeading: number; distance: number;

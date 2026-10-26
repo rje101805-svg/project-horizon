@@ -26,7 +26,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await page.keyboard.down('Shift');
   await expect.poll(async () => Number((await page.locator('#velocity').textContent())?.split(' ')[1])).toBeGreaterThan(350);
   await page.keyboard.up('d'); await page.keyboard.up('Shift');
-  await page.getByRole('button', { name: 'DEV reset flight [F4]', exact: true }).click();
+  await page.getByRole('button', { name: 'DEV reset flight', exact: true }).click();
   await expect(page.locator('#position')).toHaveText(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
   // Mutating the render object is overwritten by the next predicted render.
   await page.evaluate(() => {
