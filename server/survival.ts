@@ -1,3 +1,4 @@
+import {battleMetric} from './battle';
 import {SURVIVAL,initialSurvival,parseSurvival,wallEntry,type ShieldWall,type Consumable,type SurvivalResult} from '../shared/survival';
 import {WORLD,EDGE_MARGIN} from '../shared/flight';
 import {PLANET_REGIONS} from '../shared/planets';
@@ -34,7 +35,7 @@ export function deployWall(room:GameRoom,p:RoomPlayer,aim:number):SurvivalResult
  const wall:ShieldWall={id:`${room.code}:${room.match.round}:wall:${(room.wallSequence??0)+1}`,ownerId:p.state.id,x,y,angle,hp:SURVIVAL.wallHp,createdAtMs:room.simulationTimeMs,expiresAtMs:room.simulationTimeMs+SURVIVAL.wallMs,hitAtMs:-1e9};
  const points=[-1,1].flatMap(side=>[-1,1].map(face=>({x:x+Math.cos(angle)*face*SURVIVAL.wallThickness/2-Math.sin(angle)*side*SURVIVAL.wallWidth/2,y:y+Math.sin(angle)*face*SURVIVAL.wallThickness/2+Math.cos(angle)*side*SURVIVAL.wallWidth/2})));
  if(points.some(q=>q.x<EDGE_MARGIN||q.y<EDGE_MARGIN||q.x>WORLD-EDGE_MARGIN||q.y>WORLD-EDGE_MARGIN)||PLANET_REGIONS.some(planet=>wallEntry(planet,planet,wall,planet.radius)!==null)||live.some(w=>wallEntry({x:x-Math.sin(angle)*SURVIVAL.wallWidth/2,y:y+Math.cos(angle)*SURVIVAL.wallWidth/2},{x:x+Math.sin(angle)*SURVIVAL.wallWidth/2,y:y-Math.cos(angle)*SURVIVAL.wallWidth/2},w,SURVIVAL.wallThickness)!==null))return reject('INVALID PLACEMENT');
- u.materials-=SURVIVAL.wallCost;p.nextWallMs=room.simulationTimeMs+SURVIVAL.wallCooldownMs;room.wallSequence=(room.wallSequence??0)+1;walls(room).set(wall.id,wall);notice(p,'WALL DEPLOYED',room.simulationTimeMs);return {ok:true,reason:'WALL DEPLOYED'};
+ u.materials-=SURVIVAL.wallCost;battleMetric(room,p.state.id,'walls');p.nextWallMs=room.simulationTimeMs+SURVIVAL.wallCooldownMs;room.wallSequence=(room.wallSequence??0)+1;walls(room).set(wall.id,wall);notice(p,'WALL DEPLOYED',room.simulationTimeMs);return {ok:true,reason:'WALL DEPLOYED'};
 }
 export function survivalCommand(room:GameRoom|undefined,p:RoomPlayer|undefined,raw:unknown):SurvivalResult {
  const r=parseSurvival(raw);if(!r||!room||!p||room.players.get(p.state.id)!==p)return {ok:false,reason:'Invalid survival request'};

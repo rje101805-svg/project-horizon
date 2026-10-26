@@ -1,3 +1,4 @@
+import {battleMetric} from './battle';
 import {PLANET_REGIONS} from '../shared/planets';
 import {CAPTURE_DURATION_MS,CAPTURE_TICKS,CAPTURE_RADIUS_FACTOR,CAPTURE_DECAY_RATE,GOLD_SPAWN_CLEARANCE,MAX_ANNOUNCEMENTS,type PlanetObjective,type GoldPickup,type ObjectiveAnnouncement,type ObjectiveSnapshot} from '../shared/objectives';
 import {GOLD_GUN,GALAXY_WEAPONS,PLANET_GALAXY} from '../shared/weapons';
@@ -62,7 +63,7 @@ export function advanceObjectives(room:GameRoom){
    const p=inside[0],id=p.state.id;planet.status='CAPTURING';planet.capturingId=id;
    if(previous!==id)announce(room,{kind:'started',text:`${p.state.name.toUpperCase()} IS CAPTURING ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});
    const ticks=Math.min(CAPTURE_TICKS,(record.ticks.get(id)??0)+1);record.ticks.set(id,ticks);
-   if(ticks===CAPTURE_TICKS){const point=spawnPoint(room,record,p);if(point){const pickupId=`${room.code}:gold:${room.match.round}:${++s.sequence}`;record.completed.add(id);s.pickups.set(pickupId,{id:pickupId,galaxyType:PLANET_GALAXY[planet.id],...point,source:'planet',planetId:planet.id,spawnTimeMs:room.simulationTimeMs});planet.pickupId=pickupId;planet.status='GOLD_GUN_AVAILABLE';planet.capturingId=null;announce(room,{kind:'captured',text:`${p.state.name.toUpperCase()} CAPTURED ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});}}
+   if(ticks===CAPTURE_TICKS){const point=spawnPoint(room,record,p);if(point){const pickupId=`${room.code}:gold:${room.match.round}:${++s.sequence}`;record.completed.add(id);battleMetric(room,id,'captures');s.pickups.set(pickupId,{id:pickupId,galaxyType:PLANET_GALAXY[planet.id],...point,source:'planet',planetId:planet.id,spawnTimeMs:room.simulationTimeMs});planet.pickupId=pickupId;planet.status='GOLD_GUN_AVAILABLE';planet.capturingId=null;announce(room,{kind:'captured',text:`${p.state.name.toUpperCase()} CAPTURED ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});}}
   }else planet.status='AVAILABLE';
  }
  // Human claims use F; bots use the same trusted collection boundary.

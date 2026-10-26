@@ -1,3 +1,4 @@
+import {recordShot} from './battle';
 import {wallEntry,wallDistance,type ShieldWall} from '../shared/survival';
 import {cancelHealing,walls,damageWall,wallBlocked} from './survival';
 import {hasGoldGun,GALAXY_WEAPONS,GALAXY_CONFIG,activeWeapon,WEAPONS,weaponDamage,MISSILE_EXPLOSION_RADIUS} from '../shared/weapons';
@@ -7,7 +8,7 @@ import { TICK_MS, TICK_SECONDS, WORLD } from '../shared/flight';
 import { applyDamage, applyStun, consumeAmmo, startFireCooldown, canFireFromCooldown, startReload } from './combat';
 import type { GameRoom, RoomPlayer } from './rooms';
 import type { ProjectileHit } from '../shared/hit-feedback';
-export interface ServerProjectile extends ProjectileState { remainingTicks: number }
+export interface ServerProjectile extends ProjectileState {weaponName?:string;rarity?:string; remainingTicks: number }
 export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined, raw: unknown, tick: number): FireResult {
   const request = parseFire(raw);
   const reject = (reason: string): FireResult => ({ ok: false, sequence: request?.sequence ?? 0, reason });
@@ -34,12 +35,13 @@ export function fire(room: GameRoom | undefined, player: RoomPlayer | undefined,
   player.lastCombatMs=room.simulationTimeMs;cancelHealing(player,room.simulationTimeMs);startFireCooldown(player);
   player.launchProtectionUntilMs=0;s.launchProtectionRemainingMs=0;s.spawnInvulnerabilityRemainingMs=Math.max(0,player.invulnerableUntilMs-room.simulationTimeMs);
 
+  recordShot(room,player,request.sequence);
   let id='';
   for(let pellet=0;pellet<(gold?1:definition.pellets);pellet++){
     const spread=gold?s.galaxyType==='titan'?(GALAXY_CONFIG.spreadMin+(GALAXY_CONFIG.spreadMax-GALAXY_CONFIG.spreadMin)*Math.min(1,(s.titanSustainMs??0)/GALAXY_CONFIG.spreadRampMs))*Math.sin(request.sequence*2.399963):0:definition.pellets>1?(pellet-2)*definition.spread/4:definition.spread*Math.sin(request.sequence*2.399963);
     const angle=request.aim+spread,px=Math.cos(angle),py=Math.sin(angle),speed=gold?galaxy!.speed:definition.speed,lifetime=gold?galaxy!.lifetimeMs:definition.lifetimeMs;
     const bulletId=`${room.code}:${++room.projectileSequence}`;if(!id)id=bulletId;
-    room.projectiles.set(bulletId,{id:bulletId,ownerId:s.id,shotSequence:request.sequence,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence,x:s.x+px*BASIC_BLASTER.muzzleOffset,y:s.y+py*BASIC_BLASTER.muzzleOffset,vx:s.vx+px*speed,vy:s.vy+py*speed,damage:gold?galaxy!.damage:weaponDamage(weapon!)/definition.pellets,spawnTick:tick,
+    room.projectiles.set(bulletId,{id:bulletId,ownerId:s.id,shotSequence:request.sequence,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence,x:s.x+px*BASIC_BLASTER.muzzleOffset,y:s.y+py*BASIC_BLASTER.muzzleOffset,vx:s.vx+px*speed,vy:s.vy+py*speed,weaponName:gold?galaxy!.name:definition.name,rarity:gold?'GALAXY':weapon!.rarity,damage:gold?galaxy!.damage:weaponDamage(weapon!)/definition.pellets,spawnTick:tick,
       ...(gold?{weapon:'gold' as const,galaxyType:s.galaxyType??'cryo',heading:Math.atan2(s.vy+py*speed,s.vx+px*speed),maxRange:galaxy!.range}:weapon!.class!=='blaster'?{weapon:weapon!.class,pellet}:{}),radius:s.galaxyType==='lunar'||weapon?.class==='missile'&&!gold?6:3,traveled:0,remainingMs:lifetime,remainingTicks:Math.ceil(lifetime/TICK_MS)});
   }
   if (!gold&&s.ammo === 0) startReload(player); // The accepted final round has already spawned.
@@ -89,7 +91,7 @@ function effect(room:GameRoom,kind:'explosion'|'shock'|'frost'|'burn',point:{x:n
  const effects=room.combatEffects??=[];effects.push({id:(room.effectSequence=(room.effectSequence??0)+1),kind,...point,radius,...(color===undefined?{}:{color}),timeMs:room.simulationTimeMs});if(effects.length>24)effects.shift();
 }
 function damageTarget(room:GameRoom,p:ServerProjectile,target:RoomPlayer,amount:number,point:{x:number;y:number},tick:number,onHit?: (hit:ProjectileHit)=>void){
- const damage=applyDamage(target,amount,{type:'PLAYER',playerId:p.ownerId},target.simulationTimeMs);if(!damage)return;
+ const damage=applyDamage(target,amount,{type:'PLAYER',playerId:p.ownerId,...(p.weaponName?{weaponName:p.weaponName,rarity:p.rarity}:{})},target.simulationTimeMs);if(!damage)return;
  if(target.state.lifeState==='active'&&p.galaxyType==='cryo'){target.state.slowRemainingMs=GALAXY_CONFIG.slowMs;effect(room,'frost',point,25);}
  if(target.state.lifeState==='active'&&p.galaxyType==='inferno'){target.state.burnRemainingMs=GALAXY_CONFIG.burnMs;target.burnOwnerId=p.ownerId;effect(room,'burn',point,25);}
  if(p.weapon==='zapper'){applyStun(target);effect(room,'shock',point,35);}

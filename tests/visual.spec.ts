@@ -1,3 +1,4 @@
+import {COUNTDOWN_MS,COLLAPSE_MS,LAUNCH_MS} from '../shared/match';
 import {startActiveFixture} from './active-fixture';
 import { test, expect, chromium } from '@playwright/test';
 import { existsSync } from 'node:fs';
@@ -56,7 +57,7 @@ test('WebGL sphere initializes and Canvas fallback remains visible without gamep
   if(webgl){
    await p.locator('#visual-combat').click();
    await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.players.length)).toBe(8);
-   await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
+   await p.locator('#start-match').click();await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.match.state),{timeout:COUNTDOWN_MS+COLLAPSE_MS+LAUNCH_MS+2000}).toBe('active');
    await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].ships.size)).toBe(8);
    await p.locator('canvas').screenshot({path:'/tmp/p3s1-combat.png'});
   }

@@ -1,0 +1,25 @@
+{
+  "baseline": "c05a096f6e46d8ffe97668019b13e39f612c11c7",
+  "branch": "work",
+  "node": {
+    "passed": 457,
+    "total": 457
+  },
+  "browserFullFirstRun": {
+    "passed": 71,
+    "total": 74,
+    "failures": "Two five-second cold WebGL readiness waits; one 10-second wait for 9.2-second launch"
+  },
+  "browserAfterCorrections": {
+    "passed": 10,
+    "total": 10,
+    "all74DistinctCasesCovered": true,
+    "singleFinalFullGreenRunClaimed": false
+  },
+  "clientBuild": "PASS",
+  "serverTypecheck": "PASS",
+  "fiveFullMatches": "PASS; all seven bots resume movement each round; resources and late AI replies isolated",
+  "liveOpenAIVerified": false,
+  "realGPUFPSVerified": false,
+  "partBStartedBeforeCheckpoint": false
+}

@@ -64,7 +64,7 @@ export class ObjectiveVisuals {
   for(const target of this.targets){if(target.visible||shown===this.labels.length)continue;
    const p=objectiveArrow(target,view,z,w,h,45,this.arrowSlots[shown]),color=target.kind==='gold'?GOLD_COLOR:0x70f2ef;
    // Keep right/top objectives clear of the existing minimap and ammo HUD.
-   if(p.x>w-200&&p.y<260)p.x=w-210;
+   const radarSize=Number(document.getElementById('battle-minimap')?.dataset.size??180);if(p.x>w-radarSize-40&&p.y<radarSize+160)p.x=w-radarSize-50;
    p.y=Math.max(90,Math.min(h-110,p.y));
    for(let attempt=0;attempt<8&&this.overlapsArrow(p.x,p.y,shown);attempt++)p.y=p.y+28>h-110?90:p.y+28;
    this.arrowSlots[shown].x=p.x;this.arrowSlots[shown].y=p.y;

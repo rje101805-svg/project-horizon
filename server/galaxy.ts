@@ -14,7 +14,7 @@ export function triggerIntent(room:GameRoom|undefined,p:RoomPlayer|undefined,raw
 export function advanceGalaxyTick(room:GameRoom,p:RoomPlayer){
  const s=p.state;if(!p.gameplayEnabled||s.lifeState!=='active'||s.status==='OUT'||s.health<=0)return;
  if((s.burnRemainingMs??0)>0){const elapsed=Math.min(TICK_MS,s.burnRemainingMs!);s.burnRemainingMs=Math.max(0,s.burnRemainingMs!-TICK_MS);if(s.burnRemainingMs<1e-7)s.burnRemainingMs=0;
-  if(p.burnOwnerId){const owner=room.players.get(p.burnOwnerId),damage=applyDamage(p,GALAXY_CONFIG.burnDps*elapsed/1000,{type:'PLAYER',playerId:p.burnOwnerId},p.simulationTimeMs);if(owner&&damage&&damage.shieldAbsorbed+damage.healthDamage>0)owner.lastCombatMs=p.simulationTimeMs;}if(!s.burnRemainingMs)p.burnOwnerId=undefined;
+  if(p.burnOwnerId){const owner=room.players.get(p.burnOwnerId),damage=applyDamage(p,GALAXY_CONFIG.burnDps*elapsed/1000,{type:'PLAYER',playerId:p.burnOwnerId,weaponName:'Inferno burn',rarity:'GALAXY'},p.simulationTimeMs);if(owner&&damage&&damage.shieldAbsorbed+damage.healthDamage>0)owner.lastCombatMs=p.simulationTimeMs;}if(!s.burnRemainingMs)p.burnOwnerId=undefined;
  }
  if(s.galaxyType!=='titan'||!s.goldGunId){s.titanSpin=s.titanSustainMs=0;return;}
  const held=(p.titanTriggerUntilMs??0)>room.simulationTimeMs&&(s.stunRemainingMs??0)<=0&&!s.tractor.targetId;

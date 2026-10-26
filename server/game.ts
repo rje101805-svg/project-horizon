@@ -1,3 +1,4 @@
+import {battleSnapshot,radarPings} from './battle';
 import {processPilots,type PilotCoordinator} from './ai/coordinator';
 import {advanceSurvival,completeHealing,survivalCommand,walls} from './survival';
 import {updateHorizon,advanceHorizon} from './horizon';
@@ -117,13 +118,14 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       advanceTractors(room,tick*TICK_MS,true);
       if(!reset){advanceObjectives(room);advanceLoot(room);}
       room.combatEffects=room.combatEffects?.filter(e=>room.simulationTimeMs-e.timeMs<400);
-      room.killFeed=room.killFeed?.filter(entry=>room.simulationTimeMs-entry.timeMs<5000);
+      room.killFeed=room.killFeed?.filter(entry=>room.simulationTimeMs-entry.timeMs<6000);
       completeHealing(room);advanceHorizon(room);evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
-      io.to(roomChannel(room.code)).volatile.emit('snapshot', {
+      const snapshot:import('../shared/protocol').Snapshot={battle:battleSnapshot(room),
         walls:[...walls(room).values()].map(w=>({...w})),horizon:room.horizon,killFeed:room.killFeed??[],effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => {const {bot:_privateTactics,...state}=p.state;return state;}),
-      });
+      };
+      for(const recipient of room.players.values())if(recipient.state.controllerType==='HUMAN')io.to(recipient.state.id).volatile.emit('snapshot',{...snapshot,radarPings:radarPings(room,recipient.state.id)});
       // Replacement membership is reliable, but follows the volatile snapshot
       // so its outgoing buffer cannot suppress this tick's reset snapshot.
       if(reset && admitting)io.to(roomChannel(room.code)).emit('roomState',store.info(room));

@@ -12,7 +12,7 @@ export function melee(room: GameRoom, player: RoomPlayer, sequence: number): Fir
     const d = Math.hypot(target.state.x - player.state.x, target.state.y - player.state.y);
     if (d <= distance && (!nearest || d < distance)) {nearest = target; distance = d;}
   }
-  const damage = nearest && applyDamage(nearest, ALIEN_MELEE_DAMAGE, {type:'PLAYER',playerId:player.state.id}, player.simulationTimeMs);
+  const damage = nearest && applyDamage(nearest, ALIEN_MELEE_DAMAGE, {type:'PLAYER',playerId:player.state.id,weaponName:'Alien melee'}, player.simulationTimeMs);
   player.state.lastMeleeDamage = damage ? damage.shieldAbsorbed + damage.healthDamage : 0;
   return {ok:true,kind:'melee',sequence,damageApplied:player.state.lastMeleeDamage};
 }

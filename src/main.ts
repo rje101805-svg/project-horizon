@@ -1,3 +1,4 @@
+import {BattleHud} from './battle-hud';
 import {AIIntelView} from './ai-intel';
 import {SurvivalView} from './survival-view';
 import {CinematicFlash} from './cinematic-flash';
@@ -76,8 +77,7 @@ class Horizon extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Container;
   private holeVisual!: Phaser.GameObjects.Graphics;
   private holeKey = '';
-  private map!: Phaser.GameObjects.Graphics;
-  private mapClip!:Phaser.GameObjects.Graphics;
+  private battleHud!:BattleHud;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private connection!: FlightConnection;
   private aim = 0;
@@ -116,8 +116,8 @@ class Horizon extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD, WORLD).startFollow(this.rocket, true, .12, .12);
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
-    this.map = this.add.graphics().setScrollFactor(0).setDepth(10);this.mapClip=this.make.graphics({x:0,y:0});this.mapClip.setScrollFactor(0);this.map.setMask(this.mapClip.createGeometryMask());
-    this.connection = connection!;this.intel=new AIIntelView(this.connection);
+
+    this.connection = connection!;this.intel=new AIIntelView(this.connection);this.battleHud=new BattleHud(this.connection);
     // Handle the key transition itself: a short tap can begin and end between
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
     const reload = (event: KeyboardEvent) => {
@@ -146,7 +146,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.intel.destroy();this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.mapClip.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
+      this.intel.destroy();this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.battleHud.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -162,7 +162,7 @@ class Horizon extends Phaser.Scene {
       if(this.ready)this.visualDebugCleanup=installVisualDebug(this.visualIntensity,(name,biome)=>{this.composition=name;if(biome)this.celestial.studyBiome=biome;if((name==='horizon'||name==='combat')&&!this.previewHorizon)this.previewHorizon=new HorizonVisual(this,'study');},point=>{this.inspectionPoint=point;this.connection.release();if(point)this.cameras.main.stopFollow().centerOn(point.x,point.y);else this.cameras.main.startFollow(this.rocket,true,.12,.12).centerOn(this.rocket.x,this.rocket.y);});
     });
     if (this.connection.latest) this.acceptSnapshot(this.connection.latest);
-    this.drawMap();
+    this.battleHud.render();
     if (import.meta.env.DEV) Object.assign(window, { __HORIZON_FLIGHT__: this.connection });
   }
   private drawHull(hull: Phaser.GameObjects.Graphics, color: number, alien: boolean) {
@@ -224,7 +224,7 @@ class Horizon extends Phaser.Scene {
     this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
     hud.combat(local); hud.humans(snapshot.survivingHumans);
-    const feed=(snapshot.killFeed??[]).map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;if(el('kill-feed').textContent!==feed)el('kill-feed').textContent=feed;
+    const entries=(snapshot.killFeed??[]).filter(e=>snapshot.timeMs-e.timeMs<6000).slice(-5);const feed=entries.map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;el('kill-feed').replaceChildren(...entries.map(entry=>{const line=document.createElement('div');line.textContent=entry.text;line.style.opacity=String(Math.min(1,(6000-(snapshot.timeMs-entry.timeMs))/1500));return line;}));
     const match = snapshot.match, spectator = local.status === 'OUT';
     el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
     if(this.audioPhase!==match.state){this.audioPhase=match.state;stopCinematicAmbience();if(match.state==='waiting')playCinematicCue('lobby');else if(match.state==='collapse')playCinematicCue('collapse');else if(match.state==='launch')playCinematicCue('launch');else if(match.state==='active')playCinematicCue('eject');}
@@ -256,6 +256,7 @@ class Horizon extends Phaser.Scene {
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
     el('tick').textContent = `Server tick ${snapshot.tick}`;
+    this.battleHud.render(performance.now(),true);
     this.interpolator.push(snapshot, performance.now());
     this.projectileView.push(snapshot, performance.now());
     el('debug-projectiles').textContent = `Authoritative projectiles: ${snapshot.projectiles.length} · predicted: ${this.connection.projectilePrediction.count(performance.now())}`;
@@ -405,9 +406,7 @@ class Horizon extends Phaser.Scene {
     const collapseProgress=phase==='collapse'?1-(match?.phaseRemainingMs??1800)/1800:0;
     this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,(hole as BlackHoleState|null)?.horizon?null:hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
     this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);this.growingHorizon.render(this.connection.latest,camera,this.connection.socket.id??'',this.visualIntensity.quality==='low');
-    this.map.setVisible(phase==='active'||phase==='ended');
-    this.map.setScale(1/camera.zoom).setPosition(this.scale.width*.5*(1-1/camera.zoom),this.scale.height*.5*(1-1/camera.zoom));
-    this.drawMap();
+    this.battleHud.render();
     this.intel.draw();this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
@@ -420,26 +419,7 @@ class Horizon extends Phaser.Scene {
     if (dx || dy) this.aim = Math.atan2(dy, dx);
     this.connection.setInput({ up, down, left, right, boost: this.keys.SHIFT.isDown, aim: this.aim });
   }
-  private drawMap() {
-    const x = this.scale.width - 164, y = 14, size = 150, s = size / WORLD;
-    this.mapClip.clear().fillStyle(0xffffff).fillRect(x-5,y-5,size+10,size+10).setScale(this.map.scaleX).setPosition(this.map.x,this.map.y);
-    this.map.clear().fillStyle(0x0e1729, .95).fillRoundedRect(x - 5, y - 5, size + 10, size + 10, 8);
-    this.map.lineStyle(1, 0x384c68).strokeRect(x, y, size, size);
-    for(const p of PLANET_REGIONS){if(this.connection.latest?.objectives?.planets.find(v=>v.id===p.id)?.status==='CONSUMED')continue;const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(p.color,.75).fillCircle(x+m.x,y+m.y,p.radius*s);}
-    for(const p of LANDMARKS){const m=mapPoint(p.x,p.y,WORLD,size);this.map.fillStyle(0x84939f,.6).fillRect(x+m.x-1,y+m.y-1,2,2);}
-    const view=this.cameras.main.worldView;this.map.lineStyle(1,0xbacdde,.5).strokeRect(x+view.left*s,y+view.top*s,view.width*s,view.height*s);
-    const hole = this.connection.latest?.blackHole ?? this.connection.room?.blackHole;
-    if (hole) {
-      const h=this.connection.latest?.horizon;if(h?.radius)this.map.lineStyle(1,0xffb677,.6).strokeCircle(x+hole.x*s,y+hole.y*s,h.nextRadius*s);
-      this.map.lineStyle(1, 0xbb80ff, .7).strokeCircle(x + hole.x * s, y + hole.y * s, hole.influenceRadius * s);
-      this.map.fillStyle(0xd6abff).fillCircle(x + hole.x * s, y + hole.y * s, hole.eventHorizonRadius * s);
-    }
-    for(const loot of this.connection.latest?.loot?.pickups??[]){this.map.fillStyle(loot.kind==='weapon'?0xd9d9ff:0x91d8ba,.8).fillCircle(x+loot.x*s,y+loot.y*s,loot.kind==='weapon'?1.4:.8);}
-    for (const [id, ship] of this.ships) {
-      const color = this.connection.latest?.players.find(p => p.id === id)?.color ?? 0xffffff;
-      this.map.fillStyle(color).fillCircle(x + ship.body.x * s, y + ship.body.y * s, id === this.connection.socket.id ? 3 : 2);
-    }
-  }
+
 }
 function launch() {
   hud.begin();

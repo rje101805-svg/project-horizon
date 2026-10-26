@@ -62,7 +62,7 @@ test('server swept hits are single-use, shield-first with typed PLAYER source, a
   for(let seq=1;seq<=5;seq++) { assert.equal(fire(room,p,request(seq),0).ok,true); advanceProjectiles(room); assert.equal(room.projectiles.size,0); ready(p); }
   assert.equal(b.state.shield,0); assert.equal(b.state.health,0); assert.equal(b.state.status,'ALIEN');
   assert.equal(b.state.lifeState,'dead'); assert.equal(b.state.kills,0);
-  assert.deepEqual(b.state.lastDamageSource,{type:'PLAYER',playerId:'a'});
+  assert.deepEqual(b.state.lastDamageSource,{type:'PLAYER',playerId:'a',weaponName:'Blaster',rarity:'COMMON'});
   const before=b.state.health; advanceProjectiles(room); assert.equal(b.state.health,before);
   assert.equal(p.state.health,100); assert.equal(p.state.shield,100);
 });

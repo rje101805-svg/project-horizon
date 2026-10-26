@@ -38,7 +38,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
   s.health = clampCombatValue(s.health, s.maxHealth); s.shield = clampCombatValue(s.shield, s.maxShield);
   const shieldAbsorbed = Math.min(s.shield, amount), healthDamage = Math.min(s.health, amount - shieldAbsorbed);
   s.shield -= shieldAbsorbed; s.health -= healthDamage;
-  s.lastDamageSource = source.type === 'PLAYER' ? { type: 'PLAYER', playerId: source.playerId } : { type: 'ENVIRONMENT', cause: source.cause };
+  s.lastDamageSource = {...source};player.onDamaged?.(shieldAbsorbed+healthDamage,source);
   if (s.health === 0) eliminate(player, s.lastDamageSource, simulationTimeMs,horizonDamage);
   return { shieldAbsorbed, healthDamage, depleted: s.health === 0 };
 }

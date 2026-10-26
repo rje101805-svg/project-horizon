@@ -8,7 +8,7 @@ export const RELOAD_DURATION = WEAPONS.blaster.reloadMs;
 export const FIRE_COOLDOWN = 1000 / WEAPONS.blaster.rate;
 export type PlayerStatus = 'ALIVE' | 'ALIEN' | 'OUT';
 export type ControllerType = 'HUMAN' | 'BOT';
-export type DamageSource = { type: 'PLAYER'; playerId: string } | { type: 'TRACTOR'; playerId: string } |
+export type DamageSource = { type: 'PLAYER'; playerId: string; weaponName?:string; rarity?:string } | { type: 'TRACTOR'; playerId: string } |
   { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
 export interface CombatState {
   inventory?:WeaponInventory; stunRemainingMs?:number; stunImmunityRemainingMs?:number;

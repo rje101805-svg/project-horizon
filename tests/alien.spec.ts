@@ -41,11 +41,11 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   expect(b.state.status).toBe('ALIEN');expect(b.state.lifeState).toBe('dead');expect(b.state.isReloading).toBe(false);expect(b.combatTimers.reload).toBe(0);
   expect(room.players.size).toBe(3);expect(a.state.lifeState).toBe('active');
   for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
-  await expect(peer.locator('#alien-message')).toBeVisible();await expect(peer.locator('#death-overlay')).toBeVisible();await expect(peer.locator('#hud-ammo')).toBeHidden();
+  await expect(peer.locator('#alien-message')).toBeHidden();await expect(peer.locator('#death-overlay')).toBeVisible();await expect(peer.locator('#hud-ammo')).toBeHidden();
   const oldMarkers={lifeGeneration:0,teleportSequence:0};
   const deadShot=await peer.evaluate(markers=>new Promise<{ok:boolean}>(resolve=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.emit('fire',{sequence:100,aim:0,...markers},resolve)),oldMarkers);
   expect(deadShot.ok).toBe(false);expect(room.projectiles.size).toBe(0);
-  await advance(89);expect(b.state.lifeState).toBe('dead');await frame();
+  await advance(89);expect(b.state.lifeState).toBe('dead');await expect(peer.locator('#death-overlay')).toBeHidden();await expect(peer.locator('#alien-message')).toBeVisible();await frame();
   expect(b.state.lifeState).toBe('active');expect(b.state.status).toBe('ALIEN');expect(b.state.health).toBe(40);expect(b.state.shield).toBe(0);
   expect(b.state.spawnInvulnerabilityRemainingMs).toBe(2000);expect([b.state.x,b.state.y].some(n=>n===EDGE_MARGIN||n===WORLD-EDGE_MARGIN)).toBe(true);
   for(const p of pages){

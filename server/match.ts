@@ -1,3 +1,4 @@
+import {beginBattle,updateBattle} from './battle';
 import {resetSurvival,cancelHealing} from './survival';
 import {LAUNCH_ORIGIN,launchPose,selectLandingZones} from '../shared/launch';
 import {createBlackHole} from '../shared/black-hole';
@@ -40,6 +41,7 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
 }
 export function finishMatch(room:GameRoom,result:import('../shared/match').MatchResult,timeMs:number){
  for(const p of room.players.values())cancelHealing(p,timeMs);clearAllTractors(room);room.match.state='ended';room.match.endedAtMs=timeMs;room.match.resetRemainingMs=0;room.match.result=result;room.projectiles.clear();pauseObjectives(room);
+ updateBattle(room);
  for(const p of room.players.values()){if(p.state.status==='ALIEN'&&p.state.lifeState==='active'){p.state.health=p.state.shield=0;p.state.lifeState='dead';p.state.teleportSequence++;}freeze(p);}
 }
 // Reset is a room transaction: validate every spawn before changing any player.
@@ -76,7 +78,7 @@ export function resetRound(room: GameRoom): boolean {
     // Keep monotonic command/fire/reload IDs and membership session; new life/teleport
     // markers invalidate all old-round packets, including delayed DEV requests.
   }
-  room.projectiles.clear(); room.match.state='waiting';room.match.roster=[];room.match.result=null;
+  room.battle=undefined;room.pilots=undefined;room.projectiles.clear(); room.match.state='waiting';room.match.roster=[];room.match.result=null;
   room.match.endedAtMs=null;room.match.resetRemainingMs=0;room.match.readyIds=[...room.players.values()].filter(p=>p.state.controllerType==='BOT').map(p=>p.state.id);room.match.launchAngles={};room.match.launchDestinations={};room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=0;room.collapseOrigins=undefined;
   return true;
 }
@@ -151,7 +153,7 @@ export function startMatch(room: GameRoom | undefined, senderId: string, raw: un
   if(humans.some(p=>p.state.controllerType==='HUMAN'&&p.state.id!==senderId&&!room.match.readyIds.includes(p.state.id)))return reject('All human guests must be READY');
   if(room.match.mode==='fill' && humans.length!==8)return reject('FILL requires eight participants');
   resetSurvival(room);room.match.state='countdown';room.match.phaseStartedAtMs=room.simulationTimeMs;room.match.phaseRemainingMs=COUNTDOWN_MS;room.match.round++;room.match.roster=humans.map(p=>p.state.id);resetObjectives(room);resetLoot(room);room.combatEffects=[];room.killFeed=[];clearAllTractors(room,true);room.projectiles.clear();
-  assignLaunchAngles(room,humans);room.match.readyIds=humans.map(p=>p.state.id);
+  beginBattle(room);assignLaunchAngles(room,humans);room.match.readyIds=humans.map(p=>p.state.id);
   for(const p of humans){Object.assign(p.state,{health:MAX_HEALTH,maxHealth:MAX_HEALTH,shield:MAX_SHIELD,maxShield:MAX_SHIELD,slowRemainingMs:0,burnRemainingMs:0,stunRemainingMs:0,stunImmunityRemainingMs:0,titanSpin:0,titanSustainMs:0,launchProtectionRemainingMs:0,spawnInvulnerabilityRemainingMs:0});p.botLootEnded=false;p.botLootTarget=undefined;p.botLootBlocked=undefined;p.lastAttackedMs=undefined;p.recentAttackers=undefined;p.burnOwnerId=undefined;p.titanTriggerUntilMs=0;p.nextSwapMs=0;p.recentPickups?.clear();initializeInventory(p);p.combatTimers={reload:0,cooldown:0,reloadCompleted:false};p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=p.state.fireCooldownRemainingMs=0;p.state.fireCooldownProgress=1;p.reloadWeaponId=undefined;p.combatEnabled=false;p.launchProtectionUntilMs=0;freeze(p);}
   for (const player of room.players.values()) if (!room.match.roster.includes(player.state.id)) {
     player.state.status='OUT'; freeze(player);
