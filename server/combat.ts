@@ -1,3 +1,4 @@
+import {applyFighterCaps} from './fighters';
 import {GUARDIAN_PROFILES} from '../shared/guardians';
 import {cancelHealing} from './survival';
 import {initializeInventory,clearInventory} from './inventory';
@@ -23,7 +24,7 @@ export function resetCombatState(player: RoomPlayer) {
   Object.assign(player.state, initialCombatState(), { controllerType, kills, reloadSession });
   if (!player.humanEliminated && status!=='ALIEN')initializeInventory(player);else clearInventory(player);
   if (player.humanEliminated || status === 'ALIEN') Object.assign(player.state, {status:'ALIEN', health:ALIEN_HEALTH, maxHealth:ALIEN_HEALTH, shield:0,maxShield:0,ammo:0,maxAmmo:0});
-  player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;player.recentPickups?.clear();
+  applyFighterCaps(player,true);player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;player.recentPickups?.clear();
   player.invulnerableUntilMs = 0;
   player.combatTimers = { reload: 0, cooldown: 0, reloadCompleted: false }; syncTimers(player);
 }
@@ -49,7 +50,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs,horizonDamage=false): boolean {
   const s=player.state;
   if((!player.gameplayEnabled || player.combatEnabled===false) || (!horizonDamage&&simulationTimeMs<(player.launchProtectionUntilMs??0)) || s.lifeState!=='active' || s.status==='OUT')return false;
-  s.guardianSlowRemainingMs=0;cancelHealing(player,simulationTimeMs);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
+  const wasCompetitor=s.status==='ALIVE';s.guardianSlowRemainingMs=0;cancelHealing(player,simulationTimeMs);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
   s.health=0; s.lastDamageSource={...source};
   player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
   s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
@@ -59,7 +60,7 @@ export function eliminate(player: RoomPlayer, source: DamageSource, simulationTi
   player.combatTimers = {reload:0,cooldown:0,reloadCompleted:false}; syncTimers(player);
   // Clear human resources immediately, including during the respawn delay.
   s.maxHealth = ALIEN_HEALTH; s.shield = s.maxShield = s.ammo = s.maxAmmo = 0;
-  player.cancelTractor?.();player.onEliminated?.(source,simulationTimeMs);
+  player.cancelTractor?.();player.onEliminated?.(source,simulationTimeMs,wasCompetitor);
   return true;
 }
 export function consumeAmmo(player: RoomPlayer, amount = 1): boolean {

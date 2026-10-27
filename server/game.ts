@@ -1,3 +1,4 @@
+import {changeFighter} from './fighters';
 import {advanceGuardians,guardianSnapshot} from './guardians';
 import {battleSnapshot,radarPings} from './battle';
 import {processPilots,type PilotCoordinator} from './ai/coordinator';
@@ -59,8 +60,9 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     });
     socket.on('latencyProbe', reply => { if (typeof reply === 'function') reply(); });
     const notify = (code: string) => { const room = store.rooms.get(code); if (room){io.to(roomChannel(code)).emit('aiIntel',ai.intel(room));io.to(roomChannel(code)).emit('aiRadio',ai.radioPacket(room));io.to(roomChannel(code)).emit('roomState', store.info(room));} };
+    socket.on('selectFighter',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=changeFighter(room,room?.players.get(socket.id),request);if(result.ok&&room)notify(room.code);reply(result);});
     socket.on('play',(request,reply)=>{
-      if(typeof reply!=='function')return;const result=store.play(socket.id,request?.name,request?.mode,performance.now());
+      if(typeof reply!=='function')return;const result=store.play(socket.id,request?.name,request?.mode,performance.now(),request?.fighterId);
       if(result.ok){const room=store.roomFor(socket.id)!;room.simulationTimeMs=tick*TICK_MS;void socket.join(roomChannel(room.code));notify(room.code);}reply(result);
     });
     socket.on('ready',(request,reply)=>{if(typeof reply!=='function')return;const room=store.roomFor(socket.id),result=setReady(room,socket.id,request);if(result.ok&&room)notify(room.code);reply(result);});
@@ -77,13 +79,13 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     });
     socket.on('createRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
-      const result = store.create(socket.id, request?.name, performance.now());
+      const result = store.create(socket.id, request?.name, performance.now(),'wait',request?.fighterId);
       if (result.ok) { store.roomFor(socket.id)!.simulationTimeMs = tick * TICK_MS; store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });
     socket.on('joinRoom', (request, reply) => {
       if (typeof reply !== 'function') return;
-      const result = store.join(socket.id, request?.code, request?.name, performance.now());
+      const result = store.join(socket.id, request?.code, request?.name, performance.now(),request?.fighterId);
       if (result.ok) { store.roomFor(socket.id)!.simulationTimeMs = tick * TICK_MS; store.roomFor(socket.id)!.players.get(socket.id)!.simulationTimeMs = tick * TICK_MS; void socket.join(roomChannel(result.room.code)); notify(result.room.code); }
       reply(result);
     });

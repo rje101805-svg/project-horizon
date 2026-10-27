@@ -1,3 +1,4 @@
+import {materialAmount} from '../shared/fighters';
 import {guardianReaction} from './guardian-bots';
 import {strategicStrategy} from './ai/strategy';
 import {utility,startHealing,deployWall,survivalEligible} from './survival';
@@ -196,7 +197,7 @@ export function botAware(bot:RoomPlayer,enemy:RoomPlayer,timeMs:number){
  return Math.hypot(bot.state.x-enemy.state.x,bot.state.y-enemy.state.y)<=DEFAULT_CAMERA_WIDTH||timeMs-(recent?.get(enemy.state.id)??-Infinity)<=5000;
 }
 
-export function nearbyUtility(room:GameRoom,p:RoomPlayer){const u=utility(p);if(!u||!survivalEligible(room,p))return undefined;return [...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-p.state.x,item.y-p.state.y)<=900&&(item.kind==='material'?u.materials+item.quantity<=SURVIVAL.materialCap:item.kind==='cell'?u.cells<SURVIVAL.cellCap&&p.state.shield<p.state.maxShield:item.kind==='repair'?u.kits<SURVIVAL.kitCap&&p.state.health<p.state.maxHealth:false)).sort((a,b)=>Math.hypot(a.x-p.state.x,a.y-p.state.y)-Math.hypot(b.x-p.state.x,b.y-p.state.y)||a.id.localeCompare(b.id))[0];}
+export function nearbyUtility(room:GameRoom,p:RoomPlayer){const u=utility(p);if(!u||!survivalEligible(room,p))return undefined;return [...lootState(room).pickups.values()].filter(item=>Math.hypot(item.x-p.state.x,item.y-p.state.y)<=900&&(item.kind==='material'?u.materials+materialAmount(p.state,item.quantity,item.source)<=SURVIVAL.materialCap:item.kind==='cell'?u.cells<SURVIVAL.cellCap&&p.state.shield<p.state.maxShield:item.kind==='repair'?u.kits<SURVIVAL.kitCap&&p.state.health<p.state.maxHealth:false)).sort((a,b)=>Math.hypot(a.x-p.state.x,a.y-p.state.y)-Math.hypot(b.x-p.state.x,b.y-p.state.y)||a.id.localeCompare(b.id))[0];}
 export function botSurvival(room:GameRoom,p:RoomPlayer){
  if(!survivalEligible(room,p))return;const u=utility(p);if(!u)return;const s=p.state,now=room.simulationTimeMs,hp=(s.health+s.shield)/(s.maxHealth+s.maxShield),since=now-(p.lastAttackedMs??-Infinity);
  if(hp<.6&&since>=2000&&now-(p.lastCombatMs??-Infinity)>=2000&&!u.use){if(s.shield<s.maxShield&&u.cells>0)startHealing(room,p,'cell');else if(s.health<s.maxHealth&&u.kits>0)startHealing(room,p,'repair');}

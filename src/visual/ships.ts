@@ -1,3 +1,4 @@
+import {FIGHTERS,isFighter} from '../../shared/fighters';
 import {SHIP_COLORS} from '../../shared/rooms';
 // Cosmetic table only. Origins use physical hulls, excluding baked flame tails.
 export const SHIP_ART = [
@@ -14,6 +15,7 @@ export type ShipArt = typeof SHIP_ART[number];
 // Server-reserved room colors are unique, replicated and retained through deaths
 // and round resets. No local ordering or new protocol fields are involved.
 const ART_BY_COLOR=new Map<number,ShipArt>(SHIP_COLORS.map((color,index)=>[color,SHIP_ART[index]]));
+export function shipArtForFighter(id:unknown,color:number):ShipArt{return isFighter(id)?SHIP_ART.find(a=>a.key===FIGHTERS[id].ship)!:shipArtForColor(color);}
 export function shipArtForColor(color:number):ShipArt {
   return ART_BY_COLOR.get(color)??SHIP_ART[0];
 }

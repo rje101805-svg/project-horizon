@@ -1,0 +1,14 @@
+{
+  "renderer": "WebGL",
+  "quality": "standard",
+  "frames": 60,
+  "meanMs": 116.16666666666667,
+  "p95Ms": 357.3999999910593,
+  "participants": 8,
+  "guardians": 15,
+  "visibleGuardians": 3,
+  "softwareEnvironment": true,
+  "serverRunningDuringRenderSample": true,
+  "protectedVisualFixture": true,
+  "realGPUAcceptance": false
+}

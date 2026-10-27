@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {WORLD} from '../shared/flight';import {LOOT_CONFIG} from '../shared/loot';import {LAUNCH_ORIGIN,LAUNCH_D_MIN,validLanding} from '../shared/launch';
 import {test} from 'node:test';import assert from 'node:assert/strict';
 import {RoomStore} from '../server/rooms';import {startMatch,setReady,advanceMatch,evaluateResult,playAgain,matchSnapshot} from '../server/match';
@@ -36,7 +37,7 @@ test('ENDED requires replay; replay completely resets two consecutive rounds wit
  const store=new RoomStore();store.play('a','A','fill',0);const room=store.roomFor('a')!,ids=[...room.players.keys()];
  for(let round=0;round<2;round++){
   launch(room);room.simulationTimeMs+=5001;for(const p of room.players.values())if(p.state.id!=='a')applyDamage(p,999,{type:'PLAYER',playerId:'a'},room.simulationTimeMs);evaluateResult(room,room.simulationTimeMs);assert.equal(room.match.state,'ended');const result=structuredClone(room.match.result);advanceMatch(room,room.simulationTimeMs+999999);assert.equal(room.match.state,'ended');assert.deepEqual(room.match.result,result);assert.equal(playAgain(room,'a',{round:room.match.round-1}).ok,false);assert.equal(playAgain(room,'a',{round:room.match.round}).ok,true);assert.deepEqual([...room.players.keys()],ids);assert.equal(room.match.readyIds.length,7);assert.equal(room.projectiles.size,0);assert.equal(lootState(room).pickups.size,0);assert.equal(room.match.result,null);assert.equal(room.match.state,'waiting');
-  for(const p of room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(activeWeapon(p.state)!.class,'blaster');assert.equal(activeWeapon(p.state)!.magazine,30);assert.equal(p.state.inventory!.reserve.energy,60);assert.equal(p.state.slowRemainingMs,0);assert.equal(p.state.burnRemainingMs,0);assert.equal(p.state.stunRemainingMs,0);assert.equal(p.state.goldGunId,null);assert.equal(p.launchProtectionUntilMs,0);assert.equal(p.pendingInputs.length,0);}
+  for(const p of room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,fighterStats(p.state).maxShield);assert.equal(activeWeapon(p.state)!.class,'blaster');assert.equal(activeWeapon(p.state)!.magazine,30);assert.equal(p.state.inventory!.reserve.energy,60);assert.equal(p.state.slowRemainingMs,0);assert.equal(p.state.burnRemainingMs,0);assert.equal(p.state.stunRemainingMs,0);assert.equal(p.state.goldGunId,null);assert.equal(p.launchProtectionUntilMs,0);assert.equal(p.pendingInputs.length,0);}
  }
 });
 test('lobby departure creates no loot; server fallback names remain unique across separate private rooms',()=>{

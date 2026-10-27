@@ -9,13 +9,13 @@ import type { CombatDebugRequest, CombatDebugResult, ReloadRequest, ReloadResult
 import type { LifeState } from './lifecycle';
 import type { BlackHoleState, BlackHoleRegion } from './black-hole';
 import type { FlightState, PlayerInput } from './flight';
-export interface PlayerState extends FlightState, LifeState { launchProtectionRemainingMs?:number; queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
+export interface PlayerState extends FlightState, LifeState { fighterId?:import('./fighters').FighterId;fighterNotice?:string; launchProtectionRemainingMs?:number; queuedForNextRound?: boolean; bot?: BotDebugState; id: string; name: string; color: number; region: BlackHoleRegion; lastProcessedInput: number; teleportSequence: number }
 export interface RoomInfo { match: MatchState; code: string; playerIds: string[]; participantIds?: string[]; queuedIds?: string[]; maxPlayers: number; blackHole: BlackHoleState }
 export interface CombatEffect {color?:number;id:number;kind:'explosion'|'shock'|'frost'|'burn';x:number;y:number;radius:number;timeMs:number}
 export interface KillAnnouncement { id:string; timeMs:number; text:string }
 export interface Snapshot {guardians?:import('./guardians').GuardianSnapshot;battle?:import('./battle').BattleSnapshot;radarPings?:import('./battle').RadarPing[];walls?:import('./survival').ShieldWall[];horizon?:import('./horizon').HorizonState;killFeed?:KillAnnouncement[];effects?:CombatEffect[]; loot?:LootSnapshot; objectives?:ObjectiveSnapshot; match: MatchState; survivingHumans: number; projectiles: ProjectileState[]; tick: number; timeMs: number; roomCode: string; players: PlayerState[]; blackHole: BlackHoleState }
 export type RoomResult = { ok: true; room: RoomInfo; selfId: string } | { ok: false; error: string };
-export interface RoomRequest { name: string }
+export interface RoomRequest { name: string; fighterId?:import('./fighters').FighterId }
 export interface JoinRequest extends RoomRequest { code: string }
 export interface ServerEvents {
   aiIntel:(packet:import('./pilots').IntelPacket)=>void;
@@ -28,7 +28,8 @@ export interface InputMessage extends PlayerInput { lifeGeneration: number; tele
 export interface TriggerRequest {sequence:number;held:boolean;roomCode:string;round:number;reloadSession:string;lifeGeneration:number;teleportSequence:number}
 export interface ClientEvents {
   survival:(request:import('./survival').SurvivalRequest,reply:(result:import('./survival').SurvivalResult)=>void)=>void;
-  play: (request:{name:string;mode:import('./match').RoomMode}, reply:(result:RoomResult)=>void)=>void;
+  selectFighter:(request:{fighterId:import('./fighters').FighterId;round:number},reply:(result:StartMatchResult)=>void)=>void;
+  play: (request:{name:string;fighterId?:import('./fighters').FighterId;mode:import('./match').RoomMode}, reply:(result:RoomResult)=>void)=>void;
   ready: (request:{round:number;ready:boolean}, reply:(result:StartMatchResult)=>void)=>void;
   playAgain: (request:StartMatchRequest, reply:(result:StartMatchResult)=>void)=>void;
   trigger:(request:TriggerRequest)=>void;

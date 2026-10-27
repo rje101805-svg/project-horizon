@@ -1,3 +1,4 @@
+import {savedFighter} from './fighter-select';
 import {launchPose} from '../shared/launch';
 import {playCinematicCue} from './cinematic-audio';
 import type {InventoryCommand} from '../shared/loot';
@@ -169,9 +170,9 @@ export class FlightConnection {
         }
         resolve(result);
       };
-      if(mode==='fill'||mode==='wait')this.socket.timeout(4000).emit('play',{name,mode},reply);
-      else if (mode === 'create') this.socket.timeout(4000).emit('createRoom', { name }, reply);
-      else this.socket.timeout(4000).emit('joinRoom', { name, code }, reply);
+      if(mode==='fill'||mode==='wait')this.socket.timeout(4000).emit('play',{name,mode,fighterId:savedFighter()},reply);
+      else if (mode === 'create') this.socket.timeout(4000).emit('createRoom', { name,fighterId:savedFighter() }, reply);
+      else this.socket.timeout(4000).emit('joinRoom', { name, code,fighterId:savedFighter() }, reply);
     });
   }
   private measurePing() {

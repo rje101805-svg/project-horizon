@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {WeaponSprites} from './weapon-assets';
 import {InventoryUI} from './inventory-ui';
 import type {InventoryCommand} from '../shared/loot';
@@ -21,9 +22,9 @@ export class LootVisuals {
   const eligible=!!self&&!!inv&&!self.goldGunId&&self.status==='ALIVE'&&self.lifeState==='active'&&snapshot.match.state==='active';
   const candidates=eligible?[...(snapshot.loot?.pickups.filter(p=>p.kind==='weapon')??[]),...(snapshot.objectives?.pickups??[])].filter(p=>!(p.blockedId===self!.id&&snapshot.timeMs<(p.blockedUntilMs??0))):[];
   const distance=(p:{x:number;y:number})=>(p.x-self!.x)**2+(p.y-self!.y)**2;
-  let nearest=candidates.filter(p=>distance(p)<=LOOT_CONFIG.pickupRadius**2).sort((a,b)=>distance(a)-distance(b)||a.id.localeCompare(b.id))[0];
+  let nearest=candidates.filter(p=>distance(p)<=(LOOT_CONFIG.pickupRadius*fighterStats(self).pickup)**2).sort((a,b)=>distance(a)-distance(b)||a.id.localeCompare(b.id))[0];
   if(nearest)this.recent={id:nearest.id,timeMs:snapshot.timeMs,life};
-  else if(this.recent?.life===life&&snapshot.timeMs-this.recent.timeMs<=LOOT_CONFIG.recentPickupMs)nearest=candidates.find(p=>p.id===this.recent!.id&&distance(p)<=LOOT_CONFIG.paddedPickupRadius**2)!;
+  else if(this.recent?.life===life&&snapshot.timeMs-this.recent.timeMs<=LOOT_CONFIG.recentPickupMs)nearest=candidates.find(p=>p.id===this.recent!.id&&distance(p)<=(LOOT_CONFIG.paddedPickupRadius*fighterStats(self).pickup)**2)!;
   else this.recent=undefined;
   this.highlightedId=nearest?.id;prompt.hidden=!nearest;
   if(nearest){const weapon='kind' in nearest&&nearest.kind==='weapon'?nearest.weapon:undefined,name=weapon?`${weapon.rarity} ${WEAPONS[weapon.class].name}`:`GALAXY ${GALAXY_WEAPONS['galaxyType' in nearest&&nearest.galaxyType?nearest.galaxyType:'cryo'].name}`,color=weapon?RARITY_COLORS[weapon.rarity]:0xffc644;

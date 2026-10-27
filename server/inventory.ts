@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {initialSurvival} from '../shared/survival';
 import {cancelHealing} from './survival';
 import {LOOT_SCALE} from '../shared/world';
@@ -91,7 +92,7 @@ export function dropRegularInventory(room:GameRoom,p:RoomPlayer){
  clearInventory(p);cancelReload(p);
 }
 export function cancelReload(p:RoomPlayer){p.combatTimers.reload=0;p.combatTimers.reloadCompleted=false;p.reloadWeaponId=undefined;p.state.isReloading=false;p.state.reloadRemainingMs=p.state.reloadProgress=0;}
-function within(room:GameRoom,p:RoomPlayer,item:LootPickup){return room.simulationTimeMs>item.spawnTimeMs&&!(item.blockedId===p.state.id&&room.simulationTimeMs<(item.blockedUntilMs??0))&&(p.state.x-item.x)**2+(p.state.y-item.y)**2<=LOOT_CONFIG.pickupRadius**2;}
+function within(room:GameRoom,p:RoomPlayer,item:LootPickup){return room.simulationTimeMs>item.spawnTimeMs&&!(item.blockedId===p.state.id&&room.simulationTimeMs<(item.blockedUntilMs??0))&&(p.state.x-item.x)**2+(p.state.y-item.y)**2<=(LOOT_CONFIG.pickupRadius*fighterStats(p.state).pickup)**2;}
 function grant(p:RoomPlayer,w:WeaponInstance){if(w.grantConsumed)return;const inv=p.state.inventory!,type=WEAPONS[w.class].ammoType;inv.reserve[type]=Math.min(RESERVE_CAPS[type],inv.reserve[type]+WEAPONS[w.class].magazine*2);w.grantConsumed=true;}
 export function collectLoot(room:GameRoom,p:RoomPlayer,id:string):boolean {
  const item=lootState(room).pickups.get(id),inv=p.state.inventory;
@@ -111,7 +112,7 @@ export function rememberPickupProximity(room:GameRoom,p:RoomPlayer){
  for(const [id,time]of recent)if(room.simulationTimeMs-time>LOOT_CONFIG.recentPickupMs)recent.delete(id);
  for(const item of [...lootState(room).pickups.values(),...objectiveState(room).pickups.values()]){
   if('kind' in item&&item.kind!=='weapon'||item.blockedId===p.state.id&&room.simulationTimeMs<(item.blockedUntilMs??0))continue;
-  if((p.state.x-item.x)**2+(p.state.y-item.y)**2<=LOOT_CONFIG.pickupRadius**2)recent.set(item.id,room.simulationTimeMs);
+  if((p.state.x-item.x)**2+(p.state.y-item.y)**2<=(LOOT_CONFIG.pickupRadius*fighterStats(p.state).pickup)**2)recent.set(item.id,room.simulationTimeMs);
  }
 }
 export function pickupWeapon(room:GameRoom,p:RoomPlayer,id?:string){
@@ -119,7 +120,7 @@ export function pickupWeapon(room:GameRoom,p:RoomPlayer,id?:string){
  const inv=p.state.inventory;if(!inv)return false;
  rememberPickupProximity(room,p);
  const pickups=[...[...lootState(room).pickups.values()].filter(i=>i.kind==='weapon'),...objectiveState(room).pickups.values()];
- const available=pickups.filter(item=>!(item.blockedId===p.state.id&&room.simulationTimeMs<(item.blockedUntilMs??0))&&((p.state.x-item.x)**2+(p.state.y-item.y)**2<=LOOT_CONFIG.pickupRadius**2||room.simulationTimeMs-(p.recentPickups?.get(item.id)??-Infinity)<=LOOT_CONFIG.recentPickupMs&&(p.state.x-item.x)**2+(p.state.y-item.y)**2<=LOOT_CONFIG.paddedPickupRadius**2));
+ const available=pickups.filter(item=>!(item.blockedId===p.state.id&&room.simulationTimeMs<(item.blockedUntilMs??0))&&((p.state.x-item.x)**2+(p.state.y-item.y)**2<=(LOOT_CONFIG.pickupRadius*fighterStats(p.state).pickup)**2||room.simulationTimeMs-(p.recentPickups?.get(item.id)??-Infinity)<=LOOT_CONFIG.recentPickupMs&&(p.state.x-item.x)**2+(p.state.y-item.y)**2<=(LOOT_CONFIG.paddedPickupRadius*fighterStats(p.state).pickup)**2));
  available.sort((a,b)=>(p.state.x-a.x)**2+(p.state.y-a.y)**2-((p.state.x-b.x)**2+(p.state.y-b.y)**2)||a.id.localeCompare(b.id));
  const item=id?available.find(i=>i.id===id):available[0];if(!item)return false;
  if(!('kind' in item)){const ok=collectGoldGun(room,p,item.id,true);if(ok){p.recentPickups?.delete(item.id);p.nextSwapMs=room.simulationTimeMs+LOOT_CONFIG.recentPickupMs;}return ok;}

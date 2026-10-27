@@ -1,4 +1,5 @@
 // Shared fixed-tick flight values for authority and local prediction.
+import {fighterStats,FIGHTER_TURN_RATE,turnHeading,type FighterId} from './fighters';
 import {WORLD,OPENING_BOOST_SPEED} from './world';
 export {WORLD} from './world';
 export const CENTER = WORLD / 2;
@@ -15,7 +16,7 @@ export interface PlayerInput {
   boost: boolean;
   aim: number; // radians; defaults to movement heading on the client
 }
-export interface FlightState { x: number; y: number; vx: number; vy: number; rotation: number }
+export interface FlightState { x: number; y: number; vx: number; vy: number; rotation: number;fighterId?:FighterId }
 export const idleInput = (): PlayerInput => ({ up: false, down: false, left: false, right: false, boost: false, aim: 0 });
 // Temporary clustered combat origin, independent of the expanded map center.
 export const spawnFlight = (): FlightState => ({ x: 1370, y: 1200, vx: 0, vy: 0, rotation: 0 });
@@ -29,17 +30,18 @@ export function parseInput(value: unknown): PlayerInput | null {
     boost: v.boost as boolean, aim: Math.atan2(Math.sin(v.aim), Math.cos(v.aim)) };
 }
 // One fixed simulation tick, independent of rendering and packet arrival.
-export function stepFlight(state: FlightState, input: PlayerInput, acceleration = { x: 0, y: 0 }, speedFactor = 1): void {
+export function stepFlight(state: FlightState & {status?:string}, input: PlayerInput, acceleration = { x: 0, y: 0 }, speedFactor = 1): void {
   const dx = Number(input.right) - Number(input.left);
   const dy = Number(input.down) - Number(input.up);
   const length = Math.hypot(dx, dy) || 1;
-  const speed = (input.boost ? BOOST_SPEED : NORMAL_SPEED) * speedFactor;
-  const blend = 1 - Math.exp(-RESPONSE * TICK_SECONDS);
+  const pilot=fighterStats(state);
+  const speed = (input.boost ? BOOST_SPEED : NORMAL_SPEED) * speedFactor * pilot.speed;
+  const blend = Math.min(1,(1 - Math.exp(-RESPONSE * TICK_SECONDS))*pilot.acceleration/pilot.speed);
   state.vx += (dx / length * speed - state.vx) * blend;
   state.vy += (dy / length * speed - state.vy) * blend;
   state.vx += acceleration.x * TICK_SECONDS;
   state.vy += acceleration.y * TICK_SECONDS;
   state.x = Math.max(EDGE_MARGIN, Math.min(WORLD - EDGE_MARGIN, state.x + state.vx * TICK_SECONDS));
   state.y = Math.max(EDGE_MARGIN, Math.min(WORLD - EDGE_MARGIN, state.y + state.vy * TICK_SECONDS));
-  state.rotation = input.aim;
+  state.rotation = state.fighterId&&(!state.status||state.status==='ALIVE')?turnHeading(state.rotation,input.aim,FIGHTER_TURN_RATE*pilot.turn*TICK_SECONDS):input.aim;
 }

@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {scheduleGuardianRespawn,despawnPlanetGuardians} from './guardians';
 import {battleMetric} from './battle';
 import {PLANET_REGIONS} from '../shared/planets';
@@ -43,7 +44,7 @@ export function removeObjectiveParticipant(room:GameRoom,p:RoomPlayer){
 }
 export function collectGoldGun(room:GameRoom,p:RoomPlayer,id:string,recentValidated=false):boolean {
  const s=objectiveState(room),pickup=s.pickups.get(id);
- if(!pickup||!eligibleShip(room,p)||p.state.goldGunId||(p.state.stunRemainingMs??0)>0||pickup.blockedId===p.state.id&&room.simulationTimeMs<(pickup.blockedUntilMs??0)||!((p.state.x-pickup.x)**2+(p.state.y-pickup.y)**2<=(recentValidated?LOOT_CONFIG.paddedPickupRadius:GOLD_GUN.pickupRadius)**2))return false;
+ if(!pickup||!eligibleShip(room,p)||p.state.goldGunId||(p.state.stunRemainingMs??0)>0||pickup.blockedId===p.state.id&&room.simulationTimeMs<(pickup.blockedUntilMs??0)||!((p.state.x-pickup.x)**2+(p.state.y-pickup.y)**2<=((recentValidated?LOOT_CONFIG.paddedPickupRadius:GOLD_GUN.pickupRadius)*fighterStats(p.state).pickup)**2))return false;
  if(!equipGoldGun(p,id,pickup.galaxyType??PLANET_GALAXY[pickup.planetId??'']??'cryo'))return false;
  s.pickups.delete(id);
  if(pickup.source==='planet'){if(pickup.planetId)scheduleGuardianRespawn(room,pickup.planetId);const record=s.planets.find(r=>r.planet.id===pickup.planetId);if(record?.planet.pickupId===id){record.planet.pickupId=null;record.planet.status=record.planet.occupants.length>1?'CONTESTED':'AVAILABLE';}}
@@ -63,8 +64,8 @@ export function advanceObjectives(room:GameRoom){
   else if(inside.length===1&&!record.completed.has(inside[0].state.id)){
    const p=inside[0],id=p.state.id;planet.status='CAPTURING';planet.capturingId=id;
    if(previous!==id)announce(room,{kind:'started',text:`${p.state.name.toUpperCase()} IS CAPTURING ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});
-   const ticks=Math.min(CAPTURE_TICKS,(record.ticks.get(id)??0)+1);record.ticks.set(id,ticks);
-   if(ticks===CAPTURE_TICKS){const point=spawnPoint(room,record,p);if(point){const pickupId=`${room.code}:gold:${room.match.round}:${++s.sequence}`;record.completed.add(id);battleMetric(room,id,'captures');s.pickups.set(pickupId,{id:pickupId,galaxyType:PLANET_GALAXY[planet.id],...point,source:'planet',planetId:planet.id,spawnTimeMs:room.simulationTimeMs});planet.pickupId=pickupId;planet.status='GOLD_GUN_AVAILABLE';planet.capturingId=null;announce(room,{kind:'captured',text:`${p.state.name.toUpperCase()} CAPTURED ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});}}
+   const ticks=Math.min(CAPTURE_TICKS,(record.ticks.get(id)??0)+CAPTURE_DURATION_MS/fighterStats(p.state).captureMs);record.ticks.set(id,ticks);
+   if(ticks>=CAPTURE_TICKS-1e-7){const point=spawnPoint(room,record,p);if(point){const pickupId=`${room.code}:gold:${room.match.round}:${++s.sequence}`;record.completed.add(id);battleMetric(room,id,'captures');s.pickups.set(pickupId,{id:pickupId,galaxyType:PLANET_GALAXY[planet.id],...point,source:'planet',planetId:planet.id,spawnTimeMs:room.simulationTimeMs});planet.pickupId=pickupId;planet.status='GOLD_GUN_AVAILABLE';planet.capturingId=null;announce(room,{kind:'captured',text:`${p.state.name.toUpperCase()} CAPTURED ${planet.name.toUpperCase()}`,planetId:planet.id,participantId:id});}}
   }else planet.status='AVAILABLE';
  }
  // Human claims use F; bots use the same trusted collection boundary.
@@ -76,7 +77,7 @@ export function advanceObjectives(room:GameRoom){
 
 }
 export function objectivesSnapshot(room:GameRoom):ObjectiveSnapshot {
- const s=objectiveState(room);return {round:room.match.round,planets:s.planets.map(r=>({...r.planet,occupants:[...r.planet.occupants],progress:[...r.ticks].map(([participantId,ticks])=>({participantId,progressMs:Math.min(CAPTURE_DURATION_MS,ticks*TICK_MS),completed:r.completed.has(participantId),inside:r.planet.occupants.includes(participantId)}))})),pickups:[...s.pickups.values()].map(p=>({...p})),announcements:s.announcements.map(a=>({...a}))};
+ const s=objectiveState(room);return {round:room.match.round,planets:s.planets.map(r=>({...r.planet,occupants:[...r.planet.occupants],progress:[...r.ticks].map(([participantId,ticks])=>({participantId,durationMs:fighterStats(room.players.get(participantId)?.state).captureMs,progressMs:Math.min(CAPTURE_DURATION_MS,ticks*TICK_MS),completed:r.completed.has(participantId),inside:r.planet.occupants.includes(participantId)}))})),pickups:[...s.pickups.values()].map(p=>({...p})),announcements:s.announcements.map(a=>({...a}))};
 }
 export function pauseObjectives(room:GameRoom){
  for(const record of objectiveState(room).planets){if(record.planet.status==='CONSUMED')continue;record.planet.capturingId=null;record.planet.occupants=[];record.planet.status=record.planet.pickupId?'GOLD_GUN_AVAILABLE':'AVAILABLE';}

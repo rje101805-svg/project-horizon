@@ -1,3 +1,4 @@
+import {COUNTDOWN_MS,COLLAPSE_MS,LAUNCH_MS} from '../shared/match';
 import { test, expect } from '@playwright/test';
 import { TICK_RATE } from '../shared/flight';
 import { MAX_HEALTH } from '../shared/lifecycle';
@@ -50,7 +51,7 @@ test('compact HUD, F3 controls, actual RTT/metrics and room-scoped roster update
   await page.setViewportSize({ width: 680, height: 960 });
   // Lobby suppresses combat UI; F3 remains available over the full viewport.
   await expect(page.locator('.gameplay-hud')).toBeHidden();
-  await peer.locator('#ready-match').click();await expect(page.locator('#start-match')).toBeEnabled();await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state),{timeout:10000}).toBe('active');
+  await peer.locator('#ready-match').click();await expect(page.locator('#start-match')).toBeEnabled();await page.locator('#start-match').click();await expect.poll(()=>page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.latest?.match.state),{timeout:COUNTDOWN_MS+COLLAPSE_MS+LAUNCH_MS+5000}).toBe('active');
   const hudBox = await page.locator('.gameplay-hud').boundingBox();
   const debugBox = await page.locator('#debug-overlay').boundingBox();
   const gameBox = await page.locator('#game').boundingBox();

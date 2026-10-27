@@ -70,7 +70,7 @@ test('shared pull is smooth, normal rearward/lateral escape overpowers it, and a
  if(direction==='idle')assert.ok(f.b.state.x<x);if(direction==='rearward')assert.ok(f.b.state.x>x);if(direction==='lateral')assert.ok(f.b.state.y>1900);
  }
  const f=fixture(2);assert.equal(f.activate().ok,true);for(let i=0;i<60;i++)stepMovement(f.a.state,{...idleInput(),right:true},f.room.blackHole);
- assert.ok(Math.abs(f.a.state.vx-290)<1);assert.ok(f.a.state.x>200);
+ assert.ok(Math.abs(f.a.state.vx-290*1.03)<1);assert.ok(f.a.state.x>200);
 });
 test('replicated tractor force predicts fixed ticks and acknowledgement/replay without server-only corrections',()=>{
  const f=fixture();f.activate();const predictor=new LocalPredictor();predictor.reconcile(f.b.state,f.room.blackHole);

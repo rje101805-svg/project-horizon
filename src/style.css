@@ -163,3 +163,13 @@ body[data-phase=active] #objective-feed,body[data-phase=ended] #objective-feed{t
 #match-overlay{z-index:45;max-height:90%;overflow:auto;min-width:min(650px,90%);background:radial-gradient(ellipse at top,#26354af5,#070d19f5);border:1px solid #c6a86b}#winner-banner{display:block;color:#ffdf8b;font:700 28px/1.4 monospace;letter-spacing:3px}#match-stats{max-width:650px;font:12px/1.7 monospace;color:#b9d5e2}#match-standings{text-align:left}#death-overlay{z-index:40}#elimination-cause{color:#ffd095}
 
 #guardian-warning{position:absolute;bottom:142px;left:50%;transform:translateX(-50%);z-index:17;max-width:calc(100% - 24px);padding:6px 10px;background:#111220e8;border:1px solid #cd8a68;border-radius:6px;color:#ffccaa;font:11px/1.5 monospace;pointer-events:none;text-align:center}#guardian-warning[hidden]{display:none}
+
+/* The selection stage is exactly the contained original artwork rectangle. */
+#fighter-select{position:fixed;inset:0;z-index:60;background:#02050bef;display:grid;place-items:center}#fighter-select[hidden]{display:none}
+#fighter-card{position:relative;width:min(100vw,66.666667vh);height:min(150vw,100vh);aspect-ratio:2/3}#fighter-card>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.fighter-hotspot{position:absolute;padding:0;border:1px solid transparent;background:transparent;cursor:pointer;border-radius:4px;color:transparent}.fighter-hotspot:hover{border-color:#e7edff90;background:#dcecff0d}.fighter-hotspot:focus-visible{outline:2px solid #effaff;outline-offset:2px;background:#e5f2ff12}
+.show-fighter-hotspots .fighter-hotspot{border:1px dashed #68ffcf;background:#65ffd311}.show-fighter-hotspots .fighter-hotspot:after{content:attr(data-fighter-hotspot);position:absolute;left:0;top:0;color:#afffe7;background:#000c;font:9px monospace}
+#selected-fighter{position:absolute;left:3.2%;top:91%;color:#cae8ed;font:clamp(9px,1.1vw,16px) monospace;text-shadow:0 2px 4px #000;pointer-events:none}
+#fighter-art-status{position:absolute;left:8%;right:8%;top:30%;color:#f2f5ff;background:#091222;padding:20px;font:16px monospace}
+.fighter-art-missing .fighter-hotspot{border-color:#a8c9e8}.fighter-art-missing .fighter-hotspot:after{content:attr(aria-label);color:#fff;font:10px monospace}
+#fighter-assignment{position:absolute;left:12px;bottom:140px;z-index:24;max-width:calc(100% - 24px);padding:7px 10px;border-left:2px solid #8be9ff;background:#07101de8;color:#ddf5ff;font:13px monospace;pointer-events:none}#fighter-assignment[hidden]{display:none}

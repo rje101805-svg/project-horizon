@@ -82,7 +82,7 @@ export class ObjectiveVisuals {
   if(!zone){this.hud.hidden=true;return;}
   const progress=zone.progress.find(p=>p.participantId===selfId),ms=progress?.progressMs??0,inside=zone.occupants.includes(selfId);
   const status=zone.status==='CONTESTED'&&inside?'CONTESTED — CAPTURE PAUSED':progress?.completed?'CAPTURE COMPLETE · ONCE PER MATCH':zone.status==='GOLD_GUN_AVAILABLE'&&inside?'GALAXY GUN AVAILABLE':inside?'CAPTURING':'OUTSIDE — PROGRESS DECAYING';
-  const text=`${zone.name} · ${status}\n${(ms/1000).toFixed(1)} / ${(CAPTURE_DURATION_MS/1000).toFixed(0)} seconds`;if(text!==this.hudText){this.description.textContent=text;this.hudText=text;}this.bar.value=ms;this.hud.hidden=false;
+  const text=`${zone.name} · ${status}\n${(ms/CAPTURE_DURATION_MS*(progress?.durationMs??CAPTURE_DURATION_MS)/1000).toFixed(1)} / ${((progress?.durationMs??CAPTURE_DURATION_MS)/1000).toFixed(1)} seconds`;if(text!==this.hudText){this.description.textContent=text;this.hudText=text;}this.bar.value=ms;this.hud.hidden=false;
  }
 
  private overlapsArrow(x:number,y:number,count:number){for(let i=0;i<count;i++)if(Math.abs(this.arrowSlots[i].x-x)<170&&Math.abs(this.arrowSlots[i].y-y)<27)return true;return false;}

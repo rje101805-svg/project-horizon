@@ -1,14 +1,15 @@
+import {fighterStats} from '../shared/fighters';
 import type {GameRoom,RoomPlayer} from './rooms';
 import type {DamageSource} from '../shared/combat';
 import {causeLabel,FIRE_PING_MS,FIRE_RADAR_RANGE,type Standing,type BattleSnapshot,type RadarPing} from '../shared/battle';
 export interface BattleRuntime {round:number;rows:Map<string,Standing>;shots:Map<string,RadarPing&{viewerId:string}>}
-export function beginBattle(room:GameRoom){room.battle={round:room.match.round,shots:new Map(),rows:new Map(room.match.roster.flatMap(id=>{const p=room.players.get(id);return p?[[id,{id,name:p.state.name,color:p.state.color,status:'ALIVE',kills:0,damage:0,survivedMs:0,captures:0,walls:0,placement:null,eliminatedAtMs:null,deathSequence:0,cause:null}] as [string,Standing]]:[];}))};for(const p of room.players.values())p.state.kills=0;}
+export function beginBattle(room:GameRoom){room.battle={round:room.match.round,shots:new Map(),rows:new Map(room.match.roster.flatMap(id=>{const p=room.players.get(id);return p?[[id,{id,fighterId:p.state.fighterId,name:p.state.name,color:p.state.color,status:'ALIVE',kills:0,damage:0,survivedMs:0,captures:0,walls:0,placement:null,eliminatedAtMs:null,deathSequence:0,cause:null}] as [string,Standing]]:[];}))};for(const p of room.players.values())p.state.kills=0;}
 function runtime(room:GameRoom){if(!room.battle||room.battle.round!==room.match.round)beginBattle(room);return room.battle!;}
 export function battleMetric(room:GameRoom,id:string,kind:'damage'|'captures'|'walls',value=1){if(room.match.state!=='active')return;const r=runtime(room).rows.get(id);if(r)r[kind]+=Math.max(0,value);}
-export function battleDeath(room:GameRoom,p:RoomPlayer,source:DamageSource,timeMs:number){
+export function battleDeath(room:GameRoom,p:RoomPlayer,source:DamageSource,timeMs:number,wasCompetitor=true){
  if(room.match.state!=='active')return;const r=runtime(room),row=r.rows.get(p.state.id);if(!row||row.eliminatedAtMs!==null)return;
  row.eliminatedAtMs=timeMs;row.deathSequence=p.state.deathSequence;row.status='ALIEN';row.cause=causeLabel(source,id=>r.rows.get(id)?.name??'Unknown pilot');row.survivedMs=Math.max(0,timeMs-room.match.phaseStartedAtMs);
- if('playerId'in source&&source.playerId!==p.state.id){const killer=r.rows.get(source.playerId);if(killer){killer.kills++;const player=room.players.get(killer.id);if(player)player.state.kills=killer.kills;}}
+ if('playerId'in source&&source.playerId!==p.state.id){const killer=r.rows.get(source.playerId);if(killer){killer.kills++;const player=room.players.get(killer.id);if(player){player.state.kills=killer.kills;if(wasCompetitor&&player.state.status==='ALIVE'&&player.state.lifeState==='active')player.state.shield=Math.min(player.state.maxShield,player.state.shield+fighterStats(player.state).feed);}}}
  const killer='playerId'in source?r.rows.get(source.playerId)?.name??'Unknown pilot':'';
  const weapon=source.type==='TRACTOR'?' · Tractor lock':source.type==='PLAYER'&&source.weaponName?` · ${source.rarity?source.rarity+' ':''}${source.weaponName}`:'';
  const text=source.type==='GUARDIAN'?`${row.cause!.toUpperCase()} → ${p.state.name}`:source.type==='ENVIRONMENT'?source.cause==='BLACK_HOLE'?`${p.state.name} consumed by the Horizon`:`${p.state.name} lost to a hazard`:`${killer} → ${p.state.name}${weapon}`;

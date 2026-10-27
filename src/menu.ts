@@ -1,3 +1,4 @@
+import {installFighterSelect,savedFighter} from './fighter-select';
 import {normalizeRoomCode} from '../shared/rooms';
 import {roomFromSearch} from './room-links';
 import {playCinematicCue} from './cinematic-audio';
@@ -10,6 +11,7 @@ export function installMenu(play:(mode:RoomMode)=>void,join:(code:string)=>Promi
  document.body.dataset.quality=stored('horizon-menu-quality','standard');playCinematicCue('menu');
  const debris=document.createElement('div');debris.className='menu-debris';debris.setAttribute('aria-hidden','true');for(const [x,y,size]of [[48,18,5],[64,9,3],[83,11,5],[55,33,3],[92,49,4],[68,40,2]]){const rock=document.createElement('span');Object.assign(rock.style,{left:`${x}%`,top:`${y}%`,width:`${size}px`,height:`${size}px`});debris.append(rock);}stage.append(debris);
  const image=document.createElement('img');image.src=`${import.meta.env.BASE_URL}assets/ui/main-menu.png`;image.alt='Project Horizon cinematic main menu';image.draggable=false;stage.append(image);home.prepend(stage);
+ const fighterLabel=document.createElement('span');fighterLabel.id='selected-fighter';fighterLabel.textContent=`PILOT · ${savedFighter().toUpperCase()}`;stage.append(fighterLabel);const openFighter=installFighterSelect(home,id=>{fighterLabel.textContent=`PILOT · ${id.toUpperCase()}`;});
  let mode:RoomMode=stored('horizon-mode','wait')==='fill'?'fill':'wait';
  const name=document.getElementById('display-name') as HTMLInputElement;name.value=stored('horizon-name','');name.placeholder='Pilot_XX';name.autocomplete='off';name.setAttribute('aria-label','Player name');
  const overlay=document.createElement('div');overlay.id='menu-modal';overlay.hidden=true;overlay.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="menu-modal-title"><button id="menu-modal-close" aria-label="Close">×</button><h2 id="menu-modal-title"></h2><div id="menu-modal-body"></div></section>';home.append(overlay);
@@ -25,7 +27,8 @@ export function installMenu(play:(mode:RoomMode)=>void,join:(code:string)=>Promi
    button.onclick=()=>{
     if(id==='fill'||id==='wait'){mode=id;save('horizon-mode',mode);update();}
     else if(id==='play'){name.blur();save('horizon-name',name.value);play(mode);}
-    else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · Q: shield wall (20 materials) · 4: Shield Cell (2s) · 5: Repair Kit (3s) · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay · F4: AI Intel (automatic in solo FILL) · N: radar size · Hold M: full map · Hold Tab: standings.\n\nCapture an uncontested planet for 10 seconds to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. PLAY defaults to a human-only lobby. START alone for solo play, or wait for guests to READY before host START. FILL remains optional. Friends can JOIN WITH CODE before START. The Horizon appears after one minute of play and consumes the galaxy by five minutes; flee its edge.');
+    else if(id==='pilot')openFighter();
+    else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · Q: shield wall (20 materials; Nova 18) · 4: Shield Cell (2s; Nova 1.8s) · 5: Repair Kit (3s; Nova 2.7s) · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay · F4: AI Intel (automatic in solo FILL) · N: radar size · Hold M: full map · Hold Tab: standings.\n\nCapture an uncontested planet for 10 seconds (Horizon 9 seconds) to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. PLAY defaults to a human-only lobby. START alone for solo play, or wait for guests to READY before host START. FILL remains optional. Friends can JOIN WITH CODE before START. The Horizon appears after one minute of play and consumes the galaxy by five minutes; flee its edge.');
     else show(button.title.toUpperCase(),'COMING SOON');
    };
  }
@@ -40,7 +43,7 @@ export function installMenu(play:(mode:RoomMode)=>void,join:(code:string)=>Promi
  const update=()=>{for(const id of ['fill','wait']){const b=buttons.get(id)!;b.classList.toggle('selected',mode===id);b.setAttribute('aria-pressed',String(mode===id));}};update();
  if(new URLSearchParams(location.search).has('hotspots')){stage.classList.add('show-hotspots');for(const [id,b]of buttons)b.dataset.label=id;}
  image.onerror=()=>{stage.classList.add('art-missing');for(const [id,b]of buttons)b.textContent=b.title;const heading=document.createElement('h1');heading.textContent='PROJECT HORIZON';stage.prepend(heading);};
- window.addEventListener('keydown',e=>{if(home.hidden)return;if(e.code==='Escape'&&!overlay.hidden){e.preventDefault();close();}else if(e.code==='Enter'&&!e.repeat&&overlay.hidden&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLTextAreaElement)&&(!(e.target instanceof HTMLButtonElement)||e.target===buttons.get('play'))){e.preventDefault();buttons.get('play')!.click();}});
+ window.addEventListener('keydown',e=>{if(home.hidden||!document.getElementById('fighter-select')!.hidden)return;if(e.code==='Escape'&&!overlay.hidden){e.preventDefault();close();}else if(e.code==='Enter'&&!e.repeat&&overlay.hidden&&!(e.target instanceof HTMLInputElement)&&!(e.target instanceof HTMLTextAreaElement)&&(!(e.target instanceof HTMLButtonElement)||e.target===buttons.get('play'))){e.preventDefault();buttons.get('play')!.click();}});
  const fit=()=>{const scale=Math.min(innerWidth/1672,innerHeight/941);stage.style.width=`${1672*scale}px`;stage.style.height=`${941*scale}px`;};window.addEventListener('resize',fit);fit();
  document.body.classList.add('cinematic-menu');
  if(import.meta.env.DEV&&new URLSearchParams(location.search).has('devrooms'))document.body.classList.add('dev-rooms');

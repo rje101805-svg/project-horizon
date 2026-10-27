@@ -1,0 +1,62 @@
+[
+  {
+    "match": 1,
+    "ticks": 9065,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:2dbe4011-f1a3-42e8-a1a7-bf205d5d4779",
+      "winnerName": "SHADOW"
+    },
+    "meanTickMs": 1.9962648679536614,
+    "p95TickMs": 4.861265000001367
+  },
+  {
+    "match": 2,
+    "ticks": 9065,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:83246786-116a-4c36-87e8-19f0ab946df1",
+      "winnerName": "NOVA"
+    },
+    "meanTickMs": 1.7241098355212385,
+    "p95TickMs": 3.3288529999990715
+  },
+  {
+    "match": 3,
+    "ticks": 8281,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:2dbe4011-f1a3-42e8-a1a7-bf205d5d4779",
+      "winnerName": "SHADOW"
+    },
+    "meanTickMs": 1.4253080079700917,
+    "p95TickMs": 2.509275999997044
+  },
+  {
+    "match": 4,
+    "ticks": 7744,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:2002b748-1058-42fd-b6eb-d88acc14cd34",
+      "winnerName": "HORIZON"
+    },
+    "meanTickMs": 1.2051530236311747,
+    "p95TickMs": 1.9382350000014412
+  },
+  {
+    "match": 5,
+    "ticks": 8472,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:2002b748-1058-42fd-b6eb-d88acc14cd34",
+      "winnerName": "HORIZON"
+    },
+    "meanTickMs": 1.1640153981350194,
+    "p95TickMs": 2.145416999999725
+  }
+]

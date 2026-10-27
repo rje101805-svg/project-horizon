@@ -1,0 +1,12 @@
+{
+  "ticks": 300,
+  "meanTickMs": 9.042120220000024,
+  "p95TickMs": 26.54982199999995,
+  "clients": 8,
+  "initialWalls": 8,
+  "galaxyOwners": 3,
+  "guardians": 16,
+  "hostileShotsObserved": 4864,
+  "protectedStressFixture": true,
+  "renderedFPS": false
+}

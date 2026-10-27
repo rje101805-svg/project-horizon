@@ -184,3 +184,5 @@ Server: https://project-horizon-server.onrender.com
 Health: https://project-horizon-server.onrender.com/health
 
 Wait for GitHub Pages and Render to deploy the integration commit before testing. The footer shows the client Build ID (also in `/project-horizon/build.json`). Production fake lag/jitter is compiled out. Initial connection retries accommodate Render cold starts; Cancel connection stops the pending attempt. See DEPLOY.md for deployment details. The owner reports the previous Step 4 Pages build `client-aae0fb5389ef` successfully deployed after resetting the source; the old queued job is left untouched. First verify the new deployment and Build ID, then perform Step 8 manually with two computers on different networks. No Step 8 or Phase 2 implementation is included.
+
+P5A adds original-artwork PILOT SELECT (Left/Right, Enter, Escape), unique server-assigned fighters and approved passives. See [P5A_TEST.md](P5A_TEST.md) for abilities, assignment rules, test results and Windows acceptance.

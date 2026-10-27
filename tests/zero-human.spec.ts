@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {startActiveFixture} from './active-fixture';
 import { test, expect, type Page } from '@playwright/test';
 import { createGameServer } from '../server/game';
@@ -28,7 +29,7 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   for(const player of room.players.values())expect(player.gameplayEnabled).toBe(false);expect(room.projectiles.size).toBe(0);
   await advance(179);expect(room.match.state).toBe('ended');await page.locator('#play-again').click();await frame();expect(room.match.state).toBe('waiting');expect(room.match.round).toBe(1);
   for(const p of clients){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#alien-message')).toBeHidden();}
-  for(const player of room.players.values()){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(100);expect(player.humanEliminated).toBe(false);}
+  for(const player of room.players.values()){expect(player.state.status).toBe('ALIVE');expect(player.state.health).toBe(100);expect(player.state.shield).toBe(fighterStats(player.state).maxShield);expect(player.humanEliminated).toBe(false);}
   await spectatorPage.locator('#room-code').fill(code);await spectatorPage.locator('#join').click();await expect(spectatorPage.locator('canvas')).toBeVisible();clients=pages;await frame();expect(room.match.state).toBe('waiting');await expect(page.locator('#start-match')).toBeDisabled();
   startActiveFixture(room,room.match.hostId!,{round:room.match.round});await frame();expect(room.match.roster).toEqual([...room.players.keys()]);
   // Former spectator is now a participant; a second all-human batch must draw too.

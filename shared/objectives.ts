@@ -6,7 +6,7 @@ export const CAPTURE_DECAY_RATE=2;
 export const MAX_ANNOUNCEMENTS=8;
 export const GOLD_SPAWN_CLEARANCE=80;
 export type PlanetStatus='AVAILABLE'|'CAPTURING'|'CONTESTED'|'GOLD_GUN_AVAILABLE'|'CONSUMED';
-export interface CaptureProgress {participantId:string;progressMs:number;completed:boolean;inside:boolean}
+export interface CaptureProgress {participantId:string;durationMs?:number;progressMs:number;completed:boolean;inside:boolean}
 export interface PlanetObjective {id:string;name:string;x:number;y:number;radius:number;captureRadius:number;status:PlanetStatus;capturingId:string|null;occupants:string[];pickupId:string|null;progress:CaptureProgress[]}
 export interface GoldPickup {galaxyType?:import('./weapons').GalaxyType; blockedId?:string;blockedUntilMs?:number;id:string;x:number;y:number;source:'planet'|'drop';planetId:string|null;spawnTimeMs:number}
 export interface ObjectiveAnnouncement {id:number;round:number;timeMs:number;kind:'started'|'captured'|'claimed'|'dropped'|'consumed';text:string;planetId?:string;participantId?:string}

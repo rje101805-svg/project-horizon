@@ -1,0 +1,82 @@
+[
+  {
+    "path": "public/assets/pilots/dreadnought.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2485187,
+    "sha256": "62e048062e45582c2c10eff1cb482df14000feca5ce9920d7d4b8ec93576feac",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/eclipse.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2324985,
+    "sha256": "0deb00c1f710349f8a1b7d97ed984c6f4fa8d655d198ef775800576373eaad52",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/horizon.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2430368,
+    "sha256": "6197cdf30b4603cc12c622f5d6196ffba699595ae7296a9baced7c1c510516c6",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/nova.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2602438,
+    "sha256": "fa89c990385be5bec3ab23624a670d65422d1f841ffff7f62878503322291ecb",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/redline.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2450834,
+    "sha256": "e0cd591904b104376f791127ea0c6c4ffeea7aa74448eebbff214f09cbd78af1",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/shadow.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2383626,
+    "sha256": "eaec3bce606a235263b663a9345d77cdee0a4ad9dcc90cb474294435b59a983d",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/vulcan.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2557234,
+    "sha256": "54a06791c499e955d60d9aa2bef7b647fb80c48213ec0cc04ab8a61d051fc02c",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  },
+  {
+    "path": "public/assets/pilots/zenith.png",
+    "width": 1024,
+    "height": 1536,
+    "format": "PNG",
+    "bytes": 2398120,
+    "sha256": "619afab28185342e4a8b7c51e7dc9e1e18f988cc35131440b9d31bf9667d2d59",
+    "unchangedFromArtworkCommit": true,
+    "decoded": true
+  }
+]

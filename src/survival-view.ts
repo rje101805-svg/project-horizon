@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import Phaser from 'phaser';
 import type {Snapshot} from '../shared/protocol';
 import {SURVIVAL,type ShieldWall} from '../shared/survival';
@@ -9,7 +10,7 @@ export class SurvivalView {
  constructor(scene:Phaser.Scene){this.graphics=scene.add.graphics().setDepth(4.2).setName('shield-walls');this.root.id='survival-hud';this.root.hidden=true;this.ring.hidden=true;this.root.setAttribute('aria-label','Survival utilities');this.counts.id='survival-counts';this.ring.id='healing-progress';this.ring.setAttribute('role','progressbar');this.ring.setAttribute('aria-valuemin','0');this.ring.setAttribute('aria-valuemax','100');this.message.id='survival-feedback';this.message.setAttribute('role','status');this.root.append(this.counts,this.ring,this.message);document.getElementById('mission')!.append(this.root);}
  accept(snapshot:Snapshot,selfId:string){const same=this.snapshot?.roomCode===snapshot.roomCode&&this.snapshot.match.round===snapshot.match.round;if(!same){this.previous.clear();this.fading=[];}const current=new Map((snapshot.walls??[]).map(w=>[w.id,w]));if(same)for(const [id,wall]of this.previous)if(!current.has(id))this.fading.push({wall,at:snapshot.timeMs});this.previous=current;this.fading=this.fading.slice(-24);this.snapshot=snapshot;
  const p=snapshot.players.find(p=>p.id===selfId),u=p?.inventory?.survival;this.root.hidden=snapshot.match.state!=='active'||p?.status!=='ALIVE'||p.lifeState!=='active';
- this.counts.textContent=`MATERIALS ${u?.materials??0} / 300  ·  [Q] WALL −20\n[4] SHIELD CELL ×${u?.cells??0}  ·  [5] REPAIR KIT ×${u?.kits??0}`;
+ this.counts.textContent=`MATERIALS ${u?.materials??0} / 300  ·  [Q] WALL −${fighterStats(p).wallCost}\n[4] SHIELD CELL ×${u?.cells??0}  ·  [5] REPAIR KIT ×${u?.kits??0}`;
  const use=u?.use;this.ring.hidden=!use;if(use){const t=Math.max(0,Math.min(1,(snapshot.timeMs-use.startedAtMs)/(use.endsAtMs-use.startedAtMs)));this.ring.style.setProperty('--progress',`${t*360}deg`);this.ring.setAttribute('aria-valuenow',String(Math.round(t*100)));this.ring.textContent=`${use.kind==='cell'?'SHIELD':'REPAIR'} ${Math.max(0,(use.endsAtMs-snapshot.timeMs)/1000).toFixed(1)}s`;}
  this.message.textContent=u&&snapshot.timeMs<=u.noticeUntilMs?u.notice:'';
  }

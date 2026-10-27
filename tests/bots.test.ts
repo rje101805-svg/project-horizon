@@ -1,3 +1,4 @@
+import {fighterStats} from '../shared/fighters';
 import {utility} from '../server/survival';
 import {beginHorizon} from '../server/horizon';
 import {settleBotPerception} from './active-fixture';
@@ -36,7 +37,7 @@ test('late humans cannot affect FILL roster; explicit replay preserves every bot
  const f=fighting(),original=[...f.room.match.roster];for(const id of ['q1','q2','q3'])assert.equal(f.store.join(id,f.room.code,id,0).ok,false);
  assert.deepEqual(f.room.match.roster,original);assert.equal(activeParticipants(f.room).length,8);const winner=f.b;for(const p of activeParticipants(f.room))if(p!==winner)applyDamage(p,999,{type:'PLAYER',playerId:winner.state.id});evaluateResult(f.room,0);
  assert.deepEqual(f.room.match.result,{kind:'winner',winnerId:winner.state.id,winnerName:winner.state.name});assert.equal(replayFixture(f.room,6000),true);assert.deepEqual([...f.room.players.keys()],original);assert.equal([...f.room.players.values()].filter(p=>p.state.bot).length,7);
- for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,100);assert.equal(p.state.ammo,30);if(p.state.bot){assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
+ for(const p of f.room.players.values()){assert.equal(p.state.status,'ALIVE');assert.equal(p.state.health,100);assert.equal(p.state.shield,fighterStats(p.state).maxShield);assert.equal(p.state.ammo,30);if(p.state.bot){assert.equal(p.state.bot.target,null);assert.equal(p.state.bot.override,null);assert.equal(p.state.bot.mode,'IDLE');}}
  startMatch(f.room,'a',{round:1});assert.equal(roundHumans(f.room).length,8);
 });
 test('FILL rejects queued humans; final human disconnect destroys every bot and its controller state',()=>{

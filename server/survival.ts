@@ -1,3 +1,4 @@
+import {fighterStats,materialAmount} from '../shared/fighters';
 import {battleMetric} from './battle';
 import {SURVIVAL,initialSurvival,parseSurvival,wallEntry,type ShieldWall,type Consumable,type SurvivalResult} from '../shared/survival';
 import {WORLD,EDGE_MARGIN} from '../shared/flight';
@@ -15,27 +16,27 @@ export function startHealing(room:GameRoom,p:RoomPlayer,kind:Consumable):Surviva
  if(u.use)return reject('USING');
  if(kind==='cell'?p.state.shield>=p.state.maxShield:p.state.health>=p.state.maxHealth)return reject('FULL');
  if((kind==='cell'?u.cells:u.kits)<=0)return reject(kind==='cell'?'NO CELLS':'NO KITS');
- u.use={kind,startedAtMs:room.simulationTimeMs,endsAtMs:room.simulationTimeMs+(kind==='cell'?SURVIVAL.cellMs:SURVIVAL.repairMs),life:p.state.lifeGeneration,teleport:p.state.teleportSequence};notice(p,'USING',room.simulationTimeMs);return {ok:true,reason:'USING'};
+ u.use={kind,startedAtMs:room.simulationTimeMs,endsAtMs:room.simulationTimeMs+(kind==='cell'?SURVIVAL.cellMs:SURVIVAL.repairMs)*fighterStats(p.state).useTime,life:p.state.lifeGeneration,teleport:p.state.teleportSequence};notice(p,'USING',room.simulationTimeMs);return {ok:true,reason:'USING'};
 }
 export function completeHealing(room:GameRoom){for(const p of room.players.values()){const u=utility(p),use=u?.use;if(!u||!use)continue;
  if(!survivalEligible(room,p)||use.life!==p.state.lifeGeneration||use.teleport!==p.state.teleportSequence||p.state.tractor.attackerId||p.state.tractor.targetId){cancelHealing(p,room.simulationTimeMs);continue;}
  if(room.simulationTimeMs+1e-7<use.endsAtMs)continue;
- if(use.kind==='cell'&&u.cells>0){u.cells--;p.state.shield=Math.min(p.state.maxShield,p.state.shield+SURVIVAL.cellRestore);}else if(use.kind==='repair'&&u.kits>0){u.kits--;p.state.health=Math.min(p.state.maxHealth,p.state.health+SURVIVAL.repairRestore);}
+ if(use.kind==='cell'&&u.cells>0){u.cells--;p.state.shield=Math.min(p.state.maxShield,p.state.shield+SURVIVAL.cellRestore);}else if(use.kind==='repair'&&u.kits>0){u.kits--;p.state.health=Math.min(p.state.maxHealth,p.state.health+fighterStats(p.state).repair);}
  u.use=null;notice(p,'RESTORED',room.simulationTimeMs);
 }}
 export function walls(room:GameRoom){return room.walls??=new Map<string,ShieldWall>();}
 export function deployWall(room:GameRoom,p:RoomPlayer,aim:number):SurvivalResult {
  const u=utility(p),reject=(reason:string)=>({ok:false,reason});
  if(!survivalEligible(room,p)||!u||(p.state.stunRemainingMs??0)>0||!Number.isFinite(aim))return reject('UNAVAILABLE');
- if(u.materials<SURVIVAL.wallCost)return reject('NO MATERIALS');
+ if(u.materials<fighterStats(p.state).wallCost)return reject('NO MATERIALS');
  if(room.simulationTimeMs<(p.nextWallMs??0))return reject('WALL COOLDOWN');
  const live=[...walls(room).values()].filter(w=>w.hp>0&&w.expiresAtMs>room.simulationTimeMs);
  if(live.filter(w=>w.ownerId===p.state.id).length>=SURVIVAL.wallCap)return reject('WALL LIMIT');
  const angle=Math.atan2(Math.sin(aim),Math.cos(aim)),x=p.state.x+Math.cos(angle)*SURVIVAL.wallAhead,y=p.state.y+Math.sin(angle)*SURVIVAL.wallAhead;
- const wall:ShieldWall={id:`${room.code}:${room.match.round}:wall:${(room.wallSequence??0)+1}`,ownerId:p.state.id,x,y,angle,hp:SURVIVAL.wallHp,createdAtMs:room.simulationTimeMs,expiresAtMs:room.simulationTimeMs+SURVIVAL.wallMs,hitAtMs:-1e9};
+ const wall:ShieldWall={id:`${room.code}:${room.match.round}:wall:${(room.wallSequence??0)+1}`,ownerId:p.state.id,x,y,angle,hp:SURVIVAL.wallHp,createdAtMs:room.simulationTimeMs,expiresAtMs:room.simulationTimeMs+fighterStats(p.state).wallMs,hitAtMs:-1e9};
  const points=[-1,1].flatMap(side=>[-1,1].map(face=>({x:x+Math.cos(angle)*face*SURVIVAL.wallThickness/2-Math.sin(angle)*side*SURVIVAL.wallWidth/2,y:y+Math.sin(angle)*face*SURVIVAL.wallThickness/2+Math.cos(angle)*side*SURVIVAL.wallWidth/2})));
  if(points.some(q=>q.x<EDGE_MARGIN||q.y<EDGE_MARGIN||q.x>WORLD-EDGE_MARGIN||q.y>WORLD-EDGE_MARGIN)||PLANET_REGIONS.some(planet=>wallEntry(planet,planet,wall,planet.radius)!==null)||live.some(w=>wallEntry({x:x-Math.sin(angle)*SURVIVAL.wallWidth/2,y:y+Math.cos(angle)*SURVIVAL.wallWidth/2},{x:x+Math.sin(angle)*SURVIVAL.wallWidth/2,y:y-Math.cos(angle)*SURVIVAL.wallWidth/2},w,SURVIVAL.wallThickness)!==null))return reject('INVALID PLACEMENT');
- u.materials-=SURVIVAL.wallCost;battleMetric(room,p.state.id,'walls');p.nextWallMs=room.simulationTimeMs+SURVIVAL.wallCooldownMs;room.wallSequence=(room.wallSequence??0)+1;walls(room).set(wall.id,wall);notice(p,'WALL DEPLOYED',room.simulationTimeMs);return {ok:true,reason:'WALL DEPLOYED'};
+ u.materials-=fighterStats(p.state).wallCost;battleMetric(room,p.state.id,'walls');p.nextWallMs=room.simulationTimeMs+SURVIVAL.wallCooldownMs;room.wallSequence=(room.wallSequence??0)+1;walls(room).set(wall.id,wall);notice(p,'WALL DEPLOYED',room.simulationTimeMs);return {ok:true,reason:'WALL DEPLOYED'};
 }
 export function survivalCommand(room:GameRoom|undefined,p:RoomPlayer|undefined,raw:unknown):SurvivalResult {
  const r=parseSurvival(raw);if(!r||!room||!p||room.players.get(p.state.id)!==p)return {ok:false,reason:'Invalid survival request'};
@@ -56,9 +57,10 @@ function seedResources(room:GameRoom){
  for(let i=count;i<SURVIVAL.materialCount;i++){const point=safeLootPoint(room);if(!point)throw Error('Unable to place materials');spawnUtility(room,'material',point);}
  for(let i=0;i<SURVIVAL.healingCount;i++){const point=safeLootPoint(room);if(!point)throw Error('Unable to place healing');spawnUtility(room,i%3===2?'repair':'cell',point);}
 }
-export function collectUtility(room:GameRoom,p:RoomPlayer,id:string){const item=lootState(room).pickups.get(id),u=utility(p);if(!item||!u||!survivalEligible(room,p)||item.kind==='weapon'||item.kind==='ammo'||Math.hypot(p.state.x-item.x,p.state.y-item.y)>LOOT_CONFIG.pickupRadius)return false;
- if(item.kind==='material'){if(u.materials+item.quantity>SURVIVAL.materialCap)return false;u.materials+=item.quantity;}else if(item.kind==='cell'){if(u.cells>=SURVIVAL.cellCap)return false;u.cells++;}else{if(u.kits>=SURVIVAL.kitCap)return false;u.kits++;}
- lootState(room).pickups.delete(id);notice(p,item.kind==='material'?`+${item.quantity} MATERIALS`:item.kind==='cell'?'+1 SHIELD CELL':'+1 REPAIR KIT',room.simulationTimeMs);return true;
+export function collectUtility(room:GameRoom,p:RoomPlayer,id:string){const item=lootState(room).pickups.get(id),u=utility(p);if(!item||!u||!survivalEligible(room,p)||item.kind==='weapon'||item.kind==='ammo'||Math.hypot(p.state.x-item.x,p.state.y-item.y)>LOOT_CONFIG.pickupRadius*fighterStats(p.state).pickup)return false;
+ const quantity=item.kind==='material'?materialAmount(p.state,item.quantity,item.source):item.quantity;
+ if(item.kind==='material'){if(u.materials+quantity>SURVIVAL.materialCap)return false;u.materials+=quantity;}else if(item.kind==='cell'){if(u.cells>=SURVIVAL.cellCap)return false;u.cells++;}else{if(u.kits>=SURVIVAL.kitCap)return false;u.kits++;}
+ lootState(room).pickups.delete(id);notice(p,item.kind==='material'?`+${quantity} MATERIALS`:item.kind==='cell'?'+1 SHIELD CELL':'+1 REPAIR KIT',room.simulationTimeMs);return true;
 }
 export function advanceSurvival(room:GameRoom){
  for(const [id,w]of walls(room))if(w.expiresAtMs<=room.simulationTimeMs||w.hp<=0)walls(room).delete(id);

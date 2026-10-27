@@ -1,0 +1,40 @@
+{
+  "baseline": "ef950c7144db4baa37ef1ce6015567ed396a3f00",
+  "branch": "work",
+  "node": {
+    "passed": 516,
+    "failed": 0,
+    "skipped": 0
+  },
+  "clientBuild": "passed",
+  "serverTypecheck": "passed",
+  "browserFull": {
+    "passed": 75,
+    "failed": 6,
+    "minutes": 19.9,
+    "initialFailures": [
+      "HUD phase wait",
+      "capture decimal label",
+      "Canvas Intel name absent flag",
+      "Canvas Intel name false flag",
+      "WebGL Intel name true flag",
+      "software WebGL real-time flash"
+    ]
+  },
+  "browserFinalAffected": {
+    "passed": 18,
+    "failed": 1,
+    "minutes": 4.4,
+    "remainingFailure": "unchanged software-WebGL real-time flash duration 78.6ms vs required 150\u2013300ms"
+  },
+  "distinctBrowserCasesPassedAcrossRuns": 80,
+  "totalDistinctBrowserCases": 81,
+  "fiveCompleteFillMatches": true,
+  "originalArtworkUnchanged": true,
+  "weaponStatsChanged": false,
+  "p5BImplemented": false,
+  "liveOpenAIVerified": false,
+  "realGPUAcceptance": false,
+  "deployedAcceptance": false,
+  "mainModified": false
+}

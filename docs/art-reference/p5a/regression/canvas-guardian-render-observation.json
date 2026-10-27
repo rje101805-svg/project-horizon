@@ -1,0 +1,14 @@
+{
+  "renderer": "Canvas",
+  "quality": "low",
+  "frames": 60,
+  "meanMs": 16.913333333283664,
+  "p95Ms": 20.5,
+  "participants": 8,
+  "guardians": 14,
+  "visibleGuardians": 2,
+  "softwareEnvironment": true,
+  "serverRunningDuringRenderSample": true,
+  "protectedVisualFixture": true,
+  "realGPUAcceptance": false
+}

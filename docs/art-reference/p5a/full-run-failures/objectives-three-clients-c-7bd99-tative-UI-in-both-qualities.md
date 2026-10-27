@@ -1,0 +1,108 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: objectives.spec.ts >> three clients capture, contest, steal, fire, drop and recover Gold with authoritative UI in both qualities
+- Location: tests/objectives.spec.ts:10:1
+
+# Error details
+
+```
+Error: expect(locator).toContainText(expected) failed
+
+Locator: locator('#capture-description')
+Timeout: 5000ms
+- Expected substring  - 1
++ Received string     + 2
+
+- 5.0 / 10 seconds
++ Borealis · CAPTURING
++ 5.0 / 10.0 seconds
+
+Call log:
+  - Expect "toContainText" locator('#capture-description') with timeout 5000ms
+  - waiting for locator('#capture-description')
+    14 × locator resolved to <span id="capture-description">Borealis · CAPTURING↵5.0 / 10.0 seconds</span>
+       - unexpected value "Borealis · CAPTURING
+5.0 / 10.0 seconds"
+
+```
+
+```yaml
+- text: Borealis · CAPTURING 5.0 / 10.0 seconds
+```
+
+# Test source
+
+```ts
+  1  | import {startActiveFixture,replayFixture} from './active-fixture';
+  2  | import {test,expect} from '@playwright/test';
+  3  | import {RoomStore,type RoomPlayer} from '../server/rooms';
+  4  | import {createGameServer} from '../server/game';
+  5  | import {applyDamage} from '../server/combat';
+  6  | import {objectiveState} from '../server/objectives';
+  7  | import {PLANET_REGIONS} from '../shared/planets';
+  8  | import {TICK_MS} from '../shared/flight';
+  9  | import {GOLD_COLOR} from '../src/objective-visuals';
+  10 | test('three clients capture, contest, steal, fire, drop and recover Gold with authoritative UI in both qualities',async({page,context})=>{
+  11 |  // Three cold planet/ship scenes and several hundred controlled server ticks.
+  12 |  test.setTimeout(90000);
+  13 |  const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const address=server.http.address();if(!address||typeof address==='string')throw Error('port');
+  14 |  const peer=await context.newPage(),third=await context.newPage(),pages=[page,peer,third],errors:string[]=[];let tick=0;
+  15 |  const frame=async(n=1)=>{for(let i=0;i<n-1;i++){server.step();tick++;await new Promise<void>(r=>setImmediate(r));}for(const p of pages)await p.evaluate(()=>new Promise<void>((resolve,reject)=>(window as any).__HORIZON_FLIGHT__.socket.timeout(5000).emit('latencyProbe',(error:any)=>error?reject(error):resolve())));server.step();tick++;for(const p of pages)await expect.poll(()=>p.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
+  16 |  const teleport=(p:RoomPlayer,x:number,y:number)=>{Object.assign(p.state,{x,y,vx:0,vy:0});p.state.teleportSequence++;};
+  17 |  try{
+  18 |   for(const [i,p]of pages.entries()){p.on('pageerror',e=>errors.push(e.message));await p.goto('/?devrooms=1');await p.locator('#display-name').fill(['Redline','Blue','Third'][i]);await p.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);}
+  19 |   await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();const code=(await page.locator('#room-code-display').textContent())!;
+  20 |   for(const p of [peer,third]){await p.locator('#room-code').fill(code);await p.locator('#join').click();await expect(p.locator('canvas')).toBeVisible();}await frame();
+  21 |   startActiveFixture(store.rooms.get(code)!,store.rooms.get(code)!.match.hostId!,{round:store.rooms.get(code)!.match.round});
+  22 |   const room=store.rooms.get(code)!,[a,b,c]=[...room.players.values()],planet=PLANET_REGIONS[0],record=objectiveState(room).planets[0];teleport(a,planet.x,planet.y);teleport(b,400,1800);teleport(c,700,1800);
+> 23 |   await frame(150);await expect(page.locator('#capture-hud')).toBeVisible();await expect(page.locator('#capture-description')).toContainText('5.0 / 10 seconds');for(const p of pages)await expect(p.locator('#objective-feed')).toContainText('REDLINE IS CAPTURING BOREALIS');
+     |                                                                                                                                ^ Error: expect(locator).toContainText(expected) failed
+  24 |   teleport(a,planet.x+record.planet.captureRadius+100,planet.y);await frame(30);await expect(page.locator('#capture-description')).toContainText('PROGRESS DECAYING');expect(record.ticks.get(a.state.id)).toBe(90);
+  25 |   teleport(a,planet.x,planet.y);await frame();expect(record.ticks.get(a.state.id)).toBe(91);teleport(b,planet.x+100,planet.y);await frame(30);await expect(page.locator('#capture-description')).toContainText('CONTESTED — CAPTURE PAUSED');expect(record.ticks.get(a.state.id)).toBe(91);
+  26 |   applyDamage(a,25,{type:'PLAYER',playerId:b.state.id},room.simulationTimeMs);teleport(b,400,1800);await frame(209);const gun=[...objectiveState(room).pickups.values()][0];expect(gun).toBeTruthy();expect(a.state.goldGunId).toBeNull();expect(Math.hypot(gun.x-a.state.x,gun.y-a.state.y)).toBeGreaterThan(45);
+  27 |   for(const p of pages)await expect(p.locator('#objective-feed')).toContainText('REDLINE CAPTURED BOREALIS');await expect(page.locator('#capture-description')).toContainText('CAPTURE COMPLETE');
+  28 |   await expect.poll(()=>page.evaluate(color=>(window as any).__HORIZON_GAME__.scene.scenes[0].objectives.rings.commandBuffer.includes(color),GOLD_COLOR)).toBe(true);
+  29 |   await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.children.list.filter((o:any)=>o.name?.startsWith('objective-arrow-')&&o.visible).map((o:any)=>o.text);})).toContain('CRYO STREAM');
+  30 |   await page.evaluate(point=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];s.inspectionPoint={x:point.x-200,y:point.y};},gun);
+  31 |   await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.children.list.filter((o:any)=>o.name?.startsWith('objective-arrow-')&&o.visible&&o.text==='CRYO STREAM').length;})).toBe(0);
+  32 |   await page.locator('canvas').screenshot({path:'test-results/p3s3-materialization.png'});
+  33 |   await page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];s.inspectionPoint=null;s.cameras.main.centerOn(s.rocket.x,s.rocket.y);});
+  34 |   teleport(b,gun.x,gun.y);await frame();await peer.keyboard.press('KeyF');await expect.poll(()=>b.state.goldGunId).toBe(gun.id);await frame();expect(b.state.goldGunId).toBe(gun.id);expect(objectiveState(room).pickups.size).toBe(0);for(const p of pages)await expect(p.locator('#objective-feed')).toContainText('BLUE CLAIMED CRYO STREAM');await expect(peer.locator('#hud-ammo')).toHaveText('CRYO STREAM · ∞ AMMO');
+  35 |   b.state.ammo=0;teleport(b,6000,6000);await frame();await peer.keyboard.press('r');expect(b.state.isReloading).toBe(false);await peer.keyboard.down('Space');await expect.poll(()=>[...room.projectiles.values()].filter(p=>p.ownerId===b.state.id&&p.weapon==='gold').length).toBeGreaterThan(0);await peer.keyboard.up('Space');await frame();expect(b.state.ammo).toBe(0);expect(b.state.isReloading).toBe(false);expect([...room.projectiles.values()].filter(p=>p.weapon==='gold').every(p=>p.damage===13)).toBe(true);
+  36 |   teleport(a,PLANET_REGIONS[1].x,PLANET_REGIONS[1].y);await frame();
+  37 |   const labels=()=>peer.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.children.list.filter((o:any)=>o.name?.startsWith('objective-arrow-')&&o.visible).map((o:any)=>o.text);});await expect.poll(labels).toContain('CAPTURE Cinder');
+  38 |   await peer.keyboard.press('F3');for(const quality of ['standard','low']){await peer.locator('#visual-quality').selectOption(quality);await expect.poll(()=>peer.evaluate(color=>(window as any).__HORIZON_GAME__.scene.scenes[0].objectives.gold.commandBuffer.includes(color),GOLD_COLOR)).toBe(true);await peer.locator('canvas').screenshot({path:`test-results/p3s3-gold-${quality}.png`});}
+  39 |   applyDamage(b,999,{type:'PLAYER',playerId:a.state.id},room.simulationTimeMs);await frame();expect(b.state.goldGunId).toBeNull();expect(b.state.status).toBe('ALIEN');expect([...objectiveState(room).pickups.values()][0].source).toBe('drop');for(const p of pages)await expect(p.locator('#objective-feed')).toContainText('CRYO STREAM HAS DROPPED');
+  40 |   await expect.poll(()=>page.evaluate(()=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.children.list.filter((o:any)=>o.name?.startsWith('objective-arrow-')&&o.visible).map((o:any)=>o.text);})).toContain('DROPPED CRYO STREAM');
+  41 |   teleport(c,6000,6000);await frame();await third.keyboard.press('KeyF');await expect.poll(()=>c.state.goldGunId).toBe(gun.id);await frame();expect(c.state.goldGunId).toBe(gun.id);expect(objectiveState(room).pickups.size).toBe(0);await expect(third.locator('#hud-ammo')).toHaveText('CRYO STREAM · ∞ AMMO');
+  42 |   applyDamage(a,999,{type:'PLAYER',playerId:c.state.id},room.simulationTimeMs);await frame();expect(room.match.state).toBe('ended');await frame(180);expect(room.match.state).toBe('ended');await page.locator('#play-again').click();await frame();expect(room.match.state).toBe('waiting');expect(objectiveState(room).pickups.size).toBe(0);expect(objectiveState(room).planets.every(r=>r.completed.size===0)).toBe(true);for(const p of pages){await expect(p.locator('#objective-feed')).toBeHidden();await expect(p.locator('#capture-hud')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');}
+  43 |   for(const p of pages)await p.getByRole('button',{name:'Back to home'}).click();await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible();expect(await page.evaluate(()=>(window as any).__HORIZON_GAME__.scene.scenes[0].children.list.filter((o:any)=>o.name?.startsWith('objective-arrow-')).length)).toBe(8);
+  44 |   expect(errors).toEqual([]);expect(TICK_MS).toBeGreaterThan(0);
+  45 |  }finally{for(const p of pages)await p.close();await server.close();}
+  46 | });
+  47 |
+  48 | import {chromium} from '@playwright/test';
+  49 | import {existsSync} from 'node:fs';
+  50 | import {startMatch} from '../server/match';
+  51 | import {roomChannel} from '../server/rooms';
+  52 | test('WebGL shows premium ownership, rings and arrows in Standard and Low without GPU errors',async()=>{
+  53 |  const store=new RoomStore(),server=createGameServer(['http://127.0.0.1:5175'],store,{autoTick:false});await new Promise<void>(r=>server.http.listen(0,'127.0.0.1',r));const address=server.http.address();if(!address||typeof address==='string')throw Error('port');
+  54 |  const browser=await chromium.launch({executablePath:existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']}),page=await browser.newPage(),errors:string[]=[];let tick=0;
+  55 |  const frame=async(n=1)=>{for(let i=0;i<n-1;i++){server.step();tick++;await new Promise<void>(r=>setImmediate(r));}await page.evaluate(()=>new Promise<void>(r=>(window as any).__HORIZON_FLIGHT__.socket.emit('latencyProbe',r)));server.step();tick++;await expect.poll(()=>page.evaluate(()=>(window as any).__HORIZON_FLIGHT__.latest?.tick)).toBe(tick);};
+  56 |  try{
+  57 |   await page.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const link=document.createElement('link');link.rel='icon';link.href='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22/%3E';document.head.append(link);},{once:true}));
+  58 |   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});await page.goto('http://127.0.0.1:5175/?devrooms=1');await page.locator('#server-url').fill(`http://127.0.0.1:${address.port}`);await page.locator('#create').click();await expect(page.locator('canvas')).toBeVisible({timeout:15000});const room=[...store.rooms.values()][0],hero=[...room.players.values()][0];store.join('other',room.code,'Other',0);store.join('third',room.code,'Third',0);startActiveFixture(room,hero.state.id,{round:0});server.io.to(roomChannel(room.code)).emit('roomState',store.info(room));
+  59 |   const planet=PLANET_REGIONS[0];Object.assign(hero.state,{x:planet.x,y:planet.y});hero.state.teleportSequence++;await frame(300);const gun=[...objectiveState(room).pickups.values()][0];expect(gun).toBeTruthy();Object.assign(hero.state,{x:gun.x,y:gun.y});hero.state.teleportSequence++;await frame();await page.keyboard.press('KeyF');await expect.poll(()=>hero.state.goldGunId).toBe(gun.id);await frame();await expect(page.locator('#hud-ammo')).toHaveText('CRYO STREAM · ∞ AMMO');
+  60 |   const other=room.players.get('other')!;Object.assign(other.state,{x:PLANET_REGIONS[1].x,y:PLANET_REGIONS[1].y});other.state.teleportSequence++;await frame();await page.keyboard.press('F3');
+  61 |   for(const quality of ['standard','low']){await page.locator('#visual-quality').selectOption(quality);await expect.poll(()=>page.evaluate(color=>{const s=(window as any).__HORIZON_GAME__.scene.scenes[0];return s.objectives.gold.commandBuffer.includes(color)&&s.children.list.some((o:any)=>o.name?.startsWith('objective-arrow-')&&o.visible);},GOLD_COLOR)).toBe(true);await page.locator('canvas').screenshot({path:`test-results/p3s3-webgl-${quality}.png`});}
+  62 |   expect(await page.evaluate(()=>(window as any).__HORIZON_GAME__.renderer.gl.getError())).toBe(0);expect(errors).toEqual([]);
+  63 |  }finally{await page.close();await browser.close();await server.close();}
+  64 | });
+  65 |
+```

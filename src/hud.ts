@@ -79,7 +79,7 @@ export class GameplayHud {
     ammoHud.classList.toggle('reloading', shown.reloading);ammoHud.classList.toggle('gold',gold);
     const state = alien ? 'alien' : gold?'gold':shown.reloading ? 'reloading' : shown.lowAmmo ? 'low' : 'ready';
     if (ammoHud.dataset.state !== state) ammoHud.dataset.state = state;
-    write(this.node('hud-shield'), alien ? 'Shield unavailable · ALIEN' : `SHIELD ${Math.round(clampCombatValue(s.shield, MAX_SHIELD)*10)/10} / ${s.maxShield}`);
+    write(this.node('hud-shield'), alien ? 'Shield unavailable · ALIEN' : `SHIELD ${Math.round(clampCombatValue(s.shield, s.maxShield)*10)/10} / ${s.maxShield}`);
     write(this.node('hud-ammo'), alien ? '' : gold?`${GALAXY_WEAPONS[s.galaxyType??'cryo'].name.toUpperCase()} · ∞ AMMO`:`AMMO ${clampCombatValue(s.ammo,s.maxAmmo)} / ${s.maxAmmo}`);write(this.node('hud-reserve'),!alien&&!gold&&s.inventory&&activeWeapon(s)?`RESERVE ${s.inventory.reserve[WEAPONS[activeWeapon(s)!.class].ammoType]}`:'');
     write(this.node('hud-reload'), !alien && s.isReloading ? 'RELOADING' : '');
     write(this.node('debug-weapon'), alien ? `Alien melee · range ${ALIEN_MELEE_RANGE} · damage ${ALIEN_MELEE_DAMAGE} · last applied ${s.lastMeleeDamage} · protection ${s.spawnInvulnerabilityRemainingMs.toFixed(0)}ms` : gold?`${GALAXY_WEAPONS[s.galaxyType??'cryo'].name} · damage ${GALAXY_WEAPONS[s.galaxyType??'cryo'].damage} · infinite ammo`:`${WEAPONS[activeWeapon(s)?.class??'blaster'].name} · ammo ${s.ammo} / ${s.maxAmmo} · ${s.fireCooldownRemainingMs === 0 ? 'cooldown ready' : 'cooling down'}`);
