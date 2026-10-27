@@ -1,3 +1,4 @@
+import {GUARDIAN_PROFILES} from '../shared/guardians';
 import {cancelHealing} from './survival';
 import {initializeInventory,clearInventory} from './inventory';
 import {activeWeapon,WEAPONS,fireInterval,reloadDuration,STUN_MS,hasGoldGun} from '../shared/weapons';
@@ -28,12 +29,14 @@ export function resetCombatState(player: RoomPlayer) {
 }
 export function applyDamage(player: RoomPlayer, amount: number, source: DamageSource, simulationTimeMs = player.simulationTimeMs, horizonDamage=false) {
   const validSource = source && ((source.type === 'PLAYER' && typeof source.playerId === 'string' && source.playerId.length > 0) ||
+    (source.type==='GUARDIAN'&&!!GUARDIAN_PROFILES[source.planetId]&&typeof source.guardianId==='string'&&source.guardianId.length>0)||
     (source.type === 'ENVIRONMENT' && ['BLACK_HOLE', 'HAZARD'].includes(source.cause)));
+  if (source?.type==='GUARDIAN'&&player.state.status!=='ALIVE')return null;
   if ((!player.gameplayEnabled || player.combatEnabled===false) || !validSource || !Number.isFinite(amount) || amount <= 0 || player.state.lifeState === 'dead' || player.state.status === 'OUT' || !Number.isFinite(simulationTimeMs) || simulationTimeMs < 0) return null;
   // All damage shares the server-owned protection deadline.
   if (!(horizonDamage&&source.type==='ENVIRONMENT'&&source.cause==='BLACK_HOLE') && simulationTimeMs < Math.max(player.invulnerableUntilMs,player.launchProtectionUntilMs??0)) return null;
   // Count distinct hit ticks, not pellets; retain two seconds even for 30Hz streams.
-  if(source.type==='PLAYER'){player.incomingDamageTimes=[...(player.incomingDamageTimes??[]).filter(t=>simulationTimeMs-t<=2000&&Math.abs(t-simulationTimeMs)>1e-7),simulationTimeMs].slice(-64);player.lastAttackedMs=simulationTimeMs;(player.recentAttackers??=new Map()).set(source.playerId,simulationTimeMs);}
+  if(source.type==='PLAYER'||source.type==='GUARDIAN'){player.incomingDamageTimes=[...(player.incomingDamageTimes??[]).filter(t=>simulationTimeMs-t<=2000&&Math.abs(t-simulationTimeMs)>1e-7),simulationTimeMs].slice(-64);player.lastAttackedMs=simulationTimeMs;if(source.type==='PLAYER')(player.recentAttackers??=new Map()).set(source.playerId,simulationTimeMs);}
   const s = player.state;
   s.health = clampCombatValue(s.health, s.maxHealth); s.shield = clampCombatValue(s.shield, s.maxShield);
   const shieldAbsorbed = Math.min(s.shield, amount), healthDamage = Math.min(s.health, amount - shieldAbsorbed);
@@ -46,7 +49,7 @@ export function applyDamage(player: RoomPlayer, amount: number, source: DamageSo
 export function eliminate(player: RoomPlayer, source: DamageSource, simulationTimeMs = player.simulationTimeMs,horizonDamage=false): boolean {
   const s=player.state;
   if((!player.gameplayEnabled || player.combatEnabled===false) || (!horizonDamage&&simulationTimeMs<(player.launchProtectionUntilMs??0)) || s.lifeState!=='active' || s.status==='OUT')return false;
-  cancelHealing(player,simulationTimeMs);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
+  s.guardianSlowRemainingMs=0;cancelHealing(player,simulationTimeMs);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();s.stunRemainingMs=s.stunImmunityRemainingMs=s.slowRemainingMs=s.burnRemainingMs=s.titanSpin=s.titanSustainMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;
   s.health=0; s.lastDamageSource={...source};
   player.humanEliminated = true; s.status = 'ALIEN'; s.lifeState = 'dead'; s.deathSequence++; s.teleportSequence++;
   s.deathSource = {...s.lastDamageSource}; s.respawnRemainingMs = RESPAWN_DELAY_MS;
@@ -84,7 +87,7 @@ export function setStatus(player: RoomPlayer, status: PlayerStatus): boolean {
   if (!['ALIVE', 'ALIEN', 'OUT'].includes(status)) return false;
   if ((player.humanEliminated || player.state.status === 'ALIEN') && status === 'ALIVE') return false;
   if (status === 'ALIEN') player.humanEliminated = true;
-  if(status!=='ALIVE'){cancelHealing(player);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();player.state.stunRemainingMs=player.state.stunImmunityRemainingMs=player.state.slowRemainingMs=player.state.burnRemainingMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;}
+  if(status!=='ALIVE'){player.state.guardianSlowRemainingMs=0;cancelHealing(player);player.dropSurvival?.();player.dropRegular?.();player.dropGold?.();player.state.stunRemainingMs=player.state.stunImmunityRemainingMs=player.state.slowRemainingMs=player.state.burnRemainingMs=0;player.burnOwnerId=undefined;player.titanTriggerUntilMs=0;}
   player.state.status = status; if(status!=='ALIVE')player.cancelTractor?.(); return true;
 }
 export function advanceCombatTick(player: RoomPlayer) {

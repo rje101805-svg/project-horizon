@@ -27,8 +27,8 @@ export function setIntent(runtime:PilotRuntime,state:PilotState,decision:PilotDe
 }
 export function strategicStrategy(room:GameRoom,p:RoomPlayer,base:BotStrategy):BotStrategy {
  const runtime=room.pilots,state=runtime?.states.get(p.state.id);if(!runtime||runtime.round!==room.match.round||!state||room.match.state!=='active')return base;
- const now=room.simulationTimeMs,critical=(p.state.health+p.state.shield)/(p.state.maxHealth+p.state.maxShield)<.3&&now-(p.lastAttackedMs??-Infinity)<5000,emergency=base.goal?.kind==='escape'||!!p.state.tractor.attackerId||critical||(p.state.stunRemainingMs??0)>0;
- if(emergency){if(!state.emergency){state.version++;if(state.intent)history(state,'superseded',state.intent.decision,now);state.intent=null;runtime.fallbacks++;}state.emergency=true;state.effective={action:'FLEE',target:p.state.tractor.attackerId?'Tractor escape':'Emergency safe sector',source:'FALLBACK',expiresAtMs:now+1000};return base;}
+ const now=room.simulationTimeMs,critical=(p.state.health+p.state.shield)/(p.state.maxHealth+p.state.maxShield)<.3&&now-(p.lastAttackedMs??-Infinity)<5000,emergency=base.goal?.kind==='escape'||base.goal?.kind==='guardian'||!!p.state.tractor.attackerId||critical||(p.state.stunRemainingMs??0)>0;
+ if(emergency){if(!state.emergency){state.version++;if(state.intent)history(state,'superseded',state.intent.decision,now);state.intent=null;runtime.fallbacks++;}state.emergency=true;state.effective={action:base.goal?.kind==='guardian'?'HUNT':'FLEE',target:base.goal?.kind==='guardian'?'Nearby planet defenders':p.state.tractor.attackerId?'Tractor escape':'Emergency safe sector',source:'FALLBACK',expiresAtMs:now+1000};return base;}
  state.emergency=false;
  let intent=state.intent,target=intent?.decision.targetId?resolveTarget(room,p,intent.decision.targetId):null;
  const nearComplete=buildOwnCapture(room,p);if(nearComplete&&intent?.decision.targetId!==nearComplete.id){setIntent(runtime,state,{action:'CAPTURE',targetId:nearComplete.id,reason:'Finish observed capture',commitmentSeconds:8,radio:null},'FALLBACK',now);intent=state.intent;target=nearComplete;}
@@ -39,7 +39,7 @@ export function strategicStrategy(room:GameRoom,p:RoomPlayer,base:BotStrategy):B
  if(!state.progress||state.progress.id!==target.id)state.progress={id:target.id,best:target.distance,atMs:now};
  state.effective={action:intent!.decision.action,target:target.label,source:intent!.source,expiresAtMs:intent!.expiresAtMs};if(!intent!.applied){intent!.applied=true;if(intent!.sequence>0)runtime.applied++;}
  const enemy=buildNearestEnemy(room,p),action=intent!.decision.action;
- if(action==='HUNT')return {mode:'HUNT',target:target.id.slice(5)};
+ if(action==='HUNT')return target.kind==='guardian'?{mode:'HUNT',target:null,goal:{kind:'guardian',id:target.id.slice(9),x:target.x,y:target.y}}:{mode:'HUNT',target:target.id.slice(5)};
  const kind=action==='CAPTURE'?'capture':target.kind==='galaxy'?'pickup':action==='LOOT'?'loot':'position';
  return {mode:action==='CAPTURE'?'CAPTURE':action==='LOOT'?'LOOT':'HUNT',target:kind==='position'?null:enemy,goal:{kind,id:target.id.replace(/^(loot|galaxy|planet):/,''),x:target.x,y:target.y}};
 }

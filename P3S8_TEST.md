@@ -42,9 +42,65 @@ Cloud environment: Linux, Node 24, Chromium Canvas and SwiftShader software WebG
 
 OpenAI credentials are not available. Mocked strategy tests and fallback radio are not live API verification. Do not claim live requests succeeded. Follow PHASE4_TEST.md for secure live testing; no new key, model, deployment or cost configuration is required by Part A.
 
-## Part B
+## Part B — implemented after the Part A checkpoint
 
-**Not started before the Part A checkpoint.** Guardian features, tests, tuning, evidence and the separately reversible commit will be recorded here only after Part A is pushed and verified clean. Guardian indicators are not presented as implemented in Part A.
+Part A was committed/pushed as **`2321e1dfe31a415f838059a55b3bc42eff9af735`**. Local HEAD and origin/work were verified equal, and the working tree clean, **before any guardian implementation began**. Main was untouched. Part B is a separate, reversible change from that checkpoint.
+
+### Shared authoritative NPC system
+
+`shared/guardians.ts` contains tunable count/HP/hitbox, sensing/leash, damage/aggression/cadence, reaction/aim error, respawn and reward constants. `server/guardians.ts` is one deterministic controller for all profiles. Each real ACTIVE world starts four defenders per planet: **16 NPCs, 60 HP, no shield, radius 11** (smaller than player radius), no inventory, no socket membership, no participant/placement slot and no OpenAI calls. Actual lifecycle activation requires the initialized Horizon; existing isolated physics fixtures without a world lifecycle do not implicitly create NPCs.
+
+Movement uses bounded home-region goals; target selection runs at 5 Hz and movement/projectiles use the existing 30 Hz simulation. Patrol/evasion clocks reset per round. Acquisition is approximately 1.8 capture radii, with a 2.5-radius leash (Cinder 2.1). Targets must be living roster competitors; player-controlled aliens are excluded from acquisition, projectile collision and central damage. Return-to-patrol and target invalidation are immediate. Attacks have 450ms base reaction, slot staggering, seeded aim error, partial motion lead and a 300ms telegraph, with at most three projectiles per guardian. No perfect hit or forced damage outcome is imposed.
+
+| Profile | Pattern | Speed | Base damage | Nominal interval / aggression | Range |
+| --- | --- | --- | --- | --- | --- |
+| Borealis | Tight ice formation; short 20% slow | 85 | 6 | 1300ms / 1.0 | 760 |
+| Cinder | Fast close pursuit, shorter leash, 1.35x damage inside 260 units | 165 | 6 (8.1 close) | 1300ms / 1.15 | 620 |
+| Pelagia | Spread formation and alternating flanking angles | 120 | 6 | 1200ms / 1.0 | 800 |
+| Ashen | Longer-range lateral evasion, lower pressure | 145 | 4 | 1400ms / 0.9 | 1050 |
+
+There is additional bounded cadence jitter. Borealis refreshes a **600ms, 20% movement slow**, without duration stacking. Shared prediction/server movement chooses the stronger active slow: existing Cryo remains **30%**, never multiplied by Borealis. All effects clear at the appropriate death/reset boundaries. No regular or Galaxy weapon damage values changed.
+
+### Combat, capture and rewards
+
+Guardians use the existing room projectile collection, swept circle collision, walls, Horizon contact and projectile lifetime handling. Player/bot weapons hit the smaller guardian radius; shotgun falloff, missile splash, Lunar homing, Cryo slowing, Inferno timed burn and Zapper stun/immunity work against NPCs. NPC projectiles carry a typed guardian source for correct player elimination cards/feed. Guardian death cancels that guardian's outgoing shots, produces a bounded hit/death effect and can drop a physical **five-material pickup**, capped at **40 materials per planet per round (160 total)**. No direct resource grant, healing item or Galaxy Gun is awarded. Guardian HP damage counts as actual damage dealt; defeating a guardian does **not** increment pilot eliminations or affect placement/remaining competitors.
+
+Guardians are outside the player registry, so they do not contest capture or reset progress. The existing ten-second capture and per-player completion history remain unchanged. A real **planet-source Galaxy claim** schedules one replenishment opportunity after 60 seconds; dropped-gun reclaims do not. Only missing slots are filled, with fresh identities, and existing living defenders are preserved. Spawn candidates avoid active ships by at least 110 units; blocked spawns retry at a bounded rate. The Horizon permanently despawns a consumed planet's gang, removes its projectiles and cancels pending replenishment. End freezes pending schedules; replay clears all NPC state and creates fresh round identities.
+
+### Bots, context and presentation
+
+`server/guardian-bots.ts` adapts local threats into the existing bot strategy/hands. Under-equipped or hurt bots retreat from full gangs and temporarily avoid that planet; equipped bots can use their ordinary imperfect aim, movement, finite ammo and weapons. Guardian hits feed the existing sustained-damage wall and out-of-combat healing rules, using actual carried supplies. Existing Horizon/tractor/survival priorities remain first. Reactive replacement is labeled FALLBACK in Intel, not AI.
+
+The existing OpenAI context gains public per-planet defender counts and only locally known guardian target IDs. HUNT can select a currently valid observed guardian through the same five-action schema. No hidden coordinates, NPC private goals/targets/seeds or extra per-guardian API calls are introduced. All Phase 4 request limits, source validation and missing-key behavior remain unchanged.
+
+`src/guardian-view.ts` reuses one culled graphics object: ice hexagons, volcanic darts, terrestrial paired diamonds and moon wings, with HP bars and attack telegraphs. Hostile shots have profile colors/shapes and a red hostile outline. Minimap/full map show defender counts beside planet icons; a brief defended-zone warning is separate from radio/kill feed. NPC projectiles reuse existing interpolation/presence handling. Scene shutdown removes graphics/warnings; no new production frame/timer/listener loop is created.
+
+### Part B verification and measured limits
+
+- Complete Node suite: **483/483 passed**, including 25 guardian cases, a live eight-client guardian network/stress case, all Part A/Phase 4/previous regressions and the five-full-match loop with guardians active.
+- Client build and server typecheck: **passed**; existing large Phaser chunk advisory remains.
+- Focused guardian browsers: **2/2 passed** in Canvas/Low and WebGL/Standard. Four styles/hostile shots, capture with live defenders, real F/G weapon-exclusivity/re-pickup behavior, actual Common weapon kills/material drops, no pilot kill/placement inflation, client synchronization, map/Tab/N flight, consumption and replay cleanup are exercised. The visual/capture fixture deliberately protects the human to isolate UI/capture coexistence; it is **not** a balance claim. Damage/lethality are tested separately without protection.
+- Full browser suite: **75/76 passed (17.8 minutes)**. The software-WebGL real-time flash case measured **305.5ms** against its unchanged 150–300ms requirement. Its samples jump from 78.5ms at full opacity to 305.5ms at zero opacity: a **227ms sampling/render stall** prevents resolving the fade. The existing CSS animation remains 250ms, and guardian AI is inactive during launch. This is an intermittent cloud software-renderer timing limitation, not a claimed all-green full run. Evidence is retained in `part-b-regression/webgl-realtime-flash-full-run-failure.json`; the unchanged launch cases and affected HUD/guardian cases subsequently passed **8/8 (3.6 minutes)**. All 76 distinct cases have passed across the full run and focused rerun; this is not represented as one clean 76-case run. Final real-time flash samples are retained beside the failed sample. No assertion or cinematic duration was relaxed.
+- The first wall fixture tried to deploy inside a planet and was corrected to a legal location, preserving production wall rules. Browser fixtures incorrectly assumed Galaxy ownership preserves regular slots and that drops use the 250ms recent-F grace; the real game drops regular inventory and uses a separate 750ms re-pickup lock. Tests now recover the actual dropped Common weapon with F after the real lock; inventory mechanics were not changed.
+- All nine regular/Galaxy weapon tests, guardian alien immunity, wall interception, nonstacking slow, ten-second capture, delayed/missing-slot respawn, collision-safe spawn, permanent consumption, reward caps, clean rounds, real bot walls/healing and stale target validation pass.
+
+Final review found that the existing pickup constructor spreads its supplied position object. Passing a whole guardian would therefore have exposed private NPC fields in material loot. The call now passes only `{x, y}`; a regression asserts the exact public pickup fields and absence of NPC goals, targets, seeds and timers. Final Node verification passes 483/483 after this correction. Screenshot review also found that the new longer defender labels clipped at the map edge; text positions now stay within the map bounds. The final client build and server typecheck pass, and the eight affected browser cases pass after that presentation correction.
+
+### Balance probe (not human acceptance)
+
+`scripts/guardian-report.ts` runs the production loop with starting Common Blaster, actual cooldowns/ammo/damage and ordinary input, without invulnerability or granted supplies. It compares five trials per planet of ten seconds stationary at **1.2 capture radii (outside the capture ring)** against twenty seconds of idealized leading aim and ordinary strafing/approach. This is an automated approach encounter, **not a guarantee that standing inside a ring for ten seconds is safe**. NPC balance has no forced damage result.
+
+Recorded five-trial mean damage out of the fresh 200 durability pool: Borealis **102** (51%), Cinder **132.6** (66.3%), Pelagia **45.6** (22.8%), Ashen **23.2** (11.6%). Cinder was reduced from an initial ~181-damage mean by changing only its NPC base damage/cadence. Pelagia/Ashen are deliberately gentler in this approach probe; not every profile is claimed to meet the 50–70% target. The scripted Common pilot defeated the gang alive in **20/20** trials, with idealized aim being easier than actual human play. Real-player movement/cover/aim and capture balancing still need manual review; no regular/Galaxy weapon nerf was used.
+
+Raw results are in `docs/art-reference/p3s8/guardian-balance.json`. The eight-real-client protected stress fixture includes 16 guardians, eight initial walls, three Galaxy owners, world pickups and actual hostile projectiles. Final concurrent-suite tick measurements were mean **4.599ms**, p95 **11.902ms**; exact observations are saved in `guardian-eight-client.json`. Five further complete guardian-enabled FILL rounds and reset measurements are saved in `part-b-five-matches.json`; every round produced a winner and all seven bots resumed movement. This is server simulation/serialization cost, not rendered FPS or a worst-case hardware guarantee.
+
+The focused browser records sixty **actual render frames with the server running** in each quality, eight participants and 14–15 remaining world guardians (two/three visible near the camera). The protected visual fixture and software rendering are explicitly marked in each JSON. Final focused measurements were Canvas/Low mean **17.847ms**, p95 **24.3ms**; SwiftShader/Standard mean **91.760ms**, p95 **242.0ms**. Cloud software WebGL is slow and variable; these are not real GPU results, not a controlled A/B benchmark and not proof of target-hardware performance. Exact final observations are retained in the renderer JSON files.
+
+New Part B files: `shared/guardians.ts`, `server/guardians.ts`, `server/guardian-bots.ts`, `src/guardian-view.ts`, `tests/guardians.test.ts`, `tests/guardians-network.test.ts`, `tests/guardians.spec.ts`, `scripts/guardian-report.ts`. Integrations touch the existing room/projectile/combat/movement/match/objective/bot/context/UI files; no new dependencies or original assets are added.
+
+### Remaining acceptance and polish
+
+No known failing deterministic guardian or gameplay regression remains. Cloud WebGL flash timing is intermittently outside the existing bound, as recorded above. Real Windows GPU FPS, human difficulty (especially gentler Pelagia/Ashen), narrow-window layout and separate-device acceptance remain manual. Existing globally replicated player snapshots do not provide network fog of war. Missing-key fallback and mocked strategic responses are verified; live OpenAI requests and deployed frontend/backend acceptance are not. Production deployment configuration and keys were not changed.
 
 ## Windows manual acceptance
 
@@ -66,7 +122,10 @@ Confirm `work` and preserve local edits if pull refuses. In a second terminal in
 3. Join with a second human before START. Compare standings, kills and remaining competitors. Test combat/Horizon elimination and same-tick ties. Confirm a 2.5-second placement/cause card, then the alien banner, normal three-second respawn, persistent ALIEN HUD and inability to win.
 4. Finish a match. Check winner/draw, all rows, local placement, kills, actual damage, survival time, captures and walls. PLAY AGAIN must return everyone to a clean lobby. Repeat at least five times without restarting; test MAIN MENU and a fresh PLAY.
 5. F3 → graphics quality Standard, then Low. Record the F3 FPS overlay during eight-ship play with pickups, Q walls, Galaxy fire and Horizon pressure. Verify kill-feed/radio/HUD/map readability. These Windows GPU measurements are still required; cloud measurements are not substitutes.
-6. If testing live strategic AI, use the private git-ignored `.env` setup in PHASE4_TEST.md; solo F4 requires no Intel flag. Never put keys in frontend configuration, screenshots or commits. Stop both terminals with Ctrl+C.
+6. Approach each planet: Borealis ice hexagons, Cinder volcanic darts, Pelagia paired diamonds and Ashen wings. Check the defended-zone warning, health bars, telegraphs and red-outlined hostile shots. Compare counts on the radar and M map. Fight with ordinary weapons, use Q cover, and retreat beyond the leash: defenders should return home. As an alien, verify they ignore you and cannot damage you. Defeating defenders must not increase pilot kills or change the remaining-player count.
+7. Capture a planet with defenders alive: the existing ten-second capture must still complete. Claim its Galaxy Gun using F, defeat some defenders and wait 60 seconds: only missing slots should replenish, avoiding nearby ships. Reclaiming a dropped Galaxy Gun must not schedule another wave. Check physical material rewards (five per defeated defender, maximum 40 per planet per round), without direct grants or NPC Galaxy drops. When the Horizon consumes the planet, all defenders and pending replenishment must disappear permanently for that round.
+8. Repeat the guardian checks in Standard and Low while flying, firing, switching slots, using F/G and holding M/Tab. Watch equipped FILL bots fight with ordinary weapons and under-equipped bots retreat. Assess difficulty with unprotected human play; the automated visual fixture uses protection and does not establish human balance or GPU FPS.
+9. If testing live strategic AI, use the private git-ignored `.env` setup in PHASE4_TEST.md; solo F4 requires no Intel flag. Never put keys in frontend configuration, screenshots or commits. Stop both terminals with Ctrl+C.
 
 ## Git checkpoints and delivery
 
@@ -78,4 +137,4 @@ git ls-remote origin refs/heads/work
 git status --porcelain
 ```
 
-The Part A SHA and remote verification will be recorded after its checkpoint. Final HEAD is also provided in the completion report (a commit cannot embed its own hash). No main modifications, force-push, automatic deployment or production-secret changes are authorized. Publishing the current frontend and configuring deployed AI remain owner actions documented in PHASE4_TEST.md.
+Part A local/remote SHA was verified as `2321e1dfe31a415f838059a55b3bc42eff9af735`, with a clean tree before Part B. The final Part B local/remote equality is verified at delivery and reported with HEAD; the commit cannot embed its own hash. No main modifications, force-push, automatic deployment or production-secret changes are authorized. Publishing the current frontend and configuring deployed AI remain owner actions documented in PHASE4_TEST.md.

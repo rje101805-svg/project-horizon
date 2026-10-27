@@ -14,7 +14,7 @@ export class ProjectileView {
     this.frames.push({ tick: snapshot.tick, timeMs: snapshot.timeMs, projectiles: snapshot.projectiles.map(p => ({ ...p })) });
     if (this.frames.length > 32) this.frames.shift(); this.arrival = now;
   }
-  removeOwners(ids: string[]) { const owners = new Set(ids); for (const f of this.frames) f.projectiles = f.projectiles.filter(p => owners.has(p.ownerId)); }
+  removeOwners(ids: string[]) { const owners = new Set(ids); for (const f of this.frames) f.projectiles = f.projectiles.filter(p => owners.has(p.ownerId)||!!p.guardianPlanetId); }
   sample(now: number, selfId = ''): ProjectileState[] {
     const latest = this.frames.at(-1); if (!latest) return [];
     const target = Math.min(latest.timeMs, Math.max(this.renderTime, latest.timeMs + Math.max(0, now - this.arrival) - INTERPOLATION_DELAY_MS));

@@ -1,3 +1,4 @@
+import {advanceGuardians,guardianSnapshot} from './guardians';
 import {battleSnapshot,radarPings} from './battle';
 import {processPilots,type PilotCoordinator} from './ai/coordinator';
 import {advanceSurvival,completeHealing,survivalCommand,walls} from './survival';
@@ -108,7 +109,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       if(!reset && room.match.state==='waiting'){
         let i=0;for(const p of room.players.values()){if(p.state.controllerType!=='BOT')continue;const a=tick*.012+i++*Math.PI*2/7;const tx=LOBBY_HOLE.x+Math.cos(a)*240,ty=LOBBY_HOLE.y+Math.sin(a)*240,dx=tx-p.state.x,dy=ty-p.state.y;p.input={up:dy<-8,down:dy>8,left:dx<-8,right:dx>8,boost:false,aim:Math.atan2(dy,dx)};p.lastInput=now;}
       }
-      if(!reset){advanceSurvival(room);advanceBots(room,now,tick);}
+      advanceGuardians(room,tick);if(!reset){advanceSurvival(room);advanceBots(room,now,tick);}
       for (const player of room.players.values()) {
         if (!reset) simulatePlayer(player, room, now, tick * TICK_MS);
       }
@@ -121,7 +122,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
       room.killFeed=room.killFeed?.filter(entry=>room.simulationTimeMs-entry.timeMs<6000);
       completeHealing(room);advanceHorizon(room);evaluateResult(room, tick * TICK_MS);
       // No global gameplay broadcast: a socket receives only its joined room.
-      const snapshot:import('../shared/protocol').Snapshot={battle:battleSnapshot(room),
+      const snapshot:import('../shared/protocol').Snapshot={guardians:guardianSnapshot(room),battle:battleSnapshot(room),
         walls:[...walls(room).values()].map(w=>({...w})),horizon:room.horizon,killFeed:room.killFeed??[],effects:room.combatEffects??[],loot:lootSnapshot(room),objectives:objectivesSnapshot(room), match: matchSnapshot(room), survivingHumans: survivingHumans(room), projectiles: projectileSnapshot(room), tick, timeMs: tick * TICK_MS, roomCode: room.code, blackHole: { ...room.blackHole },
         players: [...room.players.values()].map(p => {const {bot:_privateTactics,...state}=p.state;return state;}),
       };

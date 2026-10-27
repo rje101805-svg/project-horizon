@@ -1,0 +1,35 @@
+{
+  "partACheckpoint": "2321e1dfe31a415f838059a55b3bc42eff9af735",
+  "partAPushedAndCleanBeforePartB": true,
+  "node": {
+    "passed": 483,
+    "failed": 0,
+    "skipped": 0
+  },
+  "clientBuild": "passed",
+  "serverTypecheck": "passed",
+  "browserFull": {
+    "passed": 75,
+    "failed": 1,
+    "durationMinutes": 17.8,
+    "failure": "SwiftShader real-time flash measured 305.5ms versus unchanged 150\u2013300ms bound; samples include a 227ms stall"
+  },
+  "browserFinalAffected": {
+    "passed": 8,
+    "failed": 0,
+    "durationMinutes": 3.6,
+    "files": [
+      "tests/battle.spec.ts",
+      "tests/guardians.spec.ts",
+      "tests/pacing-launch.spec.ts"
+    ],
+    "afterFinalPayloadAndMapLabelCorrections": true
+  },
+  "distinctBrowserCasesPassedAcrossRuns": 76,
+  "fiveCompleteGuardianEnabledFillMatches": true,
+  "realGPUAcceptance": false,
+  "liveOpenAIRequestsVerified": false,
+  "deploymentAcceptance": false,
+  "regularAndGalaxyWeaponStatsChanged": false,
+  "mainModified": false
+}

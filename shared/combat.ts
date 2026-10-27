@@ -9,8 +9,8 @@ export const FIRE_COOLDOWN = 1000 / WEAPONS.blaster.rate;
 export type PlayerStatus = 'ALIVE' | 'ALIEN' | 'OUT';
 export type ControllerType = 'HUMAN' | 'BOT';
 export type DamageSource = { type: 'PLAYER'; playerId: string; weaponName?:string; rarity?:string } | { type: 'TRACTOR'; playerId: string } |
-  { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
-export interface CombatState {
+  {type:'GUARDIAN';planetId:string;guardianId:string} | { type: 'ENVIRONMENT'; cause: 'BLACK_HOLE' | 'HAZARD' };
+export interface CombatState {guardianSlowRemainingMs?:number;
   inventory?:WeaponInventory; stunRemainingMs?:number; stunImmunityRemainingMs?:number;
   galaxyType?:import('./weapons').GalaxyType|null; slowRemainingMs?:number; burnRemainingMs?:number; titanSpin?:number; titanSustainMs?:number;
   goldGunId?: string|null; // Server-owned premium equipment.
@@ -25,7 +25,7 @@ export interface CombatState {
   lastDamageSource: DamageSource | null;
 }
 export const initialCombatState = (): CombatState => ({
-  galaxyType:null, slowRemainingMs:0, burnRemainingMs:0, titanSpin:0, titanSustainMs:0, goldGunId:null, inventory:undefined, stunRemainingMs:0, stunImmunityRemainingMs:0, spawnInvulnerabilityRemainingMs: 0, lastMeleeDamage: 0, reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
+  guardianSlowRemainingMs:0,galaxyType:null, slowRemainingMs:0, burnRemainingMs:0, titanSpin:0, titanSustainMs:0, goldGunId:null, inventory:undefined, stunRemainingMs:0, stunImmunityRemainingMs:0, spawnInvulnerabilityRemainingMs: 0, lastMeleeDamage: 0, reloadSession: '', health: MAX_HEALTH, maxHealth: MAX_HEALTH, shield: MAX_SHIELD, maxShield: MAX_SHIELD,
   ammo: MAX_AMMO, maxAmmo: MAX_AMMO, isReloading: false, reloadRemainingMs: 0, reloadProgress: 0,
   fireCooldownRemainingMs: 0, fireCooldownProgress: 1, status: 'ALIVE',
   controllerType: 'HUMAN', kills: 0, lastDamageSource: null,

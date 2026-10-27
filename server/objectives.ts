@@ -1,3 +1,4 @@
+import {scheduleGuardianRespawn,despawnPlanetGuardians} from './guardians';
 import {battleMetric} from './battle';
 import {PLANET_REGIONS} from '../shared/planets';
 import {CAPTURE_DURATION_MS,CAPTURE_TICKS,CAPTURE_RADIUS_FACTOR,CAPTURE_DECAY_RATE,GOLD_SPAWN_CLEARANCE,MAX_ANNOUNCEMENTS,type PlanetObjective,type GoldPickup,type ObjectiveAnnouncement,type ObjectiveSnapshot} from '../shared/objectives';
@@ -45,7 +46,7 @@ export function collectGoldGun(room:GameRoom,p:RoomPlayer,id:string,recentValida
  if(!pickup||!eligibleShip(room,p)||p.state.goldGunId||(p.state.stunRemainingMs??0)>0||pickup.blockedId===p.state.id&&room.simulationTimeMs<(pickup.blockedUntilMs??0)||!((p.state.x-pickup.x)**2+(p.state.y-pickup.y)**2<=(recentValidated?LOOT_CONFIG.paddedPickupRadius:GOLD_GUN.pickupRadius)**2))return false;
  if(!equipGoldGun(p,id,pickup.galaxyType??PLANET_GALAXY[pickup.planetId??'']??'cryo'))return false;
  s.pickups.delete(id);
- if(pickup.source==='planet'){const record=s.planets.find(r=>r.planet.id===pickup.planetId);if(record?.planet.pickupId===id){record.planet.pickupId=null;record.planet.status=record.planet.occupants.length>1?'CONTESTED':'AVAILABLE';}}
+ if(pickup.source==='planet'){if(pickup.planetId)scheduleGuardianRespawn(room,pickup.planetId);const record=s.planets.find(r=>r.planet.id===pickup.planetId);if(record?.planet.pickupId===id){record.planet.pickupId=null;record.planet.status=record.planet.occupants.length>1?'CONTESTED':'AVAILABLE';}}
  announce(room,{kind:'claimed',text:`${p.state.name.toUpperCase()} CLAIMED ${GALAXY_WEAPONS[p.state.galaxyType!].name.toUpperCase()}`,participantId:p.state.id});return true;
 }
 export function advanceObjectives(room:GameRoom){
@@ -81,4 +82,4 @@ export function pauseObjectives(room:GameRoom){
  for(const record of objectiveState(room).planets){if(record.planet.status==='CONSUMED')continue;record.planet.capturingId=null;record.planet.occupants=[];record.planet.status=record.planet.pickupId?'GOLD_GUN_AVAILABLE':'AVAILABLE';}
 }
 
-export function consumePlanet(room:GameRoom,record:CaptureRecord){const p=record.planet;if(p.status==='CONSUMED')return;p.status='CONSUMED';p.capturingId=null;p.occupants=[];p.progress=[];record.ticks.clear();if(p.pickupId)objectiveState(room).pickups.delete(p.pickupId);p.pickupId=null;announce(room,{kind:'consumed',text:`${p.name.toUpperCase()} HAS BEEN CONSUMED`,planetId:p.id});}
+export function consumePlanet(room:GameRoom,record:CaptureRecord){const p=record.planet;if(p.status==='CONSUMED')return;despawnPlanetGuardians(room,p.id);p.status='CONSUMED';p.capturingId=null;p.occupants=[];p.progress=[];record.ticks.clear();if(p.pickupId)objectiveState(room).pickups.delete(p.pickupId);p.pickupId=null;announce(room,{kind:'consumed',text:`${p.name.toUpperCase()} HAS BEEN CONSUMED`,planetId:p.id});}

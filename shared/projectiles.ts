@@ -9,7 +9,7 @@ export interface FireRequest { sequence: number; aim: number; lifeGeneration: nu
 export type FireResult = { ok: true; sequence: number; projectileId: string; spawnTick: number; kind?: 'projectile' } |
   { ok: true; kind: 'melee'; sequence: number; damageApplied: number } |
   { ok: false; sequence: number; reason: string };
-export interface ProjectileState { galaxyType?:import('./weapons').GalaxyType; targetId?:string; heading?:number; maxRange?:number; weapon?:'gold'|import('./weapons').WeaponClass; pellet?:number; radius?:number; traveled?:number; originX?:number; originY?:number; id: string; ownerId: string; shotSequence: number; lifeGeneration: number;
+export interface ProjectileState {guardianPlanetId?:string; galaxyType?:import('./weapons').GalaxyType; targetId?:string; heading?:number; maxRange?:number; weapon?:'gold'|import('./weapons').WeaponClass; pellet?:number; radius?:number; traveled?:number; originX?:number; originY?:number; id: string; ownerId: string; shotSequence: number; lifeGeneration: number;
   teleportSequence: number; x: number; y: number; vx: number; vy: number; damage: number; spawnTick: number; remainingMs: number }
 export function parseFire(raw: unknown): FireRequest | null {
   if (!raw || typeof raw !== 'object') return null;

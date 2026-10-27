@@ -1,0 +1,62 @@
+[
+  {
+    "match": 1,
+    "ticks": 7140,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:d065f937-ad41-4759-b318-4d3bab5c4031",
+      "winnerName": "Viper"
+    },
+    "meanTickMs": 1.5167659176470625,
+    "p95TickMs": 3.008698000000095
+  },
+  {
+    "match": 2,
+    "ticks": 6726,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:2c46785c-f0b6-48bd-b1e7-51655de02869",
+      "winnerName": "Vega"
+    },
+    "meanTickMs": 1.5567925321141578,
+    "p95TickMs": 2.5129009999982372
+  },
+  {
+    "match": 3,
+    "ticks": 7378,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:7e97d3d8-9eb2-4322-8df8-87dd77161cbe",
+      "winnerName": "Atlas"
+    },
+    "meanTickMs": 1.2624585814584164,
+    "p95TickMs": 2.282463999999891
+  },
+  {
+    "match": 4,
+    "ticks": 6734,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:807203a8-a0c1-4db0-82a4-3c1bbfdf18e0",
+      "winnerName": "Comet"
+    },
+    "meanTickMs": 1.109276369022934,
+    "p95TickMs": 2.145187000001897
+  },
+  {
+    "match": 5,
+    "ticks": 7255,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:807203a8-a0c1-4db0-82a4-3c1bbfdf18e0",
+      "winnerName": "Comet"
+    },
+    "meanTickMs": 1.0815229033769487,
+    "p95TickMs": 2.083513999998104
+  }
+]

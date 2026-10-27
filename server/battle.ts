@@ -11,7 +11,7 @@ export function battleDeath(room:GameRoom,p:RoomPlayer,source:DamageSource,timeM
  if('playerId'in source&&source.playerId!==p.state.id){const killer=r.rows.get(source.playerId);if(killer){killer.kills++;const player=room.players.get(killer.id);if(player)player.state.kills=killer.kills;}}
  const killer='playerId'in source?r.rows.get(source.playerId)?.name??'Unknown pilot':'';
  const weapon=source.type==='TRACTOR'?' · Tractor lock':source.type==='PLAYER'&&source.weaponName?` · ${source.rarity?source.rarity+' ':''}${source.weaponName}`:'';
- const text=source.type==='ENVIRONMENT'?source.cause==='BLACK_HOLE'?`${p.state.name} consumed by the Horizon`:`${p.state.name} lost to a hazard`:`${killer} → ${p.state.name}${weapon}`;
+ const text=source.type==='GUARDIAN'?`${row.cause!.toUpperCase()} → ${p.state.name}`:source.type==='ENVIRONMENT'?source.cause==='BLACK_HOLE'?`${p.state.name} consumed by the Horizon`:`${p.state.name} lost to a hazard`:`${killer} → ${p.state.name}${weapon}`;
  const id=`${room.match.round}:${p.state.id}:elimination`;if(!(room.killFeed??[]).some(e=>e.id===id))room.killFeed=[...(room.killFeed??[]),{id,timeMs,text}].slice(-5);
 }
 export function updateBattle(room:GameRoom){if(room.match.state!=='active'&&room.match.state!=='ended')return;const r=runtime(room),end=room.match.endedAtMs??room.simulationTimeMs;

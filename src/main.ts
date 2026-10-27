@@ -1,3 +1,4 @@
+import {GuardianView} from './guardian-view';
 import {BattleHud} from './battle-hud';
 import {AIIntelView} from './ai-intel';
 import {SurvivalView} from './survival-view';
@@ -77,7 +78,7 @@ class Horizon extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Container;
   private holeVisual!: Phaser.GameObjects.Graphics;
   private holeKey = '';
-  private battleHud!:BattleHud;
+  private battleHud!:BattleHud;private guardianView!:GuardianView;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private connection!: FlightConnection;
   private aim = 0;
@@ -117,7 +118,7 @@ class Horizon extends Phaser.Scene {
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,SHIFT,R,SPACE') as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
 
-    this.connection = connection!;this.intel=new AIIntelView(this.connection);this.battleHud=new BattleHud(this.connection);
+    this.connection = connection!;this.intel=new AIIntelView(this.connection);this.battleHud=new BattleHud(this.connection);this.guardianView=new GuardianView(this);
     // Handle the key transition itself: a short tap can begin and end between
     // rendered frames, so frame polling may miss it. Key repeat never reloads.
     const reload = (event: KeyboardEvent) => {
@@ -146,7 +147,7 @@ class Horizon extends Phaser.Scene {
       document.removeEventListener('visibilitychange', visibility);
       this.game.events.off('postrender',rendered);
       this.ready = false;this.visualDebugCleanup?.();this.previewHorizon?.destroy();
-      this.intel.destroy();this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.battleHud.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
+      this.intel.destroy();this.survival.destroy();this.loot.destroy();this.objectives.destroy();this.deepSpace.destroy();this.celestial.destroy();this.horizonVisual.destroy();this.cinematics.destroy();this.growingHorizon.destroy();this.battleHud.destroy();this.guardianView.destroy();if(game===this.game&&connection===this.connection)stopCinematicAmbience();
       for(const art of SHIP_ART)this.textures.remove(art.textureKey);
       this.interpolator.clear(); this.projectileView.clear(); this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear();
     };
@@ -249,7 +250,7 @@ class Horizon extends Phaser.Scene {
     el('death-overlay').hidden = !dead || match.state === 'ended' || spectator;
     el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
     el('death-title').textContent = 'Eliminated · alien respawn pending';
-    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor lock finisher' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.cause ?? 'Damage'}`;
+    el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor lock finisher' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.type==='GUARDIAN'?'Planet Guardians':local.deathSource?.cause ?? 'Damage'}`;
     el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
     el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead' || !this.connection.canPlay();
@@ -407,7 +408,7 @@ class Horizon extends Phaser.Scene {
     this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,(hole as BlackHoleState|null)?.horizon?null:hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
     this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);this.growingHorizon.render(this.connection.latest,camera,this.connection.socket.id??'',this.visualIntensity.quality==='low');
     this.battleHud.render();
-    this.intel.draw();this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
+    this.guardianView.render(this.connection.latest,camera,this.connection.socket.id??'');this.intel.draw();this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
     this.connection.setFireIntent(this.keys.SPACE.isDown || this.input.activePointer.downElement===this.game.canvas && this.input.activePointer.isDown && this.input.activePointer.leftButtonDown(), this.fireAim);
     const right = this.keys.D.isDown || this.keys.RIGHT.isDown;

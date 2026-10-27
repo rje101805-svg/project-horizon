@@ -161,3 +161,5 @@ body[data-phase=active] #objective-feed,body[data-phase=ended] #objective-feed{t
 #ammo-hud{top:calc(var(--radar-size,180px) + 30px)}.kill-feed{left:auto;right:12px;top:calc(var(--radar-size,180px) + 145px);max-width:280px}.kill-feed:not([hidden]){animation:feed-appear .15s ease-out}@keyframes feed-appear{from{opacity:.2}to{opacity:1}}
 #mission:has(#ai-intel:not([hidden])) .kill-feed{left:auto;right:12px;max-width:280px}
 #match-overlay{z-index:45;max-height:90%;overflow:auto;min-width:min(650px,90%);background:radial-gradient(ellipse at top,#26354af5,#070d19f5);border:1px solid #c6a86b}#winner-banner{display:block;color:#ffdf8b;font:700 28px/1.4 monospace;letter-spacing:3px}#match-stats{max-width:650px;font:12px/1.7 monospace;color:#b9d5e2}#match-standings{text-align:left}#death-overlay{z-index:40}#elimination-cause{color:#ffd095}
+
+#guardian-warning{position:absolute;bottom:142px;left:50%;transform:translateX(-50%);z-index:17;max-width:calc(100% - 24px);padding:6px 10px;background:#111220e8;border:1px solid #cd8a68;border-radius:6px;color:#ffccaa;font:11px/1.5 monospace;pointer-events:none;text-align:center}#guardian-warning[hidden]{display:none}

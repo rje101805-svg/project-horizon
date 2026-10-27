@@ -1,3 +1,4 @@
+import {guardianReaction} from './guardian-bots';
 import {strategicStrategy} from './ai/strategy';
 import {utility,startHealing,deployWall,survivalEligible} from './survival';
 import {SURVIVAL} from '../shared/survival';
@@ -81,8 +82,8 @@ export function selectSurvivalStrategy(room:GameRoom,bot:RoomPlayer,combat:BotSt
 // Normal keyboard-style controls, bounded turning, and imperfect heading aim.
 // No position/velocity writes or special bot movement statistics.
 export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:number):PlayerInput {
- const s=bot.state,d=s.bot??=initialBotState(),requested=strategy.target?room.players.get(strategy.target):undefined,target=requested&&botAware(bot,requested,room.simulationTimeMs)?requested:undefined;
- if(!target){strategy={...strategy,target:null};if(bot.botAim){bot.botAim.target=null;bot.botAim.nextCorrection=0;}}
+ const s=bot.state,d=s.bot??=initialBotState(),guardian=strategy.goal?.kind==='guardian'?room.guardians?.units.get(strategy.goal.id):undefined,requested=strategy.target?room.players.get(strategy.target):undefined,target=requested&&botAware(bot,requested,room.simulationTimeMs)?requested:undefined;
+ if(!target&&!guardian){strategy={...strategy,target:null};if(bot.botAim){bot.botAim.target=null;bot.botAim.nextCorrection=0;}}
  d.goal=strategy.goal;
  Object.assign(d,strategy,{override:null,thrust:false,boost:false,fire:false,reload:false,tractor:false,melee:false,distance:0});
  const input={...idleInput(),aim:s.rotation};
@@ -105,11 +106,15 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
    d.reload=!alien && !s.goldGunId && s.ammo===0 && !s.isReloading;
    d.tractor=!alien && !s.tractor.targetId && !s.tractor.cooldownRemainingMs && error<.25 && inTractorCone(s,target.state);
  }
+ if(guardian&&guardian.health>0&&s.status==='ALIVE'){
+  dx=guardian.x-s.x;dy=guardian.y-s.y;d.distance=Math.hypot(dx,dy);const aim=updateBotAim(room,bot,{state:guardian}),speed=s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].speed:WEAPONS[activeWeapon(s)?.class??'blaster'].speed,travel=d.distance/speed;heading=Math.atan2(dy+(guardian.vy-s.vy)*travel*aim.lead,dx+(guardian.vx-s.vx)*travel*aim.lead)+aim.error;
+  d.fire=d.distance<effectiveRange(bot)&&room.simulationTimeMs>=aim.readyAt&&Math.abs(angleDelta(heading,s.rotation))<.2&&!s.isReloading&&!s.tractor.targetId;d.reload=!s.goldGunId&&s.ammo===0&&!s.isReloading;d.tractor=d.melee=false;
+ }
  if(strategy.goal&&s.status==='ALIVE'){
   dx=strategy.goal.x-s.x;dy=strategy.goal.y-s.y;const distance=Math.hypot(dx,dy);
-  if(distance<(strategy.goal.kind==='capture'?80:20))dx=dy=0;
+  if(strategy.goal.kind==='guardian'&&distance<360){if(distance<150){dx=-dx;dy=-dy;}else{const side=s.color%2?1:-1,x=dx;dx=-dy*side;dy=x*side;}}else if(distance<(strategy.goal.kind==='capture'?80:20))dx=dy=0;
   input.boost=distance>500;
-  if(!target||d.distance>(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
+  if(!target&&!guardian||d.distance>(s.goldGunId?GALAXY_WEAPONS[s.galaxyType??'cryo'].range:WEAPONS[activeWeapon(s)?.class??'blaster'].range))heading=Math.atan2(dy,dx);
  }
  if(s.status==='ALIVE' && s.tractor.attackerId){
    const attacker=room.players.get(s.tractor.attackerId);
@@ -128,7 +133,7 @@ export function botHands(room:GameRoom,bot:RoomPlayer,strategy:BotStrategy,tick:
  else if(lootFirst(room,bot)&&d.distance>=effectiveRange(bot)*.6&&room.simulationTimeMs-(bot.lastAttackedMs??-Infinity)>3000){d.fire=d.tractor=false;}
  if(dx || dy){const move=Math.atan2(dy,dx),x=Math.cos(move),y=Math.sin(move);input.right=x>.38;input.left=x<-.38;input.down=y>.38;input.up=y<-.38;}
  // 180 degrees/sec; seeded perception corrections never snap the heading.
- if(!target&&bot.botAim)bot.botAim.target=null;
+ if(!target&&!guardian&&bot.botAim)bot.botAim.target=null;
  const desired=heading;
  input.aim=s.rotation+Math.max(-Math.PI*TICK_SECONDS,Math.min(Math.PI*TICK_SECONDS,angleDelta(desired,s.rotation)));
  if((s.stunRemainingMs??0)>0){d.fire=d.reload=d.tractor=d.melee=false;input.up=input.down=input.left=input.right=input.boost=false;}
@@ -150,7 +155,7 @@ export function advanceBots(room:GameRoom,now:number,tick:number) {
        const item=nearestWeapon(room,bot);if(item&&s.inventory.slots.includes(null))pickupWeapon(room,bot,item.id);else if(item){let worst=0;s.inventory.slots.forEach((w,i)=>{if(weaponValue(w,distance)<weaponValue(s.inventory!.slots[worst],distance))worst=i;});if(weaponValue(item.weapon,distance)>weaponValue(s.inventory.slots[worst],distance)+1){switchSlot(bot,worst);swapWeapon(room,bot);}}
      }
    }
-   const input=botHands(room,bot,strategicStrategy(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates,room.simulationTimeMs))),tick);
+   const input=botHands(room,bot,strategicStrategy(room,bot,guardianReaction(room,bot,selectSurvivalStrategy(room,bot,selectBotStrategy(bot,candidates,room.simulationTimeMs)))),tick);
    if(acceptMovementInput(bot,{...input,sequence:bot.lastReceivedSequence+1,lifeGeneration:s.lifeGeneration,teleportSequence:s.teleportSequence},now)){
      bot.botInputTick=tick;bot.botInputLife=s.lifeGeneration;bot.botInputTeleport=s.teleportSequence;
    }
@@ -177,7 +182,7 @@ export function advanceBotActions(room:GameRoom,tick:number) {
 function weaponValue(w:import('../shared/weapons').WeaponInstance|null,distance:number){if(!w)return -1;const role=w.class==='shotgun'?(distance<250?8:-4):w.class==='smg'?(distance<500?5:-3):w.class==='missile'?(distance>350?5:0):w.class==='zapper'?3:2;return RARITIES.indexOf(w.rarity)*3+role;}
 
 // Private, seeded perception state; no accuracy bonuses or synthetic hit decisions.
-function updateBotAim(room:GameRoom,bot:RoomPlayer,target:RoomPlayer){
+function updateBotAim(room:GameRoom,bot:RoomPlayer,target:{state:Pick<import('../shared/protocol').PlayerState,'id'|'x'|'y'|'vx'|'vy'>}){
  const s=bot.state;
  if(!bot.botAim||bot.botAim.life!==s.lifeGeneration||bot.botAim.teleport!==s.teleportSequence){let seed=2166136261;for(const c of s.name)seed=Math.imul(seed^c.charCodeAt(0),16777619);bot.botAim={target:null,readyAt:0,seed:seed>>>0,error:0,lead:1,nextCorrection:0,life:s.lifeGeneration,teleport:s.teleportSequence};}
  const a=bot.botAim,random=()=>{a.seed=(Math.imul(a.seed,1664525)+1013904223)>>>0;return a.seed/2**32;};
@@ -195,6 +200,7 @@ export function nearbyUtility(room:GameRoom,p:RoomPlayer){const u=utility(p);if(
 export function botSurvival(room:GameRoom,p:RoomPlayer){
  if(!survivalEligible(room,p))return;const u=utility(p);if(!u)return;const s=p.state,now=room.simulationTimeMs,hp=(s.health+s.shield)/(s.maxHealth+s.maxShield),since=now-(p.lastAttackedMs??-Infinity);
  if(hp<.6&&since>=2000&&now-(p.lastCombatMs??-Infinity)>=2000&&!u.use){if(s.shield<s.maxShield&&u.cells>0)startHealing(room,p,'cell');else if(s.health<s.maxHealth&&u.kits>0)startHealing(room,p,'repair');}
- const hits=(p.incomingDamageTimes??[]).filter(t=>now-t<=2000),enemy=s.lastDamageSource?.type==='PLAYER'?room.players.get(s.lastDamageSource.playerId):undefined;
- if(hp<.7&&hits.length>=2&&now-hits[0]>=500&&since<1500&&now-(p.botWallAtMs??-Infinity)>=3000&&enemy&&botAware(p,enemy,now)){const result=deployWall(room,p,Math.atan2(enemy.state.y-s.y,enemy.state.x-s.x));if(result.ok)p.botWallAtMs=now;}
+ const hits=(p.incomingDamageTimes??[]).filter(t=>now-t<=2000),source=s.lastDamageSource,enemyPlayer=source?.type==='PLAYER'?room.players.get(source.playerId):undefined,guardian=source?.type==='GUARDIAN'?room.guardians?.units.get(source.guardianId):undefined,point=enemyPlayer?.state??guardian,known=enemyPlayer?botAware(p,enemyPlayer,now):!!guardian&&Math.hypot(guardian.x-s.x,guardian.y-s.y)<=DEFAULT_CAMERA_WIDTH;
+ if(hp<.7&&hits.length>=2&&now-hits[0]>=500&&since<1500&&now-(p.botWallAtMs??-Infinity)>=3000&&point&&known){const result=deployWall(room,p,Math.atan2(point.y-s.y,point.x-s.x));if(result.ok)p.botWallAtMs=now;}
+
 }
