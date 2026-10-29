@@ -1,3 +1,4 @@
+import {renderControls} from './controls-reference';
 import {installFighterSelect,savedFighter} from './fighter-select';
 import {normalizeRoomCode} from '../shared/rooms';
 import {roomFromSearch} from './room-links';
@@ -15,18 +16,20 @@ export function installMenu(play:(mode:RoomMode)=>void,join:(code:string)=>Promi
  let mode:RoomMode=stored('horizon-mode','wait')==='fill'?'fill':'wait';
  const name=document.getElementById('display-name') as HTMLInputElement;name.value=stored('horizon-name','');name.placeholder='Pilot_XX';name.autocomplete='off';name.setAttribute('aria-label','Player name');
  const overlay=document.createElement('div');overlay.id='menu-modal';overlay.hidden=true;overlay.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="menu-modal-title"><button id="menu-modal-close" aria-label="Close">×</button><h2 id="menu-modal-title"></h2><div id="menu-modal-body"></div></section>';home.append(overlay);
- const close=()=>{overlay.hidden=true;(document.activeElement as HTMLElement)?.blur();};
+ const close=()=>{overlay.hidden=true;overlay.classList.remove('controls-modal');(document.activeElement as HTMLElement)?.blur();};
  const show=(title:string,body:string)=>{document.getElementById('menu-modal-title')!.textContent=title;document.getElementById('menu-modal-body')!.textContent=body;overlay.hidden=false;document.getElementById('menu-modal-close')!.focus();};
  overlay.addEventListener('click',e=>{if(e.target===overlay||e.target===document.getElementById('menu-modal-close'))close();});
  const buttons=new Map<string,HTMLButtonElement>();
  for(const [id,[x,y,w,h]]of Object.entries(MENU_HOTSPOTS)){
    const node=id==='name'?document.createElement('div'):document.createElement('button');node.classList.add('menu-hotspot');node.dataset.hotspot=id;Object.assign(node.style,{left:`${x}%`,top:`${y}%`,width:`${w}%`,height:`${h}%`});stage.append(node);
    if(id==='name'){node.dataset.label='name';name.classList.add('menu-name-field');node.append(name);node.addEventListener('click',()=>name.focus());name.addEventListener('change',()=>{name.value=name.value.replace(/[\p{Cc}\p{Cf}]/gu,'').trim().slice(0,16);save('horizon-name',name.value);});continue;}
-   const button=node as HTMLButtonElement;buttons.set(id,button);button.setAttribute('aria-label',id==='free'?'Free Flight':id==='pilot'?'Pilot Select':id==='how'?'How to Play':id.toUpperCase());button.title=button.getAttribute('aria-label')!;
+   const button=node as HTMLButtonElement;buttons.set(id,button);button.setAttribute('aria-label',id==='free'?'Free Flight':id==='pilot'?'Pilot Select':id==='how'?'How to Play':id==='settings'?'Controls':id.toUpperCase());button.title=button.getAttribute('aria-label')!;
    button.textContent=id==='fill'?'FILL GAME':id==='wait'?'WAIT FOR PLAYERS':'';
    button.onclick=()=>{
     if(id==='fill'||id==='wait'){mode=id;save('horizon-mode',mode);update();}
     else if(id==='play'){name.blur();save('horizon-name',name.value);play(mode);}
+    else if(id==='free'){name.blur();save('horizon-name',name.value);play('practice');}
+    else if(id==='settings'){show('CONTROLS','');overlay.classList.add('controls-modal');renderControls(document.getElementById('menu-modal-body')!,close);}
     else if(id==='pilot')openFighter();
     else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · Q: shield wall (20 materials; Nova 18) · 4: Shield Cell (2s; Nova 1.8s) · 5: Repair Kit (3s; Nova 2.7s) · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay · F4: AI Intel (automatic in solo FILL) · N: radar size · Hold M: full map · Hold Tab: standings.\n\nCapture an uncontested planet for 10 seconds (Horizon 9 seconds) to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. PLAY defaults to a human-only lobby. START alone for solo play, or wait for guests to READY before host START. FILL remains optional. Friends can JOIN WITH CODE before START. The Horizon appears after one minute of play and consumes the galaxy by five minutes; flee its edge.');
     else show(button.title.toUpperCase(),'COMING SOON');

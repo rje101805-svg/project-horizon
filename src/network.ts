@@ -140,7 +140,7 @@ export class FlightConnection {
       }
     }, 5);
   }
-  async enter(mode: 'create' | 'join' | 'fill' | 'wait', name: string, code = ''): Promise<RoomResult> {
+  async enter(mode: 'create' | 'join' | 'fill' | 'wait' | 'practice', name: string, code = ''): Promise<RoomResult> {
     this.name = name;
     if (!this.socket.connected) {
       this.callbacks.status('Connecting to server…');
@@ -159,7 +159,7 @@ export class FlightConnection {
     }
     return this.request(mode, name, code);
   }
-  private request(mode: 'create' | 'join' | 'fill' | 'wait', name: string, code: string): Promise<RoomResult> {
+  private request(mode: 'create' | 'join' | 'fill' | 'wait' | 'practice', name: string, code: string): Promise<RoomResult> {
     return new Promise(resolve => {
       const epoch = this.epoch;
       const reply = (error: Error | null, result: RoomResult) => {
@@ -170,7 +170,7 @@ export class FlightConnection {
         }
         resolve(result);
       };
-      if(mode==='fill'||mode==='wait')this.socket.timeout(4000).emit('play',{name,mode,fighterId:savedFighter()},reply);
+      if(mode==='fill'||mode==='wait'||mode==='practice')this.socket.timeout(4000).emit('play',{name,mode,fighterId:savedFighter()},reply);
       else if (mode === 'create') this.socket.timeout(4000).emit('createRoom', { name,fighterId:savedFighter() }, reply);
       else this.socket.timeout(4000).emit('joinRoom', { name, code,fighterId:savedFighter() }, reply);
     });

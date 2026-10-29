@@ -1,0 +1,16 @@
+// Audited against Horizon's key transitions, BattleHud, InventoryUI and AIIntelView.
+export const CONTROL_GROUPS=[
+ ['Movement',[['WASD / Arrow keys','Thrust; release to coast/brake.'],['Shift','Hold to boost.'],['Mouse','Aim weapons; also face the pointer while not thrusting.']]],
+ ['Combat',[['Left mouse / Space','Hold to fire.'],['R','Reload the active regular weapon.'],['E','Tractor beam against a nearby competitor; no targets in practice.']]],
+ ['Inventory / items',[['F','Pick up or swap the highlighted weapon / Galaxy Gun.'],['G','Quick-drop the active weapon.'],['1 / 2 / 3','Select a weapon slot.'],['Mouse wheel over game','Cycle available weapons.'],['Inventory click / drag','Select, reorder slots, or drop outside the inventory; each slot also has a Drop button.'],['Q','Deploy a shield wall using materials (Nova: 18; others: 20).'],['4 / 5','Use a Shield Cell / Repair Kit; use time can be interrupted by combat/actions.']]],
+ ['Planet capture / Galaxy Guns',[['Stay inside a capture ring','Uncontested capture takes 10 seconds (Horizon: 9). Guardians do not contest in competitive play; practice has none.'],['F at the spawned Galaxy Gun','Claim the planet weapon. Galaxy ownership replaces regular weapons and uses infinite ammo.'],['G before another Galaxy Gun','Drop the current Galaxy Gun, then F to claim the next. Borealis: Cryo; Cinder: Inferno; Ashen: Lunar; Pelagia: Titan.']]],
+ ['Map / leaderboard',[['N','Toggle compact / expanded radar.'],['Hold M','Show the full map and planet locations.'],['Hold Tab','Show competitive standings; no standings in practice.']]],
+ ['Other useful actions',[['Back to Menu / Esc','Leave Free Flight. Back to Menu / Esc also closes this screen; competitive play keeps its existing Back to home button.'],['Pilot Select: Left / Right, Enter, Esc','Browse, save, or cancel the fighter choice.'],['F3 (optional)','FPS / diagnostic overlay; not needed to play.'],['F4 (optional)','AI Intel: available in solo FILL; multiplayer requires server permission. No AI in practice.']]],
+ ['Developer tools (optional, development build only)',[['DEV reset flight / combat buttons','Require explicit server debug authorization; not normal gameplay controls. F4 is AI Intel, not flight reset.'],['Fake network controls / F3 visual studies','Developer diagnostics; not needed for play or Free Flight.']]],
+] as const;
+export function renderControls(parent:HTMLElement,close:()=>void){
+ const intro=document.createElement('p');intro.textContent='Current keyboard and mouse bindings. Reference only — no rebinding or preferences.';parent.append(intro);
+ const grid=document.createElement('div');grid.className='controls-grid';grid.tabIndex=0;grid.setAttribute('role','region');grid.setAttribute('aria-label','Control bindings');
+ for(const [title,rows]of CONTROL_GROUPS){const group=document.createElement('section'),h=document.createElement('h3'),list=document.createElement('dl');h.textContent=title;for(const [keys,action]of rows){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=keys;dd.textContent=action;list.append(dt,dd);}group.append(h,list);grid.append(group);}parent.append(grid);
+ const back=document.createElement('button');back.id='controls-back';back.textContent='Back to Menu';back.onclick=close;parent.append(back);
+}

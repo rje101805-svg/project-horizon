@@ -1,3 +1,21 @@
+# Current update — P5B Free Flight and Controls
+
+**Free Flight is implemented.** Select a pilot, then click **Free Flight** to enter a private, server-authoritative **FREE FLIGHT — PRACTICE** session immediately. It reuses normal movement/boost, aim/fire, finite regular ammo, inventory/loot, P5A passives, walls, and all four planet captures/Galaxy Guns. There are no opponents, guardians, damaging black hole, collapse, countdown, extraction goal, wins or placements. Movement remains bounded to the existing map. **The game server must be running; this is not offline mode.**
+
+Four equipment depots outside the capture rings provide all five regular weapon classes, matching ammo, materials and healing supplies; empty pads restock every five seconds. Hold M to locate planets. Capture takes 10s (Horizon pilot: 9s); F claims the spawned Galaxy Gun. G drops it before another claim; Titan retains its normal held-fire spin-up. Capture history resets when you leave/re-enter. Healing at full health/shield correctly says FULL; no damage targets or self-damage system were added. Back to Menu or **Esc** ends practice, closes the connection and deletes the session. Normal FILL/solo-with-bots and WAIT/two-human play remain available.
+
+The original menu's baked **Settings** artwork now opens a readable **CONTROLS** reference screen; the artwork itself is preserved. Back to Menu or Esc closes it. No preferences, audio/graphics settings or rebinding were added.
+
+Current gameplay controls: **WASD/arrows** thrust, **Shift** boost, **mouse** weapon aim, **left mouse/Space** fire, **R** reload, **E** tractor (no target in practice), **F** pickup/swap, **G** quick-drop, **1/2/3** slots, **wheel over game** cycle, **inventory click/drag** select/reorder/drop, **Q** wall, **4/5** cell/repair, **N** radar size, **hold M** map, **hold Tab** competitive standings (absent in practice). Optional **F3** shows metrics; **F4** is AI Intel in eligible competitive rooms, not flight reset. Developer-only controls are identified separately in CONTROLS.
+
+**Windows updates:** stop **both running Horizon terminals with Ctrl+C before `npm ci`** to avoid Node/Vite file-lock errors. Then, in the existing checkout, run `git switch work`, `git pull --ff-only origin work`, `npm ci`, and `npm run server`. In a second terminal run `npm run dev`; open **http://localhost:5173** with backend **http://localhost:3001**. Preserve local edits if Git refuses to switch/pull. Exact commands, tests, screenshots and limitations are in [P5B_TEST.md](P5B_TEST.md).
+
+Local tests do not establish real Windows GPU FPS, live OpenAI or deployed acceptance. The previously documented software-WebGL flash-timing limitation remains open for competitive play; Free Flight bypasses the sequence. No weapon balance, supplied artwork, paid API requirement or deployment configuration changed.
+
+---
+
+Earlier milestone notes below are historical; the current behavior above supersedes their old controls, exclusions and Coming Soon descriptions.
+
 > Current milestone: **P3S8 — battle royale completion and planet guardians**. Filtered radar, N sizing, hold-M map, hold-Tab standings, authoritative placement/statistics, sourced elimination feed and winner/replay UI extend Phase 4 without changing combat balance or controls. See [P3S8_TEST.md](P3S8_TEST.md) for verification, five-match lifecycle evidence, privacy limitations and Windows acceptance. A separately reversible Part B adds four deterministic planet-defender profiles, existing-weapon combat, bounded materials, claim-triggered respawns and guardian-aware bot tactics; NPCs never enter competitor standings. Live AI, desktop GPU performance and human balance acceptance remain manual.
 
 > Prior milestone: **Phase 4 — OpenAI Strategic Pilots**. Server-only structured strategy, five stable personalities on the existing seven named bots, bounded 120/match and 600/process-hour scheduling, contextual radio and F4 Intel extend P3S5. Exactly one human always gets Intel; 2+ humans require the backend multiplayer override. Missing keys preserve FALLBACK gameplay. Live API and deployed acceptance remain pending. See [PHASE4_TEST.md](PHASE4_TEST.md) for architecture, tests, Windows key/loading instructions and Render setup. No weapon values, movement, launch or victory rules changed.

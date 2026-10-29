@@ -1,0 +1,38 @@
+{
+  "baseline": "0f88b7ead6c65a5f2693aeb8cd880f4afe1af615",
+  "node": {
+    "passed": 529,
+    "failed": 0,
+    "skipped": 0
+  },
+  "clientBuild": "passed",
+  "serverTypecheck": "passed",
+  "relevantBrowserRegression": {
+    "passed": 30,
+    "failed": 0,
+    "minutes": 6.2
+  },
+  "finalFeatureBrowserRerun": {
+    "passed": 4,
+    "failed": 0,
+    "seconds": 48.2
+  },
+  "renderers": [
+    "Canvas/Low",
+    "WebGL/Standard (SwiftShader)"
+  ],
+  "practiceEntriesExitsPerRenderer": 3,
+  "allFourPracticeCapturesAndGalaxyGuns": true,
+  "windowKeydownListenersReturnToBaseline": true,
+  "serverRoomsAndClientsReturnToZero": true,
+  "controlsViewports": [
+    "1366x768",
+    "1280x720"
+  ],
+  "localGameServerRequired": true,
+  "fullBrowserSuiteClaimed": false,
+  "realGPUAcceptance": false,
+  "liveOpenAIVerified": false,
+  "previousCompetitiveFlashIssueResolved": false,
+  "mainModified": false
+}

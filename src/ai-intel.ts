@@ -1,7 +1,7 @@
 import type {FlightConnection} from './network';
 export class AIIntelView {
  private panel=document.createElement('aside');private feed=document.createElement('div');private open=false;private signature='';
- private key=(event:KeyboardEvent)=>{const t=event.target as HTMLElement;if(event.code!=='F4'||t?.tagName==='INPUT'&&!['checkbox','radio','button'].includes((t as HTMLInputElement).type)||t?.tagName==='TEXTAREA'||t?.tagName==='SELECT'||t?.isContentEditable)return;event.preventDefault();if(event.repeat)return;this.open=!this.open;this.panel.hidden=!this.open;this.draw();};
+ private key=(event:KeyboardEvent)=>{const t=event.target as HTMLElement;if(this.connection.room?.match.mode==='practice'||event.code!=='F4'||t?.tagName==='INPUT'&&!['checkbox','radio','button'].includes((t as HTMLInputElement).type)||t?.tagName==='TEXTAREA'||t?.tagName==='SELECT'||t?.isContentEditable)return;event.preventDefault();if(event.repeat)return;this.open=!this.open;this.panel.hidden=!this.open;this.draw();};
  private refresh=()=>{if(!this.connection.intel?.allowed)document.getElementById('debug-bots')?.replaceChildren();this.draw();};
  constructor(private connection:FlightConnection){this.panel.id='ai-intel';this.panel.hidden=true;this.panel.setAttribute('aria-label','AI Intel');this.feed.id='pilot-radio';this.feed.setAttribute('aria-label','Pilot radio');document.getElementById('mission')!.append(this.panel,this.feed);window.addEventListener('keydown',this.key);window.addEventListener('horizon-ai-intel',this.refresh);}
  draw(){

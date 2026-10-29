@@ -1,0 +1,62 @@
+[
+  {
+    "match": 1,
+    "ticks": 6620,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:7db57f1d-0403-4612-9180-87ecaf32e0e8",
+      "winnerName": "SHADOW"
+    },
+    "meanTickMs": 1.5768270915407852,
+    "p95TickMs": 2.6316229999999905
+  },
+  {
+    "match": 2,
+    "ticks": 8379,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:f19c3914-00e2-41ef-ad08-cd80cc9c84bd",
+      "winnerName": "ECLIPSE"
+    },
+    "meanTickMs": 1.4810881084855088,
+    "p95TickMs": 2.4780100000007224
+  },
+  {
+    "match": 3,
+    "ticks": 8452,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:7db57f1d-0403-4612-9180-87ecaf32e0e8",
+      "winnerName": "SHADOW"
+    },
+    "meanTickMs": 1.3857437772124575,
+    "p95TickMs": 2.1892250000018976
+  },
+  {
+    "match": 4,
+    "ticks": 9065,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:5a2f2a8b-e371-4cf8-a604-4d4bc124dc30",
+      "winnerName": "VULCAN"
+    },
+    "meanTickMs": 1.0438326622173073,
+    "p95TickMs": 1.83642300000065
+  },
+  {
+    "match": 5,
+    "ticks": 9065,
+    "botsMoved": 7,
+    "result": {
+      "kind": "winner",
+      "winnerId": "bot:7db57f1d-0403-4612-9180-87ecaf32e0e8",
+      "winnerName": "SHADOW"
+    },
+    "meanTickMs": 0.997011238279081,
+    "p95TickMs": 1.6692089999996824
+  }
+]

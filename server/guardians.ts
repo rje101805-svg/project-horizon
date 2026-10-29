@@ -25,7 +25,7 @@ function guardianShot(room:GameRoom,g:GuardianUnit,tick:number,target:RoomPlayer
 export function advanceGuardians(room:GameRoom,tick=0){
  // A real world enters ACTIVE with its Horizon initialized. Isolated legacy
  // physics fixtures without a world lifecycle do not implicitly create NPCs.
- if(room.match.state!=='active'||!room.horizon)return;if(!room.guardians||room.guardians.round!==room.match.round)initializeGuardians(room);const r=room.guardians!,now=room.simulationTimeMs;
+ if(room.match.mode==='practice'||room.match.state!=='active'||!room.horizon)return;if(!room.guardians||room.guardians.round!==room.match.round)initializeGuardians(room);const r=room.guardians!,now=room.simulationTimeMs;
  for(const planet of room.objectives?.planets??[]){if(planet.planet.status==='CONSUMED')despawnPlanetGuardians(room,planet.planet.id);else spawnMissing(room,planet.planet.id);}
  for(const g of [...r.units.values()]){const planet=room.objectives?.planets.find(p=>p.planet.id===g.planetId)?.planet;if(!planet)continue;const profile=GUARDIAN_PROFILES[g.planetId],leash=planet.captureRadius*profile.leashFactor;
   if(Math.hypot(g.x-room.blackHole.x,g.y-room.blackHole.y)<=room.blackHole.eventHorizonRadius){r.units.delete(g.id);for(const [id,p]of room.projectiles)if(p.ownerId===g.id)room.projectiles.delete(id);continue;}

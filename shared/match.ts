@@ -2,7 +2,7 @@ import {WORLD} from './world';
 import {EJECTION_MS,LAUNCH_ORBIT_MS} from './launch';
 export const MATCH_RESET_DELAY_MS = 6000;
 export type MatchResult = { kind: 'winner'; winnerId: string; winnerName: string } | { kind: 'draw' };
-export type RoomMode = 'fill' | 'wait';
+export type RoomMode = 'fill' | 'wait' | 'practice';
 export const COUNTDOWN_MS=3000, COLLAPSE_MS=1800, LAUNCH_MS=LAUNCH_ORBIT_MS+EJECTION_MS, LAUNCH_PROTECTION_MS=5000;
 export const LOBBY_HOLE={x:WORLD/2,y:WORLD/2,eventHorizonRadius:150,influenceRadius:0};
 export const LOBBY_RADIUS=620;

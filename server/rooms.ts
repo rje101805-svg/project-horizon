@@ -1,3 +1,4 @@
+import {beginPractice} from './practice';
 import {assignFighter} from './fighters';
 import {isFighter} from '../shared/fighters';
 import {battleDeath,battleMetric} from './battle';
@@ -16,7 +17,7 @@ import { EDGE_MARGIN, idleInput, spawnFlight, WORLD, type PlayerInput } from '..
 import { MAX_ROOM_PLAYERS, normalizeRoomCode, ROOM_CODE_ALPHABET, ROOM_CODE_LENGTH, sanitizeName, SHIP_COLORS, SPAWN_MIN_DISTANCE } from '../shared/rooms';
 import type { InputMessage, PlayerState, RoomInfo, RoomResult } from '../shared/protocol';
 export interface RoomPlayer {guardianAvoid?:Map<string,number>;onDamaged?:(amount:number,source:import('../shared/combat').DamageSource)=>void;lastCombatMs?:number;dropSurvival?:()=>void; lastSurvivalSequence?:number;nextWallMs?:number;botWallAtMs?:number;incomingDamageTimes?:number[]; botAim?:{target:string|null;readyAt:number;seed:number;error:number;lead:number;nextCorrection:number;life:number;teleport:number}; botLootEnded?:boolean; lastAttackedMs?:number; recentAttackers?:Map<string,number>; botLootTarget?:{id:string;best:number;progressAtMs:number}; botLootBlocked?:Map<string,number>; onEliminated?:(source:import('../shared/lifecycle').DamageSource,timeMs:number,wasCompetitor?:boolean)=>void; combatEnabled?:boolean; launchProtectionUntilMs?:number; lastTriggerSequence?:number; recentPickupLife?:string; recentPickups?:Map<string,number>; burnOwnerId?:string; titanTriggerUntilMs?:number; dropRegular?:()=>void; reloadWeaponId?:string; lastInventorySequence?:number; nextSwapMs?:number; lastFireInputMs?:number; dropGold?:()=>void; botInputTick?:number; botInputLife?:number; botInputTeleport?:number; cancelTractor?:()=>void; lastTractorSequence?:number; gameplayEnabled: boolean; humanEliminated: boolean; simulationTimeMs: number; invulnerableUntilMs: number; lastReloadSequence: number; lastFireSequence: number; combatTimers: { reload: number; cooldown: number; reloadCompleted: boolean }; state: PlayerState; input: PlayerInput; lastInput: number; reset: boolean; respawnAtMs: number | null; pendingInputs: { message: InputMessage; receivedAt: number }[]; lastReceivedSequence: number }
-export interface GameRoom {guardians?:import('./guardians').GuardianRuntime;battle?:import('./battle').BattleRuntime;pilots?:import('./ai/types').PilotRuntime;walls?:Map<string,import('../shared/survival').ShieldWall>;wallSequence?:number;survivalRound?:number;nextSurvivalSpawnMs?:number; horizon?:import('../shared/horizon').HorizonState; horizonConsumed?:{id:string;name:string;timeMs:number;hp:number}[]; killFeed?:import('../shared/protocol').KillAnnouncement[]; collapseOrigins?:Map<string,{radius:number;angle:number}>; combatEffects?:import('../shared/protocol').CombatEffect[];effectSequence?:number; loot?:LootState; objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
+export interface GameRoom {practice?:import('./practice').PracticeState;guardians?:import('./guardians').GuardianRuntime;battle?:import('./battle').BattleRuntime;pilots?:import('./ai/types').PilotRuntime;walls?:Map<string,import('../shared/survival').ShieldWall>;wallSequence?:number;survivalRound?:number;nextSurvivalSpawnMs?:number; horizon?:import('../shared/horizon').HorizonState; horizonConsumed?:{id:string;name:string;timeMs:number;hp:number}[]; killFeed?:import('../shared/protocol').KillAnnouncement[]; collapseOrigins?:Map<string,{radius:number;angle:number}>; combatEffects?:import('../shared/protocol').CombatEffect[];effectSequence?:number; loot?:LootState; objectives?:ObjectiveState; tractorBeams?:Map<string,TractorBeam>; tractorCooldowns?:Map<string,number>; tractorLOS?:TractorLOS; match: MatchState; simulationTimeMs: number; projectiles: Map<string, ServerProjectile>; projectileSequence: number; code: string; players: Map<string, RoomPlayer>; blackHole: BlackHoleState }
 export const activeParticipants = (room:GameRoom) => [...room.players.values()].filter(p=>!p.state.queuedForNextRound);
 export function removeBot(room:GameRoom,id:string) {
  const p=room.players.get(id);if(p?.state.controllerType!=='BOT')return;
@@ -68,7 +69,7 @@ export class RoomStore {
   private pilotSequence=0;
   private membership = new Map<string, string>();
   constructor(private nextCode: () => string = generateRoomCode) {}
-  info(room: GameRoom): RoomInfo { return { match: matchSnapshot(room), code: room.code, playerIds: [...room.players.keys()], participantIds:activeParticipants(room).map(p=>p.state.id), queuedIds:[...room.players.values()].filter(p=>p.state.queuedForNextRound).map(p=>p.state.id), maxPlayers: MAX_ROOM_PLAYERS, blackHole: { ...room.blackHole } }; }
+  info(room: GameRoom): RoomInfo { return { match: matchSnapshot(room), code: room.code, playerIds: [...room.players.keys()], participantIds:activeParticipants(room).map(p=>p.state.id), queuedIds:[...room.players.values()].filter(p=>p.state.queuedForNextRound).map(p=>p.state.id), maxPlayers: room.match.mode==='practice'?1:MAX_ROOM_PLAYERS, blackHole: { ...room.blackHole } }; }
   roomFor(id: string): GameRoom | undefined { const code = this.membership.get(id); return code ? this.rooms.get(code) : undefined; }
   create(id: string, name: unknown, now: number, mode:RoomMode='wait',fighterId:unknown='redline'): RoomResult {
     if(!isFighter(fighterId))return {ok:false,error:'Invalid pilot identity.'};
@@ -79,7 +80,7 @@ export class RoomStore {
       const room: GameRoom = { match: initialMatchState(mode), simulationTimeMs: 0, code, players: new Map(), blackHole: createBlackHole(), projectiles: new Map(), projectileSequence: 0 };
       resetObjectives(room);
       const result = this.add(room, id, name, now,undefined,false,fighterId);
-      if (result.ok) this.rooms.set(code, room);
+      if (result.ok){if(mode==='practice'){beginPractice(room);result.room=this.info(room);}this.rooms.set(code, room);}
       return result;
     }
     return { ok: false, error: 'Could not allocate a room code. Please try again.' };
@@ -91,6 +92,7 @@ export class RoomStore {
     const current=this.roomFor(id);if(current)return current.code===code?{ok:true,room:this.info(current),selfId:id}:{ok:false,error:'Leave your current room before joining another.'};
     const room = this.rooms.get(code);
     if (!room) return { ok: false, error: 'Room not found.' };
+    if(room.match.mode==='practice')return {ok:false,error:'Practice sessions are private.'};
     if(room.match.state!=='waiting')return {ok:false,error:'Match in progress.'};
     const participants=activeParticipants(room),bots=participants.filter(p=>p.state.controllerType==='BOT');
     const realCount=[...room.players.values()].filter(p=>p.state.controllerType==='HUMAN').length;
@@ -144,7 +146,7 @@ export class RoomStore {
   play(id:string,name:unknown,mode:unknown,now:number,fighterId:unknown='redline'):RoomResult{
     if(!isFighter(fighterId))return {ok:false,error:'Invalid pilot identity.'};
     const current=this.roomFor(id);if(current)return {ok:true,room:this.info(current),selfId:id};
-    if(mode!=='fill'&&mode!=='wait')return {ok:false,error:'Choose FILL or WAIT.'};
+    if(mode!=='fill'&&mode!=='wait'&&mode!=='practice')return {ok:false,error:'Choose FILL or WAIT.'};
     if(mode==='wait'){const room=[...this.rooms.values()].find(r=>r.match.mode==='wait'&&r.match.state==='waiting'&&r.players.size<8);if(room)return this.join(id,room.code,name,now,fighterId);}
     const result=this.create(id,name,now,mode,fighterId);
     if(result.ok&&mode==='fill'){const room=this.roomFor(id)!;const filled=this.fill(room,id,{roomCode:room.code,round:room.match.round});if(!filled.ok){this.leave(id);return {ok:false,error:filled.message};}result.room=this.info(room);}

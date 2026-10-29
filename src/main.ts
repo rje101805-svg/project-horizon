@@ -227,8 +227,8 @@ class Horizon extends Phaser.Scene {
     hud.combat(local); hud.humans(snapshot.survivingHumans);
     const entries=(snapshot.killFeed??[]).filter(e=>snapshot.timeMs-e.timeMs<6000).slice(-5);const feed=entries.map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;el('kill-feed').replaceChildren(...entries.map(entry=>{const line=document.createElement('div');line.textContent=entry.text;line.style.opacity=String(Math.min(1,(6000-(snapshot.timeMs-entry.timeMs))/1500));return line;}));
     const match = snapshot.match, spectator = local.status === 'OUT';
-    el('match-status').textContent = match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
-    if(this.audioPhase!==match.state){this.audioPhase=match.state;stopCinematicAmbience();if(match.state==='waiting')playCinematicCue('lobby');else if(match.state==='collapse')playCinematicCue('collapse');else if(match.state==='launch')playCinematicCue('launch');else if(match.state==='active')playCinematicCue('eject');}
+    el('match-status').textContent = match.mode==='practice'?'FREE FLIGHT — PRACTICE':match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
+    if(this.audioPhase!==match.state){this.audioPhase=match.state;stopCinematicAmbience();if(match.state==='waiting')playCinematicCue('lobby');else if(match.state==='collapse')playCinematicCue('collapse');else if(match.state==='launch')playCinematicCue('launch');else if(match.state==='active'&&match.mode!=='practice')playCinematicCue('eject');}
     document.body.dataset.phase=match.state;
     updateLobby();
     el('match-overlay').hidden = match.state !== 'ended';
@@ -375,7 +375,8 @@ class Horizon extends Phaser.Scene {
     camera.setZoom(cinematicZoom?this.cinematics.zoom(camera,baseZoom,this.connection.latest,this.visualIntensity.quality,elapsed):easeZoom(camera.zoom,baseZoom,elapsed));
     if(this.lastCinematicQuality!==this.visualIntensity.quality){this.lastCinematicQuality=this.visualIntensity.quality;document.body.dataset.quality=this.visualIntensity.quality;try{localStorage.setItem('horizon-menu-quality',this.visualIntensity.quality);}catch{/* optional menu preference */}}
     const match=this.connection.latest?.match??this.connection.room?.match,phase=match?.state,lobby=phase==='waiting'||phase==='countdown'||phase==='collapse';
-    const intensity=this.visualIntensity.update(elapsed),hole=lobby?LOBBY_HOLE:this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
+    const practice=match?.mode==='practice';
+    const intensity=this.visualIntensity.update(elapsed),hole=practice?null:lobby?LOBBY_HOLE:this.connection.latest?.blackHole??this.connection.room?.blackHole??null;
     this.celestial.enabled=!lobby;
     const cinematic=phase==='countdown'||phase==='collapse'||phase==='launch';
     el('cinematic-status').hidden=!cinematic;el('cinematic-status').textContent=phase==='countdown'?String(Math.max(1,Math.ceil((match?.phaseRemainingMs??0)/1000))):phase==='collapse'?'':phase==='launch'?'LAUNCH':'';
@@ -406,7 +407,7 @@ class Horizon extends Phaser.Scene {
     this.celestial.update(camera,now,light,intensity);
     const collapseProgress=phase==='collapse'?1-(match?.phaseRemainingMs??1800)/1800:0;
     this.horizonVisual.update(camera,now+collapseProgress*collapseProgress*12000,(hole as BlackHoleState|null)?.horizon?null:hole,Math.max(intensity,collapseProgress),this.visualIntensity.quality,this.visualIntensity.parallax);
-    this.cinematics.update(this.connection.latest,this.visualIntensity.quality,camera,now);this.growingHorizon.render(this.connection.latest,camera,this.connection.socket.id??'',this.visualIntensity.quality==='low');
+    this.cinematics.update(practice?null:this.connection.latest,this.visualIntensity.quality,camera,now);this.growingHorizon.render(this.connection.latest,camera,this.connection.socket.id??'',this.visualIntensity.quality==='low');
     this.battleHud.render();
     this.guardianView.render(this.connection.latest,camera,this.connection.socket.id??'');this.intel.draw();this.survival.render(camera);this.objectives.render(camera,now,this.connection.socket.id??'',this.ships);this.loot.render(camera,this.connection.socket.id??'');
     if(inventoryInteracting()||import.meta.env.DEV&&this.inspectionPoint){this.connection.setFireIntent(false,this.fireAim);this.connection.setInput({up:false,down:false,left:false,right:false,boost:false,aim:this.aim});return;}
@@ -432,6 +433,9 @@ function launch() {
   el('velocity').textContent = 'Speed —';
   el('tick').textContent = 'Server tick —';
   el('status').textContent = 'Connecting to flight server…';
+  document.body.dataset.mode=connection?.room?.match.mode??'wait';
+  for(const id of ['practice-banner','practice-help'])el(id).hidden=connection?.room?.match.mode!=='practice';
+  el('leave').textContent=connection?.room?.match.mode==='practice'?'Back to Menu':'Back to home';
   document.body.classList.add('in-mission');(document.activeElement as HTMLElement)?.blur();
   el('home').hidden = true; el('mission').hidden = false;
   if (game) { game.destroy(true); game = undefined; }
@@ -468,11 +472,11 @@ function goHome(message = '') {
   connection?.close(); connection = undefined;
   hud.setRoom(0, false);
   game?.destroy(true); game = undefined;
-  document.body.classList.remove('in-mission');
+  document.body.classList.remove('in-mission');delete document.body.dataset.mode;
   el('mission').hidden = true; el('home').hidden = false;
   el('home-status').textContent = message;playCinematicCue('menu');
 }
-async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait') {
+async function enterRoom(mode: 'create' | 'join' | 'fill' | 'wait' | 'practice') {
   if (busy) return;
   const field = el<HTMLInputElement>('server-url');
   try {
@@ -528,6 +532,7 @@ const linkedRoom = roomFromSearch(location.search);
 if (linkedRoom) { el<HTMLInputElement>('room-code').value = linkedRoom; el('home-status').textContent = `Room ${linkedRoom} ready to join. Confirm your name, then click Join room.`; }
 el<HTMLInputElement>('room-code').oninput = () => { const input = el<HTMLInputElement>('room-code'); input.value = input.value.toUpperCase(); };
 el('leave').onclick = () => goHome();
+window.addEventListener('keydown',event=>{if(event.code==='Escape'&&!el('mission').hidden&&connection?.room?.match.mode==='practice'){event.preventDefault();goHome();}});
 async function copy(value: string) {
   try { await navigator.clipboard.writeText(value); el('share-status').textContent = 'Copied'; }
   catch { el('share-status').textContent = `Copy manually: ${value}`; }

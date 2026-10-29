@@ -32,7 +32,7 @@ function freeze(player: RoomPlayer) {
   player.respawnAtMs = null; player.state.respawnRemainingMs = 0;
 }
 export function evaluateResult(room: GameRoom, timeMs: number) {
-  if (room.match.state !== 'active') return;
+  if (room.match.mode==='practice'||room.match.state !== 'active') return;
   // The locked launch roster distinguishes solo sessions from multiplayer
   // rounds reduced to one survivor by elimination or disconnection.
   if (room.match.mode === 'wait' && room.match.roster.length === 1) return;
@@ -41,12 +41,14 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
   finishMatch(room,humans.length ? {kind:'winner', winnerId:humans[0].state.id, winnerName:humans[0].state.name} : {kind:'draw'},timeMs);
 }
 export function finishMatch(room:GameRoom,result:import('../shared/match').MatchResult,timeMs:number){
+ if(room.match.mode==='practice')return;
  for(const p of room.players.values())cancelHealing(p,timeMs);clearAllTractors(room);room.match.state='ended';room.match.endedAtMs=timeMs;room.match.resetRemainingMs=0;room.match.result=result;room.projectiles.clear();pauseObjectives(room);
  if(room.guardians)for(const g of room.guardians.gangs.values())g.respawnAtMs=null;updateBattle(room);
  for(const p of room.players.values()){if(p.state.status==='ALIEN'&&p.state.lifeState==='active'){p.state.health=p.state.shield=0;p.state.lifeState='dead';p.state.teleportSequence++;}freeze(p);}
 }
 // Reset is a room transaction: validate every spawn before changing any player.
 export function resetRound(room: GameRoom): boolean {
+  if(room.match.mode==='practice')return false;
   const spawns: NonNullable<ReturnType<typeof chooseLobbySpawn>>[] = [];
   const queued=[...room.players.values()].filter(p=>p.state.queuedForNextRound);
   const bots=activeParticipants(room).filter(p=>p.state.controllerType==='BOT').reverse();
@@ -86,7 +88,7 @@ export function resetRound(room: GameRoom): boolean {
 // Called by the existing fixed simulation clock, never a per-room timeout.
 export function advanceMatch(room: GameRoom, timeMs: number): boolean {
   room.simulationTimeMs=timeMs;
-  const m=room.match;
+  const m=room.match;if(m.mode==='practice')return false;
   if(m.state==='countdown'||m.state==='collapse'||m.state==='launch'){
     const duration=m.state==='countdown'?COUNTDOWN_MS:m.state==='collapse'?COLLAPSE_MS:LAUNCH_MS;
     m.phaseRemainingMs=Math.max(0,duration-(timeMs-m.phaseStartedAtMs));
