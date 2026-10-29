@@ -180,3 +180,42 @@ body[data-phase=active] #objective-feed,body[data-phase=ended] #objective-feed{t
 
 /* No tractor target exists in practice; keep its ready badge off the mode label. */
 body[data-mode=practice] #tractor-hud{display:none}
+
+/* Submission HUD lanes: left controls/utilities, central notices, right radar/combat. */
+.menu-hotspot[data-hotspot=settings]{color:#f5ddd5;background:linear-gradient(#29212bf5,#101522);border:1px solid #8b6569;font:bold clamp(8px,1.05vw,17px)/1.4 Arial;padding:4px;white-space:normal}
+#menu-modal>section{max-height:calc(100dvh - 32px);overflow:auto}
+#menu-modal-body p{margin:10px 0;font-size:14px;line-height:1.5}
+#menu-modal-body details{margin-top:16px;color:#b9c9d9;font-size:12px}
+.in-mission .room-bar{max-width:330px;gap:8px}
+.in-mission .lobby-controls{left:12px;right:auto;top:108px;width:300px;max-height:calc(100vh - 300px);overflow:auto}
+.in-mission .mission-top{top:12px;right:12px}
+#battle-minimap{top:70px}
+#ammo-hud{top:calc(var(--radar-size,180px) + 86px)}
+.kill-feed{top:calc(var(--radar-size,180px) + 205px);max-width:280px;max-height:calc(100vh - var(--radar-size,180px) - 340px);overflow:hidden}
+#capture-hud{left:12px;bottom:230px;width:330px;max-width:28vw}
+#survival-hud{bottom:54px;max-width:370px}
+#pilot-radio{top:185px;bottom:auto;max-width:330px;max-height:100px}
+#objective-feed{width:390px;max-width:30vw;max-height:160px;overflow:hidden}
+#guardian-warning{bottom:190px;max-width:400px}
+#practice-help{max-width:min(450px,calc(100vw - 48px))}
+#tractor-hud{top:110px;max-width:330px}
+#match-overlay{max-height:100%;padding:24px;justify-content:safe center}
+#winner-reason{margin:2px 0 10px;color:#f2cfaa;font:12px/1.5 monospace}
+body[data-phase=ended] #objective-feed,body[data-phase=ended] #black-hole-status,body[data-phase=ended] .mission-bottom{display:none}
+@media(max-height:800px){#match-overlay h2{font-size:22px;margin:5px 0}#match-overlay button{padding:9px 18px;margin:5px}#match-standings td,#match-standings th{padding:2px 8px}#match-stats{margin:8px 0}}
+
+/* Connection/action status has its own bottom-center lane, away from inventory. */
+.in-mission .mission-bottom{left:50%;right:auto;transform:translateX(-50%);max-width:30vw;text-align:center}
+/* F3 remains scrollable below the lobby instead of covering READY / START. */
+body[data-phase=waiting] .in-mission .debug-overlay,
+body.in-mission[data-phase=waiting] .debug-overlay{top:auto;bottom:44px;max-height:calc(100vh - 460px)}
+/* Narrow windows keep menu actions above the room bar, with debug below combat. */
+@media(max-width:800px){
+ .in-mission .room-bar{top:60px;max-width:calc(100% - 24px)}
+ .in-mission #debug-network{top:108px}
+ .in-mission .lobby-controls{top:160px;max-width:calc(100% - var(--radar-size,180px) - 40px)}
+ #battle-minimap{top:160px}
+ #ammo-hud{top:calc(var(--radar-size,180px) + 176px)}
+ .in-mission .debug-overlay{top:auto;bottom:44px;max-height:calc(100vh - var(--radar-size,180px) - 400px)}
+ body.in-mission[data-phase=waiting] .debug-overlay{max-height:calc(100vh - 580px)}
+}

@@ -33,14 +33,18 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   await peer.bringToFront();await peer.keyboard.press('r');await expect.poll(()=>b.state.isReloading).toBe(true);await frame();
   for(let seq=1;seq<=5;seq++){
    await page.bringToFront();await page.evaluate(()=>(window as unknown as DebugWindow).__HORIZON_GAME__.scene.scenes[0].fireAim=0);
-   await page.keyboard.down('Space');await page.waitForTimeout(60);await page.keyboard.up('Space');await expect.poll(()=>a.lastFireSequence).toBe(seq);await frame();
+   // Use the same one-intent client pipeline as the melee fixture below.
+   // Software frames plus fake lag can turn a timed automatic-fire pulse into
+   // zero or two requests; keyboard/held fire is covered by projectile tests.
+   await page.evaluate(()=>{const c=(window as unknown as DebugWindow).__HORIZON_FLIGHT__;c.setFireIntent(true,0);(c as unknown as {attemptFire(now:number):void}).attemptFire(performance.now());c.setFireIntent(false,0);});
+   await expect.poll(()=>a.lastFireSequence).toBe(seq);await frame();
    if(seq===1){expect(b.state.shield).toBe(59.5);expect(b.state.health).toBe(100);}
    if(seq===2){expect(b.state.shield).toBe(19);expect(b.state.health).toBe(100);}if(seq===3){expect(b.state.shield).toBe(0);expect(b.state.health).toBe(78.5);}
    if(seq<5){await advance(5);await frame();await page.waitForTimeout(220);}
   }
   expect(b.state.status).toBe('ALIEN');expect(b.state.lifeState).toBe('dead');expect(b.state.isReloading).toBe(false);expect(b.combatTimers.reload).toBe(0);
   expect(room.players.size).toBe(3);expect(a.state.lifeState).toBe('active');
-  for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
+  for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Pilots remaining: 2');
   await expect(peer.locator('#alien-message')).toBeHidden();await expect(peer.locator('#death-overlay')).toBeVisible();await expect(peer.locator('#hud-ammo')).toBeHidden();
   const oldMarkers={lifeGeneration:0,teleportSequence:0};
   const deadShot=await peer.evaluate(markers=>new Promise<{ok:boolean}>(resolve=>(window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.emit('fire',{sequence:100,aim:0,...markers},resolve)),oldMarkers);
@@ -74,7 +78,7 @@ for(const lag of [false,true])test(`human elimination, permanent alien respawn/H
   await expect(peer.locator('#hud-alien')).toHaveText('ALIEN · HP 40 / 40');await expect(peer.locator('#hud-ammo')).toBeHidden();
   // Final elimination now ends the P2S7 round while retaining P2S6 alien status.
   applyDamage(c,200,{type:'PLAYER',playerId:aid},tick*TICK_MS);await frame();
-  for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 1');
+  for(const p of pages)await expect(p.locator('#humans-remaining')).toHaveText('Pilots remaining: 1');
   expect(room.match.state).toBe('ended');expect(room.match.result).toEqual({kind:'winner',winnerId:aid,winnerName:a.state.name});
   await expect(page.locator('#match-result')).toHaveText('VICTORY');
   expect(a.state.status).toBe('ALIVE');expect(room.players.size).toBe(3);await expect(page.locator('canvas')).toBeVisible();

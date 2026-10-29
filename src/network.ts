@@ -111,7 +111,7 @@ export class FlightConnection {
         if (teleport) this.accumulator = 0;
         this.projectilePrediction.reconcile(snapshot, this.socket.id!, performance.now());
         this.tick = snapshot.tick; this.lastSnapshot = Date.now(); this.latest = snapshot; this.cinematicSampleAt=performance.now();
-        callbacks.snapshot(snapshot); callbacks.status('Connected · server-authoritative flight · 30 Hz');
+        callbacks.snapshot(snapshot); callbacks.status('Connected');
       };
       if (this.lag) this.lag.schedule('snapshot', accept); else accept();
     });

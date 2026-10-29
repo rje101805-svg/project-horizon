@@ -24,14 +24,26 @@ export function installMenu(play:(mode:RoomMode)=>void,join:(code:string)=>Promi
    const node=id==='name'?document.createElement('div'):document.createElement('button');node.classList.add('menu-hotspot');node.dataset.hotspot=id;Object.assign(node.style,{left:`${x}%`,top:`${y}%`,width:`${w}%`,height:`${h}%`});stage.append(node);
    if(id==='name'){node.dataset.label='name';name.classList.add('menu-name-field');node.append(name);node.addEventListener('click',()=>name.focus());name.addEventListener('change',()=>{name.value=name.value.replace(/[\p{Cc}\p{Cf}]/gu,'').trim().slice(0,16);save('horizon-name',name.value);});continue;}
    const button=node as HTMLButtonElement;buttons.set(id,button);button.setAttribute('aria-label',id==='free'?'Free Flight':id==='pilot'?'Pilot Select':id==='how'?'How to Play':id==='settings'?'Controls':id.toUpperCase());button.title=button.getAttribute('aria-label')!;
-   button.textContent=id==='fill'?'FILL GAME':id==='wait'?'WAIT FOR PLAYERS':'';
+   button.textContent=id==='fill'?'FILL GAME':id==='wait'?'WAIT FOR PLAYERS':id==='settings'?'CONTROLS — Keys & Tips':'';
    button.onclick=()=>{
     if(id==='fill'||id==='wait'){mode=id;save('horizon-mode',mode);update();}
     else if(id==='play'){name.blur();save('horizon-name',name.value);play(mode);}
     else if(id==='free'){name.blur();save('horizon-name',name.value);play('practice');}
     else if(id==='settings'){show('CONTROLS','');overlay.classList.add('controls-modal');renderControls(document.getElementById('menu-modal-body')!,close);}
     else if(id==='pilot')openFighter();
-    else if(id==='how')show('HOW TO PLAY','WASD / arrows: fly · Mouse: aim · Mouse / Space: fire · Shift: boost · E: tractor · F: pick up / swap · G: quick-drop · R: reload · Q: shield wall (20 materials; Nova 18) · 4: Shield Cell (2s; Nova 1.8s) · 5: Repair Kit (3s; Nova 2.7s) · 1/2/3 or wheel: weapon slots · Click/drag inventory: select, reorder, drop · F3: FPS/debug overlay · F4: AI Intel (automatic in solo FILL) · N: radar size · Hold M: full map · Hold Tab: standings.\n\nCapture an uncontested planet for 10 seconds (Horizon 9 seconds) to spawn its Galaxy Gun, then fly to it and press F. Common: gray; Rare: blue; Legendary: purple; Galaxy: gold/cosmic. Eliminated humans return as aliens and cannot win.\n\nFILL: private lobby with seven bots. PLAY defaults to a human-only lobby. START alone for solo play, or wait for guests to READY before host START. FILL remains optional. Friends can JOIN WITH CODE before START. The Horizon appears after one minute of play and consumes the galaxy by five minutes; flee its edge.');
+    else if(id==='how'){
+     show('HOW TO PLAY','');const body=document.getElementById('menu-modal-body')!;
+     for(const [title,text]of [
+      ['Goal','Be the last eligible pilot surviving.'],
+      ['Start','FILL adds seven bots. WAIT is human-only and can start solo. Share the room code before launch; guests READY, then the host presses START.'],
+      ['Core actions','WASD / arrows fly · Shift boosts · Mouse aims · Mouse / Space fires · F picks up / swaps · R reloads.'],
+      ['Objectives','Capture uncontested planets for Galaxy Guns, then press F to claim them. Avoid the expanding Horizon.'],
+      ['Elimination','Eliminated pilots return as aliens: stay involved, but you cannot win. Refreshing or leaving an active match forfeits participation; rejoining does not restore that life.'],
+      ['Final collapse','The last eligible pilot consumed wins. Same-tick consumption uses remaining hull + shield; an exact tie is a draw.']
+     ]){const p=document.createElement('p'),strong=document.createElement('strong');strong.textContent=title+': ';p.append(strong,text);body.append(p);}
+     const controls=document.createElement('button');controls.textContent='Full Controls';controls.onclick=()=>buttons.get('settings')!.click();body.append(controls);
+     const advanced=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Advanced';advanced.append(summary,'Optional F3: performance / diagnostics. F4: AI Intel in eligible competitive rooms. Neither is required to play.');body.append(advanced);
+    }
     else show(button.title.toUpperCase(),'COMING SOON');
    };
  }

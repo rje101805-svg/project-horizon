@@ -5,7 +5,7 @@ import {advanceGuardians,guardianSnapshot} from './guardians';
 import {battleSnapshot,radarPings} from './battle';
 import {processPilots,type PilotCoordinator} from './ai/coordinator';
 import {advanceSurvival,completeHealing,survivalCommand,walls} from './survival';
-import {updateHorizon,advanceHorizon} from './horizon';
+import {updateHorizon,advanceHorizon,lockFinalCollapse} from './horizon';
 import {LOBBY_HOLE} from '../shared/match';
 import {triggerIntent} from './galaxy';
 import {inventoryCommand,advanceLoot,lootSnapshot} from './inventory';
@@ -108,7 +108,7 @@ export function createGameServer(allowedOrigins: string[], store = new RoomStore
     tick++;
     for (const room of store.rooms.values()) {
       const admitting=room.match.state==='ended' && [...room.players.values()].some(p=>p.state.queuedForNextRound);
-      const reset = advanceMatch(room, tick * TICK_MS);if(room.match.mode!=='practice')updateHorizon(room);advancePractice(room);
+      const reset = advanceMatch(room, tick * TICK_MS);if(room.match.mode!=='practice')updateHorizon(room);lockFinalCollapse(room);advancePractice(room);
       advanceTractors(room,tick*TICK_MS);
       if(!reset && room.match.state==='waiting'){
         let i=0;for(const p of room.players.values()){if(p.state.controllerType!=='BOT')continue;const a=tick*.012+i++*Math.PI*2/7;const tx=LOBBY_HOLE.x+Math.cos(a)*240,ty=LOBBY_HOLE.y+Math.sin(a)*240,dx=tx-p.state.x,dy=ty-p.state.y;p.input={up:dy<-8,down:dy>8,left:dx<-8,right:dx>8,boost:false,aim:Math.atan2(dy,dx)};p.lastInput=now;}

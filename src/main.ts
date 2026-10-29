@@ -224,7 +224,8 @@ class Horizon extends Phaser.Scene {
     this.localHud.accept(local, performance.now());
     this.hitFeedback.reconcile(snapshot, local.id);
     hud.health(local);
-    hud.combat(local); hud.humans(snapshot.survivingHumans);
+    hud.combat(local); hud.humans(snapshot.battle?.remaining??snapshot.survivingHumans);
+    el('player-count').textContent=`${snapshot.players.filter(p=>p.controllerType==='HUMAN').length} connected · ${snapshot.players.filter(p=>p.controllerType==='BOT').length} bots · ${snapshot.players.filter(p=>p.status==='ALIEN').length} aliens`;
     const entries=(snapshot.killFeed??[]).filter(e=>snapshot.timeMs-e.timeMs<6000).slice(-5);const feed=entries.map(entry=>entry.text).join('\n');el('kill-feed').hidden=!feed;el('kill-feed').replaceChildren(...entries.map(entry=>{const line=document.createElement('div');line.textContent=entry.text;line.style.opacity=String(Math.min(1,(6000-(snapshot.timeMs-entry.timeMs))/1500));return line;}));
     const match = snapshot.match, spectator = local.status === 'OUT';
     el('match-status').textContent = match.mode==='practice'?'FREE FLIGHT — PRACTICE':match.state === 'waiting' ? 'Waiting for host start' : spectator ? 'SPECTATING · JOINS NEXT ROUND' : `Round ${match.round} · ${match.state}${(local.launchProtectionRemainingMs??0)>0?' · SPAWN PROTECTED':''}`;
@@ -232,7 +233,7 @@ class Horizon extends Phaser.Scene {
     document.body.dataset.phase=match.state;
     updateLobby();
     el('match-overlay').hidden = match.state !== 'ended';
-    el('match-result').textContent = match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
+    el('match-result').textContent = match.result?.kind === 'environment' ? 'NO ELIGIBLE PILOTS' : match.result?.kind === 'draw' ? 'DRAW' : match.result?.kind === 'winner' ? match.result.winnerId === local.id ? 'VICTORY' : `${match.result.winnerName} WINS` : '';
     el('match-reset').textContent = 'Play again returns everyone to the lobby. A new START is required.';
     if (match.state === 'ended' || spectator) { this.hitFeedback.clear(); this.damageNumbers.clear(); this.localHud.clear(); }
     // Ejection eases from the hole to the pilot; respawns and other teleports
@@ -248,11 +249,11 @@ class Horizon extends Phaser.Scene {
     }
     const dead = local.lifeState === 'dead';
     el('death-overlay').hidden = !dead || match.state === 'ended' || spectator;
-    el('death-countdown').textContent = local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
-    el('death-title').textContent = 'Eliminated · alien respawn pending';
+    el('death-countdown').textContent = match.state==='ended'?'':local.respawnRemainingMs > 0 ? `Respawning in ${(local.respawnRemainingMs / 1000).toFixed(1)}s` : 'Waiting for a safe respawn…';
+    el('death-title').textContent = match.state==='ended'?'ROUND COMPLETE':'Eliminated · alien respawn pending';
     el('death-health').textContent = `ALIEN · Health ${local.health} / ${local.maxHealth} · ${local.deathSource?.type === 'TRACTOR' ? 'Tractor lock finisher' : local.deathSource?.type === 'PLAYER' ? 'Player attack' : local.deathSource?.type==='GUARDIAN'?'Planet Guardians':local.deathSource?.cause ?? 'Damage'}`;
     el('life-status').textContent = `${dead ? 'Dead' : 'Alive'} · health ${local.health} / ${local.maxHealth}`;
-    el('black-hole-status').textContent = dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
+    el('black-hole-status').textContent = match.state==='ended'?'Round complete':dead ? local.deathSource?.type === 'ENVIRONMENT' && local.deathSource.cause === 'BLACK_HOLE' ? 'Lost to the black hole · alien respawn pending' : 'Eliminated · alien respawn pending' : local.region === 'danger' ? 'DANGER · gravitational pull' : 'Safe space';
     el<HTMLButtonElement>('restart').disabled = local.lifeState === 'dead' || !this.connection.canPlay();
     el('position').textContent = `X ${local.x.toFixed(1)} · Y ${local.y.toFixed(1)}`;
     el('velocity').textContent = `Speed ${Math.hypot(local.vx, local.vy).toFixed(1)}`;
@@ -452,7 +453,7 @@ function updateLobby() {
   const eligible=humans.length>=1&&humans.every(p=>p.id===match?.hostId||match?.readyIds.includes(p.id));
   button.hidden=!waiting||!host;button.disabled=!!c?.starting||!eligible||!scene()?.loaded;
   const ready=el<HTMLButtonElement>('ready-match');ready.hidden=!waiting||host;ready.disabled=!scene()?.loaded;ready.setAttribute('aria-pressed',String(match?.readyIds.includes(c?.socket.id??'')));ready.textContent=match?.readyIds.includes(c?.socket.id??'')?'NOT READY':'READY';
-  el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} humans · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?humans.length===1&&match?.mode==='wait'?'START solo or wait for players':'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
+  el('lobby-status').textContent=waiting?`${match?.mode==='fill'?'PRIVATE FILL':'PUBLIC WAIT'} · ${humans.length} connected players · ${c?.latest?.players.filter(p=>p.controllerType==='BOT').length??0} bots · ${!scene()?.loaded?'Loading ship and map assets':host?eligible?humans.length===1&&match?.mode==='wait'?'START solo or wait for players':'Ready to START':'Waiting for guests READY':'READY when you are prepared'}`:'';
   const selfFighter=c?.latest?.players.find(p=>p.id===c.socket.id);let fighterNotice=document.getElementById('fighter-assignment');if(!fighterNotice){fighterNotice=document.createElement('p');fighterNotice.id='fighter-assignment';fighterNotice.setAttribute('role','status');document.getElementById('mission')!.append(fighterNotice);}fighterNotice.hidden=!selfFighter||!['waiting','countdown','collapse','launch'].includes(match?.state??'');fighterNotice.textContent=selfFighter?.fighterNotice||`FLYING AS ${selfFighter?.fighterId?.toUpperCase()??'REDLINE'}`;
   el('lobby-roster').textContent=waiting?(c?.latest?.players.map(p=>`${p.name}${p.controllerType==='HUMAN'&&p.fighterId?` · ${p.fighterId.toUpperCase()}`:''}${p.id===match?.hostId?' [HOST]':p.controllerType==='BOT'?' [BOT · READY]':match?.readyIds.includes(p.id)?' [READY]':' [NOT READY]'}`).join(' · ')??''):'';
 
@@ -461,7 +462,7 @@ function updateRoom(room: RoomInfo) {
   updateLobby();
   el('room-code-display').textContent = room.code;
   hud.setRoom(room.playerIds.length, connection?.socket.connected ?? false);
-  el('player-count').textContent = `${room.participantIds?.length ?? room.playerIds.length} / ${room.maxPlayers} players${room.queuedIds?.length ? ` · ${room.queuedIds.length} queued` : ''}`;
+  el('player-count').textContent = `${room.participantIds?.length ?? room.playerIds.length} / ${room.maxPlayers} ships${room.queuedIds?.length ? ` · ${room.queuedIds.length} queued` : ''}`;
   scene()?.removeShips(room.playerIds);
 }
 function goHome(message = '') {

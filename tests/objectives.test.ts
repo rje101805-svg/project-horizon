@@ -111,7 +111,7 @@ test('normal fire cannot forge Gold stats, and infinite sustained Gold fire resp
  assert.equal(fired,24);assert.equal(f.a.state.ammo,0);assert.equal(f.a.state.isReloading,false);
 });
 test('bots share capture, contest, collect, firing and drop rules; intent preserves escape priority',()=>{
- const f=fixture(true),bot=[...f.room.players.values()].find(p=>p.state.controllerType==='BOT')!;f.inside(bot);f.tick(300);const gun=f.pickup()!;assert.ok(objectiveState(f.room).announcements.some(a=>a.text===`${bot.state.name.toUpperCase()} CAPTURED BOREALIS`));Object.assign(bot.state,{x:gun.x,y:gun.y});f.tick();assert.equal(bot.state.goldGunId,gun.id);
+ const f=fixture(true),bot=[...f.room.players.values()].find(p=>p.state.controllerType==='BOT')!;f.inside(bot);f.tick(300);const gun=f.pickup()!;assert.ok(objectiveState(f.room).announcements.some(a=>a.text===`BOREALIS CAPTURED — CRYO STREAM IS LIVE`));Object.assign(bot.state,{x:gun.x,y:gun.y});f.tick();assert.equal(bot.state.goldGunId,gun.id);
  Object.assign(bot.state,{x:1000,y:1800,rotation:0});Object.assign(f.a.state,{x:1400,y:1800});bot.state.tractor.cooldownRemainingMs=15000;settleBotPerception(f.room);advanceBots(f.room,0,1);advanceBotActions(f.room,1);assert.ok([...f.room.projectiles.values()].some(p=>p.ownerId===bot.state.id&&p.weapon==='gold'));
  applyDamage(bot,999,{type:'PLAYER',playerId:'a'},f.room.simulationTimeMs);assert.equal(f.pickup()!.source,'drop');assert.equal(bot.state.goldGunId,null);assert.equal(bot.state.status,'ALIEN');
  const g=fixture(true),b=[...g.room.players.values()].find(p=>p.state.controllerType==='BOT')!;Object.assign(b.state,{x:5000,y:5000});g.room.simulationTimeMs=1000;

@@ -21,11 +21,11 @@ for (const lag of [false,true]) test(`three-human roster draws on zero humans an
   await frame();const room=store.rooms.get(code)!,[a,b,c]=[...room.players.values()];startActiveFixture(room,room.match.hostId!,{round:room.match.round});await frame();
   const spectatorPage=pages[3];await spectatorPage.locator('#room-code').fill(code);await spectatorPage.locator('#join').click();await expect(spectatorPage.locator('#home-status')).toContainText('Match in progress');await expect(spectatorPage.locator('canvas')).toHaveCount(0);expect(room.match.roster).toEqual([a.state.id,b.state.id,c.state.id]);
   if(lag)for(const p of clients)await p.locator('#fake-lag').check();
-  applyDamage(c,200,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');for(const p of clients)await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 2');
+  applyDamage(c,200,{type:'ENVIRONMENT',cause:'HAZARD'});await frame();expect(room.match.state).toBe('active');for(const p of clients)await expect(p.locator('#humans-remaining')).toHaveText('Pilots remaining: 2');
   Object.assign(a.state,{x:200,y:1800,health:25,shield:0});Object.assign(b.state,{x:270,y:1800,health:25,shield:0});
   for(const [player,aim] of [[a,0],[b,Math.PI]] as const)expect(fire(room,player,{sequence:1,aim,lifeGeneration:player.state.lifeGeneration,teleportSequence:player.state.teleportSequence},tick).ok).toBe(true);
   await frame();expect(room.match.state).toBe('ended');expect(room.match.result).toEqual({kind:'draw'});
-  for(const p of clients){await expect(p.locator('#match-result')).toHaveText('DRAW');await expect(p.locator('#match-overlay')).toBeVisible();await expect(p.locator('#humans-remaining')).toHaveText('Humans alive: 0');}
+  for(const p of clients){await expect(p.locator('#match-result')).toHaveText('DRAW');await expect(p.locator('#match-overlay')).toBeVisible();await expect(p.locator('#humans-remaining')).toHaveText('Pilots remaining: 0');}
   for(const player of room.players.values())expect(player.gameplayEnabled).toBe(false);expect(room.projectiles.size).toBe(0);
   await advance(179);expect(room.match.state).toBe('ended');await page.locator('#play-again').click();await frame();expect(room.match.state).toBe('waiting');expect(room.match.round).toBe(1);
   for(const p of clients){await expect(p.locator('#match-overlay')).toBeHidden();await expect(p.locator('#hud-ammo')).toHaveText('AMMO 30 / 30');await expect(p.locator('#hud-alien')).toBeHidden();await expect(p.locator('#alien-message')).toBeHidden();}

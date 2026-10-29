@@ -3,7 +3,7 @@ import {GUARDIAN_PROFILES} from './guardians';
 import type {DamageSource,PlayerStatus} from './combat';
 import type {Snapshot} from './protocol';
 import {DEFAULT_CAMERA_WIDTH} from './world';
-export interface Standing {fighterId?:import('./fighters').FighterId;id:string;name:string;color:number;status:PlayerStatus;kills:number;damage:number;survivedMs:number;captures:number;walls:number;placement:number|null;eliminatedAtMs:number|null;deathSequence:number;cause:string|null}
+export interface Standing {fighterId?:import('./fighters').FighterId;id:string;name:string;color:number;status:PlayerStatus|'WINNER'|'DRAW';kills:number;damage:number;survivedMs:number;captures:number;walls:number;placement:number|null;eliminatedAtMs:number|null;deathSequence:number;cause:string|null}
 export interface BattleSnapshot {round:number;total:number;remaining:number;standings:Standing[]}
 export interface RadarPing {id:string;pilotId:string;x:number;y:number;timeMs:number}
 export const RADAR_RANGE=DEFAULT_CAMERA_WIDTH*1.5,FIRE_RADAR_RANGE=DEFAULT_CAMERA_WIDTH*2.5,FIRE_PING_MS=2000;

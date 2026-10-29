@@ -19,7 +19,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await page.locator('#server-url').fill(url);
   await page.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible();
-  await expect(page.locator('#status')).toContainText('server-authoritative');
+  await expect(page.locator('#status')).toHaveText('Connected');
   await expect(page.locator('#position')).toHaveText(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
   await page.keyboard.down('d');
   await expect.poll(() => page.locator('#position').textContent()).not.toBe(`X ${(LOBBY_HOLE.x+240).toFixed(1)} · Y ${LOBBY_HOLE.y.toFixed(1)}`);
@@ -49,7 +49,7 @@ test('browser predicts authoritative flight, resets and disconnects cleanly', as
   await page.keyboard.down('d'); await page.waitForTimeout(500); await page.keyboard.up('d');
   expect(await page.locator('#position').textContent()).toBe(frozen);
   await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connect());
-  await expect(page.locator('#status')).toContainText('server-authoritative');
+  await expect(page.locator('#status')).toHaveText('Connected');
   await page.getByRole('button', { name: 'Back to home' }).click();
   await expect(page.locator('#home')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as DebugWindow).__HORIZON_FLIGHT__.socket.connected)).toBe(false);

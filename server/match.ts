@@ -20,7 +20,7 @@ import { retireInputs } from './inputs';
 import { chooseLobbySpawn, activeParticipants, removeBot, type GameRoom, type RoomPlayer } from './rooms';
 
 export function matchSnapshot(room: GameRoom): MatchState {
-  return {...room.match, roster:[...room.match.roster],readyIds:[...room.match.readyIds],launchAngles:{...room.match.launchAngles},launchDestinations:Object.fromEntries(Object.entries(room.match.launchDestinations).map(([id,p])=>[id,{...p}])), result:room.match.result ? {...room.match.result} : null};
+  return {...room.match, roster:[...room.match.roster],readyIds:[...room.match.readyIds],launchAngles:{...room.match.launchAngles},launchDestinations:Object.fromEntries(Object.entries(room.match.launchDestinations).map(([id,p])=>[id,{...p}])), result:room.match.result ? {...room.match.result,...(room.match.result.kind==='draw'&&room.match.result.winnerIds?{winnerIds:[...room.match.result.winnerIds]}:{})} : null};
 }
 export function roundHumans(room: GameRoom): RoomPlayer[] {
   const ids = room.match.state === 'waiting' ? [...room.players.keys()] : room.match.roster;
@@ -37,7 +37,7 @@ export function evaluateResult(room: GameRoom, timeMs: number) {
   // rounds reduced to one survivor by elimination or disconnection.
   if (room.match.mode === 'wait' && room.match.roster.length === 1) return;
   const humans = roundHumans(room);
-  if (humans.length > 1) return;
+  if (humans.length > 1 || room.finalCollapseEligible !== undefined && humans.length > 0) return;
   finishMatch(room,humans.length ? {kind:'winner', winnerId:humans[0].state.id, winnerName:humans[0].state.name} : {kind:'draw'},timeMs);
 }
 export function finishMatch(room:GameRoom,result:import('../shared/match').MatchResult,timeMs:number){
@@ -58,7 +58,7 @@ export function resetRound(room: GameRoom): boolean {
   for (const _player of next) {
     const spawn = chooseLobbySpawn(spawns); if (!spawn) return false; spawns.push(spawn);
   }
-  resetSurvival(room);room.horizon=undefined;room.horizonConsumed=[];room.blackHole=createBlackHole();
+  resetSurvival(room);room.horizon=undefined;room.horizonConsumed=[];room.finalCollapseEligible=undefined;room.blackHole=createBlackHole();
   resetObjectives(room);room.combatEffects=[];room.killFeed=[];
   for(const p of remove)removeBot(room,p.state.id);
   resetLoot(room); // Removed bots may drop equipment; clear those old-round drops too.

@@ -1,3 +1,13 @@
+# Current update — submission reliability cleanup
+
+Final collapse now waits for the last eligible pilot to be consumed, ranks same-tick consumption by remaining hull + shield, and declares a draw for exact ties. Consumed winners show **WINNER**, separately from their later alien body; the environmental outcome explicitly says **THE HORIZON CONSUMED ALL PILOTS**. Ordinary victory, replay, private Free Flight and multiplayer remain available.
+
+HUD panels now have separate layout space, the count reads **Pilots remaining** (eligible humans and bots, excluding aliens), captures/Galaxy pickups show brief effect messages, and the original Settings artwork has a **CONTROLS — Keys & Tips** label. How to Play is shorter and links to the full reference. **Refreshing or leaving an active match forfeits participation; rejoining does not restore that life.** No artwork, weapon balance, pilot passives or AI configuration changed. OpenAI setup/testing remains deferred.
+
+Tests, release status, screenshots, limitations and exact Windows commands are in [PRE_SUBMISSION_TEST.md](PRE_SUBMISSION_TEST.md). Stop **both Horizon terminals before `npm ci`** to avoid Windows file locks.
+
+---
+
 # Current update — P5B Free Flight and Controls
 
 **Free Flight is implemented.** Select a pilot, then click **Free Flight** to enter a private, server-authoritative **FREE FLIGHT — PRACTICE** session immediately. It reuses normal movement/boost, aim/fire, finite regular ammo, inventory/loot, P5A passives, walls, and all four planet captures/Galaxy Guns. There are no opponents, guardians, damaging black hole, collapse, countdown, extraction goal, wins or placements. Movement remains bounded to the existing map. **The game server must be running; this is not offline mode.**

@@ -19,13 +19,13 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   const errors: string[] = []; const b = await context.newPage();
   for (const page of [a, b]) page.on('pageerror', e => errors.push(e.message));
   await home(a, '<b>A</b>'); await a.getByRole('button', { name: 'Create room', exact: true }).click();
-  await expect(a.locator('#status')).toContainText('server-authoritative');
+  await expect(a.locator('#status')).toHaveText('Connected');
   const code = (await a.locator('#room-code-display').textContent())!;
   await home(b, 'B', `/?room=${code.toLowerCase()}`);
   await expect(b.locator('#room-code')).toHaveValue(code);
   await expect(b.locator('#home')).toBeVisible(); // link never auto-connects
   await expect(b.locator('#invite-code')).toHaveValue(code);await b.locator('#invite-name').fill('B');await b.locator('#menu-modal button[type=submit]').click();
-  for (const page of [a, b]) await expect(page.locator('#player-count')).toHaveText('2 / 8 players');
+  for (const page of [a, b]) await expect(page.locator('#player-count')).toHaveText('2 connected · 0 bots · 0 aliens');
   await expect.poll(() => ships(b)).toHaveLength(2);
   await a.bringToFront(); await expect.poll(() => ships(a)).toHaveLength(2);
   // Independent flight is allowed in the new lobby; no automatic BR start.
@@ -48,7 +48,7 @@ test('two browser clients render names/colors, fly independently with fake lag, 
   await a.keyboard.press('F3'); await a.locator('#fake-lag').check(); await a.keyboard.down('d'); await a.waitForTimeout(300); await a.keyboard.up('d');
   await a.locator('#fake-lag').uncheck(); await b.bringToFront(); await b.locator('#fake-lag').uncheck();
   await b.close(); await a.bringToFront();
-  await expect(a.locator('#player-count')).toHaveText('1 / 8 players'); await expect.poll(() => ships(a)).toHaveLength(1);
+  await expect(a.locator('#player-count')).toHaveText('1 connected · 0 bots · 0 aliens'); await expect.poll(() => ships(a)).toHaveLength(1);
   // Lobby departures preserve a noncombat solo lobby and never award victory.
   await expect(a.locator('#match-overlay')).toBeHidden();await expect(a.locator('#match-status')).toHaveText('Waiting for host start');
   const after = await a.locator('#position').textContent(); await a.keyboard.down('w');
@@ -60,12 +60,12 @@ test('room errors are shown cleanly; a failed join can be followed by successful
   await expect(page.locator('#home-status')).toContainText('valid 5-character');
   await page.locator('#room-code').fill('ZZZZZ'); await page.getByRole('button', { name: 'Join room', exact: true }).click();
   await expect(page.locator('#home-status')).toContainText('Room not found'); await expect(page.locator('#home')).toBeVisible();
-  await page.getByRole('button', { name: 'Create room', exact: true }).click(); await expect(page.locator('#status')).toContainText('server-authoritative');
+  await page.getByRole('button', { name: 'Create room', exact: true }).click(); await expect(page.locator('#status')).toHaveText('Connected');
   await page.getByRole('button', { name: 'Back to home' }).click(); await expect(page.locator('#home')).toBeVisible();
 });
 test('fake lag is disabled by default, code/link clipboard actions preserve the client path', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-  await home(page, 'Nova'); await page.getByRole('button', { name: 'Create room', exact: true }).click(); await expect(page.locator('#status')).toContainText('server-authoritative');
+  await home(page, 'Nova'); await page.getByRole('button', { name: 'Create room', exact: true }).click(); await expect(page.locator('#status')).toHaveText('Connected');
   await expect(page.locator('#fake-lag')).not.toBeChecked();
   const code = await page.locator('#room-code-display').textContent();
   await page.getByRole('button', { name: 'Copy code', exact: true }).click(); await expect(page.locator('#share-status')).toHaveText('Copied');

@@ -53,7 +53,7 @@ export class GameplayHud {
     this.overlay.hidden = true; this.clearHealth();
   }
   private clearHealth() {
-    this.lastStatus = null; this.alienMessageUntil = 0; this.node('alien-message').hidden = true; this.node('hud-alien').hidden = true; this.node('hud-ammo').hidden = false; write(this.node('humans-remaining'), 'Humans alive: —');
+    this.lastStatus = null; this.alienMessageUntil = 0; this.node('alien-message').hidden = true; this.node('hud-alien').hidden = true; this.node('hud-ammo').hidden = false; write(this.node('humans-remaining'), 'Pilots remaining: —');
     this.bar.value = 0; write(this.node('hud-health-value'), `— / ${MAX_HEALTH}`);
     write(this.node('hud-life'), 'Awaiting server');
     write(this.node('hud-shield'), 'SHIELD —'); write(this.node('hud-ammo'), 'AMMO —');write(this.node('hud-reserve'),''); this.node('ammo-hud').classList.remove('low-ammo', 'reloading','gold'); this.node('ammo-hud').dataset.state = 'awaiting'; write(this.node('hud-reload'), '');
@@ -87,7 +87,7 @@ export class GameplayHud {
     write(this.node('debug-reload'), alien ? 'Human reload unavailable · ALIEN' : gold?'Galaxy Gun · no reload':s.isReloading ? `Reload ${(s.reloadRemainingMs / 1000).toFixed(2)}s · ${Math.round(s.reloadProgress * 100)}%` : 'Reload ready');
     write(this.node('debug-cooldown'), alien ? 'Alien melee · no cooldown' : `Cooldown ${s.fireCooldownRemainingMs.toFixed(0)}ms · ${Math.round(s.fireCooldownProgress * 100)}%`);
   }
-  humans(count: number) { write(this.node('humans-remaining'), `Humans alive: ${count}`); }
+  humans(count: number) { write(this.node('humans-remaining'), `Pilots remaining: ${count}`); }
   setRoom(players: number, connected: boolean, now = performance.now()) {
     if (connected !== this.connected) this.snapshots.reset(now);
     this.connected = connected;
