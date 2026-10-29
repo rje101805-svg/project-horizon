@@ -1,0 +1,63 @@
+{
+  "scope": "local production-artifact preview only; not live public acceptance",
+  "build": "Build: client-89b0a9e3f68b",
+  "frontendURL": "http://127.0.0.1:4176/project-horizon/",
+  "configuredPublicBackend": "https://project-horizon-server.onrender.com",
+  "localPreviewBackendOverride": "http://127.0.0.1:3003",
+  "checks": {
+    "productionNoDebugHandles": true,
+    "controls": true,
+    "eightPilotCards": true,
+    "practiceFlightPickupFireReload": true,
+    "noPracticeOpponentsOrHazards": true,
+    "twoClientsCreateJoinReadyLaunchIndependentFlight": true,
+    "returnToMenu": true,
+    "fillAndIntel": true
+  },
+  "practice": [
+    {
+      "planet": "borealis",
+      "galaxy": "cryo",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "cinder",
+      "galaxy": "inferno",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "pelagia",
+      "galaxy": "titan",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "ashen",
+      "galaxy": "lunar",
+      "captured": true,
+      "fired": true
+    }
+  ],
+  "aiLocalPreview": {
+    "status": "API UNAVAILABLE",
+    "enabled": true,
+    "calls": 0,
+    "accepted": 0,
+    "applied": 0,
+    "sources": [
+      "FALLBACK"
+    ],
+    "bots": 7
+  },
+  "pageErrors": [],
+  "assetFailures": [],
+  "publicVerification": "blocked by enforced network policy; allowlist draft requires publishing",
+  "credentialScan": "no key-shaped values in 90 text artifacts; no server key/endpoint or DEV handles in generated JS",
+  "fullNodeSuite": {
+    "passed": 531,
+    "failed": 0,
+    "skipped": 0
+  }
+}

@@ -1,3 +1,4 @@
+import {SERVER_REVISION} from './version';
 import {advancePractice} from './practice';
 import {changeFighter} from './fighters';
 import {advanceGuardians,guardianSnapshot} from './guardians';
@@ -29,7 +30,7 @@ import { RoomStore, roomChannel, survivingHumans } from './rooms';
 export function createGameServer(allowedOrigins: string[], store = new RoomStore(), options: { autoTick?: boolean; combatDebug?: boolean;ai?:PilotCoordinator } = {}) {
   const ai=options.ai??processPilots();ai.register(store);
   const http = createServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
+    if (req.method === 'GET' && req.url === '/health') { res.setHeader('Cache-Control', 'no-store'); res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true, commit:SERVER_REVISION, tickRate: TICK_RATE, tick, players: [...store.rooms.values()].reduce((sum, room) => sum + room.players.size, 0), rooms: store.rooms.size })); }
     else res.writeHead(404).end();
   });
   const io = new Server<ClientEvents, ServerEvents>(http, {

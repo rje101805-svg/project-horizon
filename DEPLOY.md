@@ -1,3 +1,5 @@
+> **Current P5B public release:** the owner now authorizes publishing 83d7e26 or newer from work to the existing Pages /docs and Render service, plus live verification. This supersedes historical no-deployment/stop-after-push notes below. See [PUBLIC_RELEASE_TEST.md](PUBLIC_RELEASE_TEST.md) for the artifact/version, actual checks, access blockers and server-only AI setup. Do not treat local checks as live deployment confirmation. No paid services or billing changes are authorized.
+
 # Project Horizon — production deployment
 
 Status: accepted Phase 1 Steps 5–7 are integrated into `work` and the production `/docs` client is rebuilt for the existing Render service. The owner authorized pushing `work` to trigger deployment, with no Pages/Render configuration changes. Local acceptance passed; deployed acceptance and Step 8 two-network testing are still pending. Phase 1 is not yet declared complete.
