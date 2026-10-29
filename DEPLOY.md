@@ -1,3 +1,5 @@
+Current submission-cleanup release: source `56219a4`, Pages build `client-22cefbcce76f`. See [PRE_SUBMISSION_TEST.md](PRE_SUBMISSION_TEST.md) for verification, remaining flash-timing limitation, public-network blocker and Windows instructions. The P5B release record below is historical.
+
 > **Current P5B public release:** the owner now authorizes publishing 83d7e26 or newer from work to the existing Pages /docs and Render service, plus live verification. This supersedes historical no-deployment/stop-after-push notes below. See [PUBLIC_RELEASE_TEST.md](PUBLIC_RELEASE_TEST.md) for the artifact/version, actual checks, access blockers and server-only AI setup. Do not treat local checks as live deployment confirmation. No paid services or billing changes are authorized.
 
 # Project Horizon — production deployment

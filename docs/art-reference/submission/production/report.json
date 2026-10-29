@@ -1,0 +1,50 @@
+{
+  "frontend": "http://127.0.0.1:4176/project-horizon/",
+  "backendOverride": "http://127.0.0.1:3004",
+  "productionArtifact": true,
+  "checks": {
+    "productionNoDebugHandles": true,
+    "controls": true,
+    "eightPilotCards": true,
+    "practiceFlightPickupFireReload": true,
+    "noPracticeOpponentsOrHazards": true,
+    "twoClientsCreateJoinReadyLaunchIndependentFlight": true,
+    "returnToMenu": true
+  },
+  "errors": [],
+  "assetsFailed": [],
+  "transports": [
+    "ws:",
+    "ws:",
+    "ws:"
+  ],
+  "ai": "DEFERRED — not tested",
+  "build": "Build: client-22cefbcce76f",
+  "practice": [
+    {
+      "planet": "borealis",
+      "galaxy": "cryo",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "cinder",
+      "galaxy": "inferno",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "pelagia",
+      "galaxy": "titan",
+      "captured": true,
+      "fired": true
+    },
+    {
+      "planet": "ashen",
+      "galaxy": "lunar",
+      "captured": true,
+      "fired": true
+    }
+  ],
+  "complete": true
+}

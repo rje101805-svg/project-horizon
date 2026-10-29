@@ -1,3 +1,5 @@
+Current submission-cleanup release: source `56219a4`, Pages build `client-22cefbcce76f`. See [PRE_SUBMISSION_TEST.md](PRE_SUBMISSION_TEST.md) for verification, remaining flash-timing limitation, public-network blocker and Windows instructions. The P5B release record below is historical.
+
 # Public P5B release — deployment and verification
 
 Target frontend: https://rje101805-svg.github.io/project-horizon/
